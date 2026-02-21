@@ -16,7 +16,7 @@ const navItems: { id: ActiveView; icon: typeof MessageSquare; label: string; adm
   { id: "ai", icon: Brain, label: "قاعدة المعرفة" },
   { id: "analytics", icon: BarChart3, label: "الإحصائيات" },
   { id: "team", icon: UserCog, label: "إدارة الفريق", adminOnly: true },
-  { id: "settings", icon: Settings, label: "الإعدادات" },
+  { id: "settings", icon: Settings, label: "الإعدادات", adminOnly: true },
 ];
 
 export function NavSidebar({ activeView, onViewChange, user, onLogout }: NavSidebarProps) {

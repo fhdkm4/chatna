@@ -217,7 +217,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // Team management routes
-  app.get("/api/team", authMiddleware, async (req: any, res) => {
+  app.get("/api/team", authMiddleware, adminOnly, async (req: any, res) => {
     try {
       const teamMembers = await storage.getUsersByTenant(req.user.tenantId);
       res.json(teamMembers.map(u => ({
@@ -648,7 +648,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.post("/api/ai/auto-replies", authMiddleware, async (req: any, res) => {
+  app.post("/api/ai/auto-replies", authMiddleware, adminOnly, async (req: any, res) => {
     try {
       const reply = await storage.createAutoReply({ ...req.body, tenantId: req.user.tenantId });
       res.status(201).json(reply);
@@ -657,7 +657,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.patch("/api/ai/auto-replies/:id", authMiddleware, async (req: any, res) => {
+  app.patch("/api/ai/auto-replies/:id", authMiddleware, adminOnly, async (req: any, res) => {
     try {
       const reply = await storage.updateAutoReply(req.params.id, req.body);
       res.json(reply);
@@ -666,7 +666,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.delete("/api/ai/auto-replies/:id", authMiddleware, async (req: any, res) => {
+  app.delete("/api/ai/auto-replies/:id", authMiddleware, adminOnly, async (req: any, res) => {
     try {
       await storage.deleteAutoReply(req.params.id);
       res.status(204).send();
@@ -684,7 +684,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.post("/api/quick-replies", authMiddleware, async (req: any, res) => {
+  app.post("/api/quick-replies", authMiddleware, adminOnly, async (req: any, res) => {
     try {
       const reply = await storage.createQuickReply({ ...req.body, tenantId: req.user.tenantId });
       res.status(201).json(reply);
@@ -693,7 +693,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.delete("/api/quick-replies/:id", authMiddleware, async (req: any, res) => {
+  app.delete("/api/quick-replies/:id", authMiddleware, adminOnly, async (req: any, res) => {
     try {
       await storage.deleteQuickReply(req.params.id);
       res.status(204).send();

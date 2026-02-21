@@ -223,6 +223,11 @@ export default function Dashboard() {
   if (!user) return null;
 
   const renderMainContent = () => {
+    if ((activeView === "settings" || activeView === "team") && user?.role !== "admin") {
+      setActiveView("chat");
+      return null;
+    }
+
     switch (activeView) {
       case "ai":
         return <KnowledgeBase />;
