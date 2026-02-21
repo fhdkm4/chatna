@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, and, desc, ilike, or, sql, count } from "drizzle-orm";
+import { eq, and, desc, ilike, or, sql, count, gte, lte, between } from "drizzle-orm";
 import {
   tenants, users, contacts, conversations, messages,
   autoReplies, aiKnowledge, quickReplies,
@@ -22,6 +22,7 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserById(id: string): Promise<User | undefined>;
   getUsersByTenant(tenantId: string): Promise<User[]>;
+  deleteUser(id: string): Promise<void>;
 
   createContact(data: InsertContact): Promise<Contact>;
   getContactByPhone(tenantId: string, phone: string): Promise<Contact | undefined>;
@@ -31,7 +32,7 @@ export interface IStorage {
 
   createConversation(data: InsertConversation): Promise<Conversation>;
   getConversationById(id: string): Promise<Conversation | undefined>;
-  getConversationsByTenant(tenantId: string, status?: string): Promise<any[]>;
+  getConversationsByTenant(tenantId: string, status?: string, agentId?: string, role?: string): Promise<any[]>;
   getActiveConversation(tenantId: string, contactId: string): Promise<Conversation | undefined>;
   updateConversation(id: string, data: Partial<InsertConversation>): Promise<Conversation | undefined>;
 
@@ -47,6 +48,7 @@ export interface IStorage {
 
   createKnowledge(data: InsertAiKnowledge): Promise<AiKnowledge>;
   getKnowledgeByTenant(tenantId: string): Promise<AiKnowledge[]>;
+  getActiveKnowledge(tenantId: string): Promise<AiKnowledge[]>;
   updateKnowledge(id: string, data: Partial<InsertAiKnowledge>): Promise<AiKnowledge | undefined>;
   deleteKnowledge(id: string): Promise<void>;
 
@@ -55,6 +57,7 @@ export interface IStorage {
   deleteQuickReply(id: string): Promise<void>;
 
   getStats(tenantId: string): Promise<any>;
+  getAnalytics(tenantId: string, days: number): Promise<any>;
   getContactCount(tenantId: string): Promise<number>;
 }
 
@@ -91,6 +94,10 @@ class DatabaseStorage implements IStorage {
 
   async getUsersByTenant(tenantId: string): Promise<User[]> {
     return db.select().from(users).where(eq(users.tenantId, tenantId));
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    await db.delete(users).where(eq(users.id, id));
   }
 
   async createContact(data: InsertContact): Promise<Contact> {
@@ -141,10 +148,13 @@ class DatabaseStorage implements IStorage {
     return conv;
   }
 
-  async getConversationsByTenant(tenantId: string, status?: string): Promise<any[]> {
+  async getConversationsByTenant(tenantId: string, status?: string, agentId?: string, role?: string): Promise<any[]> {
     const conditions = [eq(conversations.tenantId, tenantId)];
     if (status && status !== "all") {
       conditions.push(eq(conversations.status, status));
+    }
+    if (role === "agent" && agentId) {
+      conditions.push(eq(conversations.assignedTo, agentId));
     }
 
     const convs = await db.select().from(conversations)
@@ -162,11 +172,18 @@ class DatabaseStorage implements IStorage {
         .orderBy(desc(messages.createdAt))
         .limit(1);
 
+      let assignedAgent = null;
+      if (conv.assignedTo) {
+        const agent = await this.getUserById(conv.assignedTo);
+        assignedAgent = agent ? { id: agent.id, name: agent.name, email: agent.email } : null;
+      }
+
       result.push({
         ...conv,
         contact,
         lastMessage: lastMsgs[0] || null,
         unreadCount: 0,
+        assignedAgent,
       });
     }
     return result;
@@ -252,6 +269,12 @@ class DatabaseStorage implements IStorage {
       .orderBy(desc(aiKnowledge.createdAt));
   }
 
+  async getActiveKnowledge(tenantId: string): Promise<AiKnowledge[]> {
+    return db.select().from(aiKnowledge)
+      .where(and(eq(aiKnowledge.tenantId, tenantId), eq(aiKnowledge.isActive, true)))
+      .orderBy(desc(aiKnowledge.createdAt));
+  }
+
   async updateKnowledge(id: string, data: Partial<InsertAiKnowledge>): Promise<AiKnowledge | undefined> {
     const [entry] = await db.update(aiKnowledge).set(data).where(eq(aiKnowledge.id, id)).returning();
     return entry;
@@ -298,8 +321,69 @@ class DatabaseStorage implements IStorage {
       waiting: waitingCount[0]?.count || 0,
       resolved: resolvedCount[0]?.count || 0,
       total,
-      aiResolutionRate: total > 0 ? Math.round((aiHandled / total) * 100) : 0,
+      aiResolutionRate: total > 0 ? Math.round((Number(aiHandled) / Number(total)) * 100) : 0,
       totalContacts: contactCount[0]?.count || 0,
+    };
+  }
+
+  async getAnalytics(tenantId: string, days: number): Promise<any> {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const dailyConversations = await db
+      .select({
+        date: sql<string>`DATE(${conversations.startedAt})`,
+        count: count(),
+      })
+      .from(conversations)
+      .where(and(
+        eq(conversations.tenantId, tenantId),
+        gte(conversations.startedAt, startDate)
+      ))
+      .groupBy(sql`DATE(${conversations.startedAt})`)
+      .orderBy(sql`DATE(${conversations.startedAt})`);
+
+    const totalInPeriod = await db.select({ count: count() }).from(conversations)
+      .where(and(eq(conversations.tenantId, tenantId), gte(conversations.startedAt, startDate)));
+
+    const aiHandledInPeriod = await db.select({ count: count() }).from(conversations)
+      .where(and(
+        eq(conversations.tenantId, tenantId),
+        gte(conversations.startedAt, startDate),
+        eq(conversations.aiHandled, true)
+      ));
+
+    const totalMsgs = Number(totalInPeriod[0]?.count || 0);
+    const aiMsgs = Number(aiHandledInPeriod[0]?.count || 0);
+
+    const avgResponseResult = await db
+      .select({
+        avgTime: sql<number>`
+          AVG(EXTRACT(EPOCH FROM (
+            (SELECT MIN(m2.created_at) FROM messages m2 
+             WHERE m2.conversation_id = ${conversations.id} 
+             AND m2.sender_type IN ('agent','ai')
+             AND m2.created_at > (SELECT MIN(m3.created_at) FROM messages m3 WHERE m3.conversation_id = ${conversations.id} AND m3.sender_type = 'customer'))
+            - 
+            (SELECT MIN(m3.created_at) FROM messages m3 
+             WHERE m3.conversation_id = ${conversations.id} 
+             AND m3.sender_type = 'customer')
+          )))`,
+      })
+      .from(conversations)
+      .where(and(
+        eq(conversations.tenantId, tenantId),
+        gte(conversations.startedAt, startDate)
+      ));
+
+    const avgResponseSeconds = avgResponseResult[0]?.avgTime || 0;
+
+    return {
+      dailyConversations,
+      totalConversations: totalMsgs,
+      aiReplyRatio: totalMsgs > 0 ? Math.round((aiMsgs / totalMsgs) * 100) : 0,
+      avgResponseTime: Math.round(avgResponseSeconds),
+      period: days,
     };
   }
 

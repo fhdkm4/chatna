@@ -8,16 +8,19 @@ import { ContactPanel } from "@/components/contact-panel";
 import { KnowledgeBase } from "@/components/knowledge-base";
 import { AutoReplies } from "@/components/auto-replies";
 import { StatsOverview } from "@/components/stats-overview";
+import { TeamManagement } from "@/components/team-management";
 import { io, Socket } from "socket.io-client";
 import type { Conversation, Message, Contact } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
 
-export type ActiveView = "chat" | "contacts" | "ai" | "analytics" | "settings";
+export type ActiveView = "chat" | "contacts" | "ai" | "analytics" | "settings" | "team";
 export type ConversationFilter = "all" | "active" | "waiting" | "resolved";
 
 export interface ConversationWithDetails extends Conversation {
   contact?: Contact;
   lastMessage?: Message;
   unreadCount?: number;
+  assignedAgent?: { id: string; name: string; email: string } | null;
 }
 
 export default function Dashboard() {
@@ -32,6 +35,7 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const socketRef = useRef<Socket | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!token) {
@@ -49,7 +53,12 @@ export default function Dashboard() {
       fetchConversations();
     });
 
-    socket.on("escalation", () => {
+    socket.on("escalation", (data: { conversationId: string; reason: string }) => {
+      toast({
+        title: "تنبيه: محادثة تحتاج تدخل",
+        description: data.reason || "ثقة الذكاء الاصطناعي منخفضة",
+        variant: "destructive",
+      });
       fetchConversations();
     });
 
@@ -128,6 +137,24 @@ export default function Dashboard() {
     }
   }, [selectedConversation, fetchConversations]);
 
+  const assignAgent = useCallback(async (conversationId: string, agentId: string | null) => {
+    try {
+      const res = await authFetch(`/api/conversations/${conversationId}/assign`, {
+        method: "PATCH",
+        body: JSON.stringify({ agentId }),
+      });
+      if (res.ok) {
+        toast({
+          title: agentId ? "تم التعيين" : "تم إلغاء التعيين",
+          description: agentId ? "تم تعيين الموظف للمحادثة" : "تم إلغاء تعيين الموظف",
+        });
+        fetchConversations();
+      }
+    } catch (err) {
+      console.error("Failed to assign agent:", err);
+    }
+  }, [fetchConversations]);
+
   if (!user) return null;
 
   const renderMainContent = () => {
@@ -138,6 +165,8 @@ export default function Dashboard() {
         return <StatsOverview />;
       case "settings":
         return <AutoReplies />;
+      case "team":
+        return <TeamManagement />;
       default:
         return (
           <div className="flex h-full">
@@ -157,6 +186,7 @@ export default function Dashboard() {
               onSend={sendMessage}
               onToggleContact={() => setShowContactPanel(!showContactPanel)}
               onUpdateConversation={updateConversation}
+              onAssignAgent={assignAgent}
               user={user}
             />
             {showContactPanel && selectedConversation?.contact && (

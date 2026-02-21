@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Brain, Pencil, Trash2, BookOpen, X, Loader2 } from "lucide-react";
+import { Plus, Brain, Pencil, Trash2, BookOpen, Loader2, ToggleLeft, ToggleRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,7 +16,7 @@ export function KnowledgeBase() {
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
   const [editing, setEditing] = useState<AiKnowledge | null>(null);
-  const [form, setForm] = useState({ title: "", content: "", category: "" });
+  const [form, setForm] = useState({ title: "", content: "", category: "", isActive: true });
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
@@ -37,13 +37,18 @@ export function KnowledgeBase() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ title: "", content: "", category: "" });
+    setForm({ title: "", content: "", category: "", isActive: true });
     setShowDialog(true);
   };
 
   const openEdit = (entry: AiKnowledge) => {
     setEditing(entry);
-    setForm({ title: entry.title || "", content: entry.content, category: entry.category || "" });
+    setForm({
+      title: entry.title || "",
+      content: entry.content,
+      category: entry.category || "",
+      isActive: entry.isActive !== false,
+    });
     setShowDialog(true);
   };
 
@@ -63,6 +68,18 @@ export function KnowledgeBase() {
       toast({ title: "خطأ", description: "فشل في الحفظ", variant: "destructive" });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleToggleActive = async (entry: AiKnowledge) => {
+    try {
+      await authFetch(`/api/ai/knowledge/${entry.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isActive: !entry.isActive }),
+      });
+      fetchEntries();
+    } catch (err) {
+      toast({ title: "خطأ", description: "فشل في التحديث", variant: "destructive" });
     }
   };
 
@@ -120,7 +137,9 @@ export function KnowledgeBase() {
               <div
                 key={entry.id}
                 data-testid={`knowledge-${entry.id}`}
-                className="bg-[#111827]/50 border border-white/5 rounded-lg p-4 group"
+                className={`bg-[#111827]/50 border rounded-lg p-4 group transition-all ${
+                  entry.isActive !== false ? "border-white/5" : "border-white/5 opacity-50"
+                }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
@@ -131,10 +150,33 @@ export function KnowledgeBase() {
                           {entry.category}
                         </Badge>
                       )}
+                      <Badge
+                        variant="outline"
+                        className={`text-[9px] px-1.5 ${
+                          entry.isActive !== false
+                            ? "border-emerald-500/30 text-emerald-400"
+                            : "border-gray-500/30 text-gray-500"
+                        }`}
+                      >
+                        {entry.isActive !== false ? "نشط" : "متوقف"}
+                      </Badge>
                     </div>
                     <p className="text-xs text-gray-400 line-clamp-3 whitespace-pre-wrap">{entry.content}</p>
                   </div>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      data-testid={`button-toggle-knowledge-${entry.id}`}
+                      onClick={() => handleToggleActive(entry)}
+                      className="w-7 h-7 text-gray-400"
+                    >
+                      {entry.isActive !== false ? (
+                        <ToggleRight className="w-4 h-4 text-emerald-400" />
+                      ) : (
+                        <ToggleLeft className="w-4 h-4" />
+                      )}
+                    </Button>
                     <Button size="icon" variant="ghost" onClick={() => openEdit(entry)} className="w-7 h-7 text-gray-400">
                       <Pencil className="w-3 h-3" />
                     </Button>
@@ -184,6 +226,22 @@ export function KnowledgeBase() {
                 placeholder="اكتب المعلومات التي سيستخدمها المساعد الذكي..."
                 className="bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 min-h-[150px]"
               />
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                data-testid="button-toggle-active"
+                onClick={() => setForm({ ...form, isActive: !form.isActive })}
+                className="flex items-center gap-2 text-sm"
+              >
+                {form.isActive ? (
+                  <ToggleRight className="w-6 h-6 text-emerald-400" />
+                ) : (
+                  <ToggleLeft className="w-6 h-6 text-gray-500" />
+                )}
+                <span className={form.isActive ? "text-emerald-400" : "text-gray-500"}>
+                  {form.isActive ? "نشط - سيستخدمه الذكاء الاصطناعي" : "متوقف - لن يستخدمه الذكاء الاصطناعي"}
+                </span>
+              </button>
             </div>
             <div className="flex gap-2 justify-end">
               <Button variant="ghost" onClick={() => setShowDialog(false)} className="text-gray-400">

@@ -46,5 +46,7 @@ export function parseIncomingMessage(body: any) {
     profileName: body.ProfileName || "",
     mediaUrl: body.MediaUrl0 || null,
     mediaType: body.MediaContentType0 || null,
+    metaMediaId: body.MediaSid0 || null,
+    numMedia: parseInt(body.NumMedia || "0", 10),
   };
 }

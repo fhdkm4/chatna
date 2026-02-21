@@ -4,7 +4,7 @@ import { Server as SocketServer } from "socket.io";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { storage } from "./storage";
-import { registerSchema, loginSchema } from "@shared/schema";
+import { registerSchema, loginSchema, createAgentSchema } from "@shared/schema";
 import { parseIncomingMessage, sendWhatsAppMessage } from "./services/twilio";
 import { checkAutoReply, generateAiResponse } from "./services/ai";
 
@@ -27,6 +27,13 @@ function authMiddleware(req: any, res: any, next: any) {
   } catch (err) {
     return res.status(401).json({ message: "جلسة منتهية" });
   }
+}
+
+function adminOnly(req: any, res: any, next: any) {
+  if (req.user?.role !== "admin") {
+    return res.status(403).json({ message: "هذا الإجراء للمدير فقط" });
+  }
+  next();
 }
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
@@ -137,26 +144,99 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // Team management routes
+  app.get("/api/team", authMiddleware, async (req: any, res) => {
+    try {
+      const teamMembers = await storage.getUsersByTenant(req.user.tenantId);
+      res.json(teamMembers.map(u => ({
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        role: u.role,
+        status: u.status,
+        createdAt: u.createdAt,
+      })));
+    } catch (err) {
+      console.error("Get team error:", err);
+      res.status(500).json({ message: "خطأ في جلب الفريق" });
+    }
+  });
+
+  app.post("/api/team", authMiddleware, adminOnly, async (req: any, res) => {
+    try {
+      const parsed = createAgentSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "بيانات غير صحيحة", errors: parsed.error.issues });
+      }
+
+      const { email, password, name } = parsed.data;
+
+      const existing = await storage.getUserByEmail(email);
+      if (existing) {
+        return res.status(409).json({ message: "البريد الإلكتروني مستخدم بالفعل" });
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+      const user = await storage.createUser({
+        tenantId: req.user.tenantId,
+        email,
+        passwordHash,
+        name,
+        role: "agent",
+        status: "offline",
+      });
+
+      res.status(201).json({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        status: user.status,
+        createdAt: user.createdAt,
+      });
+    } catch (err) {
+      console.error("Create agent error:", err);
+      res.status(500).json({ message: "خطأ في إنشاء الموظف" });
+    }
+  });
+
+  app.delete("/api/team/:id", authMiddleware, adminOnly, async (req: any, res) => {
+    try {
+      const user = await storage.getUserById(req.params.id);
+      if (!user || user.tenantId !== req.user.tenantId) {
+        return res.status(404).json({ message: "الموظف غير موجود" });
+      }
+      if (user.role === "admin") {
+        return res.status(400).json({ message: "لا يمكن حذف حساب المدير" });
+      }
+      await storage.deleteUser(req.params.id);
+      res.status(204).send();
+    } catch (err) {
+      console.error("Delete agent error:", err);
+      res.status(500).json({ message: "خطأ في حذف الموظف" });
+    }
+  });
+
+  // Twilio webhook
   app.post("/api/webhook/twilio", async (req, res) => {
     res.set("Content-Type", "text/xml");
     res.status(200).send("<Response></Response>");
 
     try {
       const incoming = parseIncomingMessage(req.body);
-      if (!incoming.from || !incoming.content) return;
+      if (!incoming.from || (!incoming.content && !incoming.mediaUrl)) return;
 
       const phone = incoming.from.replace("whatsapp:", "");
 
-      const allTenants = await storage.getContactsByTenant("*");
       let tenantId: string | null = null;
       let contact = null;
 
-      const allContacts = await storage.getContactByPhone("*", phone);
+      const allContact = await storage.getContactByPhone("*", phone);
 
       if (!tenantId) {
-        const { db } = await import("./db");
+        const { db: database } = await import("./db");
         const { tenants: tenantsTable } = await import("@shared/schema");
-        const allT = await db.select().from(tenantsTable).limit(1);
+        const allT = await database.select().from(tenantsTable).limit(1);
         if (allT.length > 0) {
           tenantId = allT[0].id;
         } else {
@@ -187,13 +267,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         });
       }
 
+      const messageContent = incoming.content || (incoming.mediaType?.startsWith("image") ? "[صورة]" : "[ملف]");
+
       const customerMessage = await storage.createMessage({
         conversationId: conversation.id,
         tenantId,
         senderType: "customer",
-        content: incoming.content,
+        content: messageContent,
         mediaUrl: incoming.mediaUrl,
         mediaType: incoming.mediaType,
+        metaMediaId: incoming.metaMediaId,
         twilioSid: incoming.messageSid,
       });
 
@@ -202,10 +285,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         message: customerMessage,
       });
 
+      if (conversation.aiPaused) return;
+
       const tenant = await storage.getTenant(tenantId);
       if (!tenant?.aiEnabled) return;
 
-      const autoReplyContent = await checkAutoReply(tenantId, incoming.content);
+      if (incoming.mediaUrl && !incoming.content) return;
+
+      const autoReplyContent = await checkAutoReply(tenantId, messageContent);
       if (autoReplyContent) {
         const sid = await sendWhatsAppMessage(incoming.from, autoReplyContent);
         const aiMsg = await storage.createMessage({
@@ -227,7 +314,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const aiResponse = await generateAiResponse(
         tenantId,
         conversation.id,
-        incoming.content,
+        messageContent,
         tenant.aiSystemPrompt,
       );
 
@@ -254,10 +341,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           content: `[تم تحويل المحادثة لموظف] ${aiResponse.content}`,
           aiConfidence: aiResponse.confidence,
         });
-        await storage.updateConversation(conversation.id, { status: "waiting" });
+        await storage.updateConversation(conversation.id, {
+          status: "waiting",
+          aiPaused: true,
+        });
         io.to(`tenant:${tenantId}`).emit("escalation", {
           conversationId: conversation.id,
           message: aiMsg,
+          reason: "ثقة AI منخفضة",
         });
         io.to(`tenant:${tenantId}`).emit("new_message", {
           conversationId: conversation.id,
@@ -269,10 +360,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // Conversations - role-based
   app.get("/api/conversations", authMiddleware, async (req: any, res) => {
     try {
       const status = req.query.status as string;
-      const convs = await storage.getConversationsByTenant(req.user.tenantId, status);
+      const convs = await storage.getConversationsByTenant(
+        req.user.tenantId,
+        status,
+        req.user.id,
+        req.user.role
+      );
       res.json(convs);
     } catch (err) {
       console.error("Get conversations error:", err);
@@ -290,8 +387,26 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.get("/api/conversations/analytics", authMiddleware, async (req: any, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 7;
+      const analytics = await storage.getAnalytics(req.user.tenantId, days);
+      res.json(analytics);
+    } catch (err) {
+      console.error("Analytics error:", err);
+      res.status(500).json({ message: "خطأ في جلب التحليلات" });
+    }
+  });
+
   app.get("/api/conversations/:id/messages", authMiddleware, async (req: any, res) => {
     try {
+      const conversation = await storage.getConversationById(req.params.id);
+      if (!conversation || conversation.tenantId !== req.user.tenantId) {
+        return res.status(404).json({ message: "المحادثة غير موجودة" });
+      }
+      if (req.user.role === "agent" && conversation.assignedTo && conversation.assignedTo !== req.user.id) {
+        return res.status(403).json({ message: "غير مصرح بالوصول لهذه المحادثة" });
+      }
       const msgs = await storage.getMessagesByConversation(req.params.id);
       res.json(msgs);
     } catch (err) {
@@ -329,8 +444,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         twilioSid,
       });
 
-      if (conversation.status === "waiting") {
-        await storage.updateConversation(conversation.id, { status: "active", assignedTo: req.user.id });
+      if (conversation.status === "waiting" || conversation.aiPaused) {
+        await storage.updateConversation(conversation.id, {
+          status: "active",
+          assignedTo: req.user.id,
+          aiPaused: false,
+        });
       }
 
       io.to(`tenant:${req.user.tenantId}`).emit("new_message", {
@@ -342,6 +461,30 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err) {
       console.error("Send message error:", err);
       res.status(500).json({ message: "خطأ في إرسال الرسالة" });
+    }
+  });
+
+  // Assign agent to conversation
+  app.patch("/api/conversations/:id/assign", authMiddleware, async (req: any, res) => {
+    try {
+      const { agentId } = req.body;
+      const conversation = await storage.getConversationById(req.params.id);
+      if (!conversation || conversation.tenantId !== req.user.tenantId) {
+        return res.status(404).json({ message: "المحادثة غير موجودة" });
+      }
+
+      if (agentId) {
+        const agent = await storage.getUserById(agentId);
+        if (!agent || agent.tenantId !== req.user.tenantId) {
+          return res.status(400).json({ message: "الموظف غير موجود" });
+        }
+      }
+
+      const updated = await storage.updateConversation(req.params.id, { assignedTo: agentId || null });
+      res.json(updated);
+    } catch (err) {
+      console.error("Assign agent error:", err);
+      res.status(500).json({ message: "خطأ في تعيين الموظف" });
     }
   });
 

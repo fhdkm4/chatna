@@ -47,7 +47,7 @@ export async function generateAiResponse(
   customSystemPrompt?: string | null,
 ): Promise<AiResponse> {
   try {
-    const knowledgeEntries = await storage.getKnowledgeByTenant(tenantId);
+    const knowledgeEntries = await storage.getActiveKnowledge(tenantId);
     const recentMessages = await storage.getRecentMessages(conversationId, 10);
 
     const knowledgeContext = knowledgeEntries.length > 0

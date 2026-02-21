@@ -1,4 +1,4 @@
-import { MessageSquare, Users, Brain, BarChart3, Settings, LogOut } from "lucide-react";
+import { MessageSquare, Users, Brain, BarChart3, Settings, LogOut, UserCog } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ActiveView } from "@/pages/dashboard";
@@ -10,15 +10,18 @@ interface NavSidebarProps {
   onLogout: () => void;
 }
 
-const navItems: { id: ActiveView; icon: typeof MessageSquare; label: string }[] = [
+const navItems: { id: ActiveView; icon: typeof MessageSquare; label: string; adminOnly?: boolean }[] = [
   { id: "chat", icon: MessageSquare, label: "المحادثات" },
   { id: "contacts", icon: Users, label: "جهات الاتصال" },
   { id: "ai", icon: Brain, label: "قاعدة المعرفة" },
   { id: "analytics", icon: BarChart3, label: "الإحصائيات" },
+  { id: "team", icon: UserCog, label: "إدارة الفريق", adminOnly: true },
   { id: "settings", icon: Settings, label: "الإعدادات" },
 ];
 
 export function NavSidebar({ activeView, onViewChange, user, onLogout }: NavSidebarProps) {
+  const visibleItems = navItems.filter(item => !item.adminOnly || user.role === "admin");
+
   return (
     <div className="w-16 bg-[#0d1321] border-l border-white/5 flex flex-col items-center py-4 shrink-0">
       <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center mb-8">
@@ -26,7 +29,7 @@ export function NavSidebar({ activeView, onViewChange, user, onLogout }: NavSide
       </div>
 
       <nav className="flex-1 flex flex-col items-center gap-1">
-        {navItems.map((item) => (
+        {visibleItems.map((item) => (
           <Tooltip key={item.id}>
             <TooltipTrigger asChild>
               <button

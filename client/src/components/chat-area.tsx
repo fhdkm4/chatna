@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Zap, PanelRightOpen, Bot, UserCircle, Check, CheckCheck } from "lucide-react";
+import { Send, Zap, PanelRightOpen, Bot, UserCircle, Check, CheckCheck, UserPlus, FileDown, Image } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { QuickRepliesPopup } from "@/components/quick-replies-popup";
+import { AssignAgentPopup } from "@/components/assign-agent-popup";
 import type { ConversationWithDetails } from "@/pages/dashboard";
 import type { Message, Conversation } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
@@ -15,7 +15,8 @@ interface ChatAreaProps {
   onSend: (content: string) => void;
   onToggleContact: () => void;
   onUpdateConversation: (id: string, updates: Partial<Conversation>) => void;
-  user: { id: string; name: string };
+  onAssignAgent: (conversationId: string, agentId: string | null) => void;
+  user: { id: string; name: string; role: string };
 }
 
 function getMessageBorderColor(senderType: string) {
@@ -38,9 +39,45 @@ function getMessageBg(senderType: string) {
   }
 }
 
-export function ChatArea({ conversation, messages, onSend, onToggleContact, onUpdateConversation, user }: ChatAreaProps) {
+function MediaDisplay({ mediaUrl, mediaType }: { mediaUrl: string; mediaType: string | null }) {
+  if (!mediaUrl) return null;
+
+  if (mediaType?.startsWith("image")) {
+    return (
+      <div className="mt-2 rounded-lg overflow-hidden max-w-[300px]">
+        <a href={mediaUrl} target="_blank" rel="noopener noreferrer">
+          <img
+            src={mediaUrl}
+            alt="صورة مرفقة"
+            className="w-full h-auto rounded-lg border border-white/10"
+            data-testid="media-image"
+          />
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <a
+      href={mediaUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      data-testid="media-file"
+      className="mt-2 flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-3 hover:bg-white/10 transition-colors max-w-[300px]"
+    >
+      <FileDown className="w-5 h-5 text-emerald-400 shrink-0" />
+      <div className="min-w-0">
+        <p className="text-xs text-white truncate">ملف مرفق</p>
+        <p className="text-[10px] text-gray-500">{mediaType || "ملف"}</p>
+      </div>
+    </a>
+  );
+}
+
+export function ChatArea({ conversation, messages, onSend, onToggleContact, onUpdateConversation, onAssignAgent, user }: ChatAreaProps) {
   const [input, setInput] = useState("");
   const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const [showAssign, setShowAssign] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -91,9 +128,19 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {conversation.aiHandled && (
+          {conversation.aiPaused && (
+            <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-400 bg-amber-500/10">
+              AI متوقف
+            </Badge>
+          )}
+          {conversation.aiHandled && !conversation.aiPaused && (
             <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-400 bg-emerald-500/10">
               AI نشط
+            </Badge>
+          )}
+          {(conversation as any).assignedAgent && (
+            <Badge variant="outline" className="text-[10px] border-blue-500/30 text-blue-400 bg-blue-500/10">
+              {(conversation as any).assignedAgent.name}
             </Badge>
           )}
           <Badge
@@ -108,6 +155,29 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
           >
             {conversation.status === "active" ? "نشط" : conversation.status === "waiting" ? "بانتظار" : "مغلق"}
           </Badge>
+          <div className="relative">
+            <Button
+              size="sm"
+              variant="ghost"
+              data-testid="button-assign-agent"
+              onClick={() => setShowAssign(!showAssign)}
+              className="text-xs text-gray-400 h-7"
+            >
+              <UserPlus className="w-3 h-3 ml-1" />
+              تعيين
+            </Button>
+            {showAssign && (
+              <AssignAgentPopup
+                conversationId={conversation.id}
+                currentAgentId={conversation.assignedTo}
+                onAssign={(agentId: string | null) => {
+                  onAssignAgent(conversation.id, agentId);
+                  setShowAssign(false);
+                }}
+                onClose={() => setShowAssign(false)}
+              />
+            )}
+          </div>
           {conversation.status !== "resolved" && (
             <Button
               size="sm"
@@ -149,10 +219,14 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
                 <UserCircle className="w-3 h-3 text-blue-400" />
               )}
               <span className="text-[10px] text-gray-500">
-                {msg.senderType === "ai" ? "مساعد ذكي" : msg.senderType === "agent" ? user.name : "العميل"}
+                {msg.senderType === "ai" ? "مساعد ذكي" : msg.senderType === "agent" ? user.name : msg.senderType === "system" ? "النظام" : "العميل"}
               </span>
               {msg.aiConfidence != null && (
-                <Badge variant="outline" className="text-[8px] px-1 py-0 border-emerald-500/30 text-emerald-400">
+                <Badge variant="outline" className={`text-[8px] px-1 py-0 ${
+                  msg.aiConfidence >= 0.6
+                    ? "border-emerald-500/30 text-emerald-400"
+                    : "border-amber-500/30 text-amber-400"
+                }`}>
                   {Math.round(msg.aiConfidence * 100)}%
                 </Badge>
               )}
@@ -165,6 +239,9 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
             <p className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">
               {msg.content}
             </p>
+            {msg.mediaUrl && (
+              <MediaDisplay mediaUrl={msg.mediaUrl} mediaType={msg.mediaType} />
+            )}
             {msg.senderType === "agent" && (
               <div className="flex justify-start mt-1">
                 <CheckCheck className="w-3 h-3 text-emerald-400/50" />
