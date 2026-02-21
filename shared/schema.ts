@@ -51,6 +51,7 @@ export const conversations = pgTable("conversations", {
   channel: varchar("channel", { length: 20 }).default("whatsapp"),
   aiHandled: boolean("ai_handled").default(false),
   aiPaused: boolean("ai_paused").default(false),
+  delayAlerted: boolean("delay_alerted").default(false),
   startedAt: timestamp("started_at").defaultNow(),
   resolvedAt: timestamp("resolved_at"),
   updatedAt: timestamp("updated_at").defaultNow(),

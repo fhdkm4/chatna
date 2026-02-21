@@ -53,6 +53,7 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [onlineAgents, setOnlineAgents] = useState<Set<string>>(new Set());
+  const [delayedConversations, setDelayedConversations] = useState<Set<string>>(new Set());
   const socketRef = useRef<Socket | null>(null);
   const { toast } = useToast();
 
@@ -104,6 +105,17 @@ export default function Dashboard() {
       });
     });
 
+    socket.on("delay_alert", (data: { conversationId: string }) => {
+      setDelayedConversations((prev) => new Set(prev).add(data.conversationId));
+      toast({
+        title: "⏰ تنبيه تأخير",
+        description: "مرّت 10 دقائق على رسالة عميل بدون رد!",
+        variant: "destructive",
+      });
+      showBrowserNotification("تنبيه تأخير - جواب", "محادثة لم يتم الرد عليها منذ أكثر من 10 دقائق");
+      fetchConversations();
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -118,6 +130,17 @@ export default function Dashboard() {
       if (res.ok) {
         const data = await res.json();
         setConversations(data);
+        const delayed = new Set<string>();
+        for (const c of data) {
+          if (c.delayAlerted) delayed.add(c.id);
+        }
+        if (delayed.size > 0) {
+          setDelayedConversations((prev) => {
+            const next = new Set(prev);
+            delayed.forEach((id) => next.add(id));
+            return next;
+          });
+        }
       }
     } catch (err) {
       console.error("Failed to fetch conversations:", err);
@@ -215,12 +238,20 @@ export default function Dashboard() {
             <ConversationList
               conversations={conversations}
               selected={selectedConversation}
-              onSelect={selectConversation}
+              onSelect={(conv) => {
+                selectConversation(conv);
+                setDelayedConversations((prev) => {
+                  const next = new Set(prev);
+                  next.delete(conv.id);
+                  return next;
+                });
+              }}
               filter={filter}
               onFilterChange={setFilter}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               loading={loading}
+              delayedConversations={delayedConversations}
             />
             <ChatArea
               conversation={selectedConversation}

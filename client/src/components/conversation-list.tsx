@@ -1,4 +1,4 @@
-import { Search, MessageSquare } from "lucide-react";
+import { Search, MessageSquare, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,6 +16,7 @@ interface ConversationListProps {
   searchQuery: string;
   onSearchChange: (q: string) => void;
   loading: boolean;
+  delayedConversations?: Set<string>;
 }
 
 const filters: { id: ConversationFilter; label: string }[] = [
@@ -48,6 +49,7 @@ export function ConversationList({
   searchQuery,
   onSearchChange,
   loading,
+  delayedConversations,
 }: ConversationListProps) {
   return (
     <div className="w-[340px] border-l border-white/5 bg-[#0d1321] flex flex-col shrink-0">
@@ -102,39 +104,57 @@ export function ConversationList({
           </div>
         ) : (
           <div className="p-2">
-            {conversations.map((conv) => (
+            {conversations.map((conv) => {
+              const isDelayed = delayedConversations?.has(conv.id) || conv.delayAlerted;
+              return (
               <button
                 key={conv.id}
                 data-testid={`conversation-${conv.id}`}
                 onClick={() => onSelect(conv)}
                 className={`w-full flex gap-3 p-3 rounded-lg transition-all text-right ${
-                  selected?.id === conv.id
-                    ? "bg-emerald-500/10 border border-emerald-500/20"
-                    : "hover:bg-white/5 border border-transparent"
+                  isDelayed
+                    ? "bg-red-500/15 border border-red-500/30 animate-pulse"
+                    : selected?.id === conv.id
+                      ? "bg-emerald-500/10 border border-emerald-500/20"
+                      : "hover:bg-white/5 border border-transparent"
                 }`}
               >
                 <div className="relative shrink-0">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400/80 to-emerald-600/80 flex items-center justify-center text-sm font-bold text-white">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white ${
+                    isDelayed
+                      ? "bg-gradient-to-br from-red-400/80 to-red-600/80"
+                      : "bg-gradient-to-br from-emerald-400/80 to-emerald-600/80"
+                  }`}>
                     {getInitials(conv.contact?.name)}
                   </div>
-                  <div className={`absolute -bottom-0.5 -left-0.5 w-3 h-3 rounded-full border-2 border-[#0d1321] ${getStatusColor(conv.status || "active")}`} />
+                  <div className={`absolute -bottom-0.5 -left-0.5 w-3 h-3 rounded-full border-2 border-[#0d1321] ${isDelayed ? "bg-red-500" : getStatusColor(conv.status || "active")}`} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2 mb-0.5">
-                    <span className="text-sm font-medium text-white truncate">
+                    <span className={`text-sm font-medium truncate ${isDelayed ? "text-red-400" : "text-white"}`}>
                       {conv.contact?.name || conv.contact?.phone || "جهة اتصال"}
                     </span>
-                    <span className="text-[10px] text-gray-500 shrink-0">
-                      {conv.updatedAt
-                        ? formatDistanceToNow(new Date(conv.updatedAt), { locale: ar, addSuffix: true })
-                        : ""}
-                    </span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {isDelayed && (
+                        <AlertTriangle className="w-3.5 h-3.5 text-red-400" data-testid={`delay-icon-${conv.id}`} />
+                      )}
+                      <span className="text-[10px] text-gray-500">
+                        {conv.updatedAt
+                          ? formatDistanceToNow(new Date(conv.updatedAt), { locale: ar, addSuffix: true })
+                          : ""}
+                      </span>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs text-gray-400 truncate">
                       {conv.lastMessage?.content || "لا توجد رسائل"}
                     </p>
                     <div className="flex items-center gap-1 shrink-0">
+                      {isDelayed && (
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 border-red-500/40 text-red-400 bg-red-500/10" data-testid={`delay-badge-${conv.id}`}>
+                          متأخر
+                        </Badge>
+                      )}
                       {conv.aiHandled && (
                         <Badge variant="outline" className="text-[9px] px-1 py-0 border-emerald-500/30 text-emerald-400 bg-emerald-500/10">
                           AI
@@ -158,7 +178,8 @@ export function ConversationList({
                   )}
                 </div>
               </button>
-            ))}
+              );
+            })}
           </div>
         )}
       </ScrollArea>

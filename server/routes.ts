@@ -6,10 +6,10 @@ import jwt from "jsonwebtoken";
 import { eq } from "drizzle-orm";
 import { storage } from "./storage";
 import { db } from "./db";
-import { registerSchema, loginSchema, createAgentSchema, users as usersTable, messages as messagesTable } from "@shared/schema";
+import { registerSchema, loginSchema, createAgentSchema, users as usersTable, messages as messagesTable, conversations as conversationsTable } from "@shared/schema";
 import { parseIncomingMessage, sendWhatsAppMessage } from "./services/twilio";
 import { checkAutoReply, generateAiResponse } from "./services/ai";
-import { count, sql as sqlHelper } from "drizzle-orm";
+import { count, sql as sqlHelper, and, inArray, not, desc } from "drizzle-orm";
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || "jawab-default-secret";
 
@@ -75,6 +75,55 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
     }
   });
+
+  const DELAY_CHECK_INTERVAL = 60_000;
+  const DELAY_THRESHOLD_MS = 10 * 60 * 1000;
+
+  setInterval(async () => {
+    try {
+      const threshold = new Date(Date.now() - DELAY_THRESHOLD_MS);
+
+      const activeConvs = await db
+        .select()
+        .from(conversationsTable)
+        .where(
+          and(
+            inArray(conversationsTable.status, ["active", "waiting"]),
+            not(eq(conversationsTable.delayAlerted, true))
+          )
+        );
+
+      for (const conv of activeConvs) {
+        const lastMsg = await db
+          .select()
+          .from(messagesTable)
+          .where(eq(messagesTable.conversationId, conv.id))
+          .orderBy(desc(messagesTable.createdAt))
+          .limit(1);
+
+        if (lastMsg.length === 0) continue;
+
+        const msg = lastMsg[0];
+        if (msg.senderType !== "customer") continue;
+        if (!msg.createdAt || new Date(msg.createdAt) > threshold) continue;
+
+        await db
+          .update(conversationsTable)
+          .set({ delayAlerted: true })
+          .where(eq(conversationsTable.id, conv.id));
+
+        if (conv.tenantId) {
+          io.to(`tenant:${conv.tenantId}`).emit("delay_alert", {
+            conversationId: conv.id,
+            contactId: conv.contactId,
+            lastMessageAt: msg.createdAt,
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Delay check error:", err);
+    }
+  }, DELAY_CHECK_INTERVAL);
 
   app.post("/api/auth/register", async (req, res) => {
     try {
@@ -470,12 +519,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         twilioSid,
       });
 
-      if (!isInternal && (conversation.status === "waiting" || conversation.aiPaused)) {
-        await storage.updateConversation(conversation.id, {
-          status: "active",
-          assignedTo: req.user.id,
-          aiPaused: false,
-        });
+      if (!isInternal) {
+        const updateData: any = {};
+        if (conversation.status === "waiting" || conversation.aiPaused) {
+          updateData.status = "active";
+          updateData.assignedTo = req.user.id;
+          updateData.aiPaused = false;
+        }
+        if (conversation.delayAlerted) {
+          updateData.delayAlerted = false;
+        }
+        if (Object.keys(updateData).length > 0) {
+          await storage.updateConversation(conversation.id, updateData);
+        }
       }
 
       io.to(`tenant:${req.user.tenantId}`).emit("new_message", {
