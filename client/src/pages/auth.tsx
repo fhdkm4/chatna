@@ -22,8 +22,31 @@ export default function AuthPage() {
     companyName: "",
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validate = () => {
+    const errs: Record<string, string> = {};
+    if (!isLogin) {
+      if (!form.companyName || form.companyName.trim().length < 2)
+        errs.companyName = "اسم الشركة يجب أن يكون حرفين على الأقل";
+      if (!form.name || form.name.trim().length < 2)
+        errs.name = "الاسم يجب أن يكون حرفين على الأقل";
+    }
+    if (!form.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+      errs.email = "يرجى إدخال بريد إلكتروني صحيح";
+    if (!form.password || (!isLogin && form.password.length < 6))
+      errs.password = isLogin ? "يرجى إدخال كلمة المرور" : "كلمة المرور يجب أن تكون 6 أحرف على الأقل";
+    else if (isLogin && !form.password)
+      errs.password = "يرجى إدخال كلمة المرور";
+    return errs;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const validationErrors = validate();
+    setErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) return;
+
     setLoading(true);
     try {
       const url = isLogin ? "/api/auth/login" : "/api/auth/register";
@@ -38,7 +61,26 @@ export default function AuthPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "حدث خطأ");
+      if (!res.ok) {
+        if (data.errors && Array.isArray(data.errors)) {
+          const fieldErrors: Record<string, string> = {};
+          for (const err of data.errors) {
+            const field = err.path?.[0];
+            if (field) {
+              const msgs: Record<string, string> = {
+                companyName: "اسم الشركة يجب أن يكون حرفين على الأقل",
+                name: "الاسم يجب أن يكون حرفين على الأقل",
+                email: "يرجى إدخال بريد إلكتروني صحيح",
+                password: "كلمة المرور يجب أن تكون 6 أحرف على الأقل",
+              };
+              fieldErrors[field] = msgs[field] || err.message;
+            }
+          }
+          setErrors(fieldErrors);
+          return;
+        }
+        throw new Error(data.message || "حدث خطأ");
+      }
 
       setAuth(data.user, data.token);
       setLocation("/");
@@ -78,7 +120,7 @@ export default function AuthPage() {
           <div className="flex gap-2 mb-6 bg-[#0a0f1a] rounded-lg p-1">
             <button
               type="button"
-              onClick={() => setIsLogin(true)}
+              onClick={() => { setIsLogin(true); setErrors({}); }}
               data-testid="tab-login"
               className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
                 isLogin
@@ -90,7 +132,7 @@ export default function AuthPage() {
             </button>
             <button
               type="button"
-              onClick={() => setIsLogin(false)}
+              onClick={() => { setIsLogin(false); setErrors({}); }}
               data-testid="tab-register"
               className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
                 !isLogin
@@ -110,22 +152,28 @@ export default function AuthPage() {
                   <Input
                     data-testid="input-company-name"
                     value={form.companyName}
-                    onChange={(e) =>
-                      setForm({ ...form, companyName: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setForm({ ...form, companyName: e.target.value });
+                      setErrors((prev) => ({ ...prev, companyName: "" }));
+                    }}
                     placeholder="مثال: شركة التقنية"
-                    className="bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 focus:border-emerald-500/50 focus:ring-emerald-500/20"
+                    className={`bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 focus:border-emerald-500/50 focus:ring-emerald-500/20 ${errors.companyName ? "border-red-500/50" : ""}`}
                   />
+                  {errors.companyName && <p className="text-red-400 text-xs" data-testid="error-company-name">{errors.companyName}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-gray-300 text-sm">الاسم الكامل</Label>
                   <Input
                     data-testid="input-name"
                     value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    onChange={(e) => {
+                      setForm({ ...form, name: e.target.value });
+                      setErrors((prev) => ({ ...prev, name: "" }));
+                    }}
                     placeholder="مثال: أحمد محمد"
-                    className="bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 focus:border-emerald-500/50 focus:ring-emerald-500/20"
+                    className={`bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 focus:border-emerald-500/50 focus:ring-emerald-500/20 ${errors.name ? "border-red-500/50" : ""}`}
                   />
+                  {errors.name && <p className="text-red-400 text-xs" data-testid="error-name">{errors.name}</p>}
                 </div>
               </>
             )}
@@ -135,25 +183,31 @@ export default function AuthPage() {
                 data-testid="input-email"
                 type="email"
                 value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                onChange={(e) => {
+                  setForm({ ...form, email: e.target.value });
+                  setErrors((prev) => ({ ...prev, email: "" }));
+                }}
                 placeholder="email@example.com"
                 dir="ltr"
-                className="bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 focus:border-emerald-500/50 focus:ring-emerald-500/20 text-left"
+                className={`bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 focus:border-emerald-500/50 focus:ring-emerald-500/20 text-left ${errors.email ? "border-red-500/50" : ""}`}
               />
+              {errors.email && <p className="text-red-400 text-xs" data-testid="error-email">{errors.email}</p>}
             </div>
             <div className="space-y-2">
-              <Label className="text-gray-300 text-sm">كلمة المرور</Label>
+              <Label className="text-gray-300 text-sm">كلمة المرور {!isLogin && <span className="text-gray-500">(6 أحرف على الأقل)</span>}</Label>
               <Input
                 data-testid="input-password"
                 type="password"
                 value={form.password}
-                onChange={(e) =>
-                  setForm({ ...form, password: e.target.value })
-                }
+                onChange={(e) => {
+                  setForm({ ...form, password: e.target.value });
+                  setErrors((prev) => ({ ...prev, password: "" }));
+                }}
                 placeholder="••••••••"
                 dir="ltr"
-                className="bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 focus:border-emerald-500/50 focus:ring-emerald-500/20 text-left"
+                className={`bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 focus:border-emerald-500/50 focus:ring-emerald-500/20 text-left ${errors.password ? "border-red-500/50" : ""}`}
               />
+              {errors.password && <p className="text-red-400 text-xs" data-testid="error-password">{errors.password}</p>}
             </div>
 
             <Button
