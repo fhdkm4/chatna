@@ -1,18 +1,141 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, uuid, boolean, integer, real, timestamp, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+export const tenants = pgTable("tenants", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 20 }),
+  plan: varchar("plan", { length: 50 }).default("starter"),
+  twilioPhone: varchar("twilio_phone", { length: 20 }),
+  aiEnabled: boolean("ai_enabled").default(true),
+  aiSystemPrompt: text("ai_system_prompt"),
+  maxAgents: integer("max_agents").default(2),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  role: varchar("role", { length: 20 }).default("agent"),
+  status: varchar("status", { length: 20 }).default("offline"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+export const contacts = pgTable("contacts", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
+  phone: varchar("phone", { length: 20 }).notNull(),
+  name: varchar("name", { length: 255 }),
+  tags: text("tags").array().default(sql`'{}'`),
+  notes: text("notes"),
+  sentiment: varchar("sentiment", { length: 20 }).default("neutral"),
+  totalConversations: integer("total_conversations").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("contacts_tenant_phone_idx").on(table.tenantId, table.phone),
+]);
+
+export const conversations = pgTable("conversations", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
+  contactId: uuid("contact_id").references(() => contacts.id, { onDelete: "cascade" }),
+  assignedTo: uuid("assigned_to").references(() => users.id),
+  status: varchar("status", { length: 20 }).default("active"),
+  channel: varchar("channel", { length: 20 }).default("whatsapp"),
+  aiHandled: boolean("ai_handled").default(false),
+  startedAt: timestamp("started_at").defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("conversations_tenant_status_idx").on(table.tenantId, table.status),
+]);
+
+export const messages = pgTable("messages", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: uuid("conversation_id").references(() => conversations.id, { onDelete: "cascade" }),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
+  senderType: varchar("sender_type", { length: 20 }).notNull(),
+  senderId: uuid("sender_id"),
+  content: text("content").notNull(),
+  mediaUrl: text("media_url"),
+  mediaType: varchar("media_type", { length: 50 }),
+  aiConfidence: real("ai_confidence"),
+  twilioSid: varchar("twilio_sid", { length: 100 }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("messages_conversation_idx").on(table.conversationId, table.createdAt),
+]);
+
+export const autoReplies = pgTable("auto_replies", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
+  triggerType: varchar("trigger_type", { length: 20 }).notNull(),
+  triggerValue: text("trigger_value").notNull(),
+  response: text("response").notNull(),
+  isActive: boolean("is_active").default(true),
+  priority: integer("priority").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
+export const aiKnowledge = pgTable("ai_knowledge", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 255 }),
+  content: text("content").notNull(),
+  category: varchar("category", { length: 100 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const quickReplies = pgTable("quick_replies", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 100 }).notNull(),
+  content: text("content").notNull(),
+  shortcut: varchar("shortcut", { length: 50 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertTenantSchema = createInsertSchema(tenants).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
+export const insertContactSchema = createInsertSchema(contacts).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertConversationSchema = createInsertSchema(conversations).omit({ id: true, startedAt: true, updatedAt: true });
+export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true });
+export const insertAutoReplySchema = createInsertSchema(autoReplies).omit({ id: true, createdAt: true });
+export const insertAiKnowledgeSchema = createInsertSchema(aiKnowledge).omit({ id: true, createdAt: true });
+export const insertQuickReplySchema = createInsertSchema(quickReplies).omit({ id: true, createdAt: true });
+
+export const registerSchema = z.object({
+  companyName: z.string().min(2),
+  email: z.string().email(),
+  password: z.string().min(6),
+  name: z.string().min(2),
+});
+
+export const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+
+export type Tenant = typeof tenants.$inferSelect;
+export type InsertTenant = z.infer<typeof insertTenantSchema>;
 export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type Contact = typeof contacts.$inferSelect;
+export type InsertContact = z.infer<typeof insertContactSchema>;
+export type Conversation = typeof conversations.$inferSelect;
+export type InsertConversation = z.infer<typeof insertConversationSchema>;
+export type Message = typeof messages.$inferSelect;
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type AutoReply = typeof autoReplies.$inferSelect;
+export type InsertAutoReply = z.infer<typeof insertAutoReplySchema>;
+export type AiKnowledge = typeof aiKnowledge.$inferSelect;
+export type InsertAiKnowledge = z.infer<typeof insertAiKnowledgeSchema>;
+export type QuickReply = typeof quickReplies.$inferSelect;
+export type InsertQuickReply = z.infer<typeof insertQuickReplySchema>;
