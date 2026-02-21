@@ -223,7 +223,11 @@ export default function Dashboard() {
   if (!user) return null;
 
   const renderMainContent = () => {
-    if ((activeView === "settings" || activeView === "team") && user?.role !== "admin") {
+    if (activeView === "settings" && user?.role !== "admin") {
+      setActiveView("chat");
+      return null;
+    }
+    if (activeView === "team" && user?.role !== "admin" && user?.role !== "manager") {
       setActiveView("chat");
       return null;
     }

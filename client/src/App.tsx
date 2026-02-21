@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth";
 import Dashboard from "@/pages/dashboard";
+import AcceptInvitation from "@/pages/accept-invitation";
+import SetupWizard from "@/pages/setup-wizard";
 import { useAuth } from "@/lib/auth";
 
 function ProtectedRoute({ component: Component }: { component: () => JSX.Element | null }) {
@@ -18,6 +20,10 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={AuthPage} />
+      <Route path="/accept-invitation" component={AcceptInvitation} />
+      <Route path="/wizard">
+        <ProtectedRoute component={SetupWizard} />
+      </Route>
       <Route path="/">
         <ProtectedRoute component={Dashboard} />
       </Route>

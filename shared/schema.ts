@@ -12,6 +12,17 @@ export const tenants = pgTable("tenants", {
   aiEnabled: boolean("ai_enabled").default(true),
   aiSystemPrompt: text("ai_system_prompt"),
   maxAgents: integer("max_agents").default(2),
+  metaAccessTokenEnc: text("meta_access_token_enc"),
+  metaTokenIv: varchar("meta_token_iv", { length: 64 }),
+  metaTokenTag: varchar("meta_token_tag", { length: 64 }),
+  metaBusinessId: varchar("meta_business_id", { length: 100 }),
+  metaPhoneNumberId: varchar("meta_phone_number_id", { length: 100 }),
+  wabaId: varchar("waba_id", { length: 100 }),
+  webhookVerifyToken: varchar("webhook_verify_token", { length: 100 }),
+  qualityRating: varchar("quality_rating", { length: 20 }),
+  qualityCheckedAt: timestamp("quality_checked_at"),
+  setupCompleted: boolean("setup_completed").default(false),
+  discountCode: varchar("discount_code", { length: 50 }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -24,6 +35,18 @@ export const users = pgTable("users", {
   name: varchar("name", { length: 255 }).notNull(),
   role: varchar("role", { length: 20 }).default("agent"),
   status: varchar("status", { length: 20 }).default("offline"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const invitations = pgTable("invitations", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
+  email: varchar("email", { length: 255 }).notNull(),
+  role: varchar("role", { length: 20 }).notNull().default("agent"),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  invitedBy: uuid("invited_by").references(() => users.id),
+  expiresAt: timestamp("expires_at").notNull(),
+  acceptedAt: timestamp("accepted_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -115,12 +138,14 @@ export const insertMessageSchema = createInsertSchema(messages).omit({ id: true,
 export const insertAutoReplySchema = createInsertSchema(autoReplies).omit({ id: true, createdAt: true });
 export const insertAiKnowledgeSchema = createInsertSchema(aiKnowledge).omit({ id: true, createdAt: true });
 export const insertQuickReplySchema = createInsertSchema(quickReplies).omit({ id: true, createdAt: true });
+export const insertInvitationSchema = createInsertSchema(invitations).omit({ id: true, createdAt: true });
 
 export const registerSchema = z.object({
   companyName: z.string().min(2),
   email: z.string().email(),
   password: z.string().min(6),
   name: z.string().min(2),
+  discountCode: z.string().optional(),
 });
 
 export const loginSchema = z.object({
@@ -132,6 +157,18 @@ export const createAgentSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   name: z.string().min(2),
+  role: z.enum(["agent", "manager"]).default("agent"),
+});
+
+export const inviteAgentSchema = z.object({
+  email: z.string().email(),
+  role: z.enum(["admin", "manager", "agent"]).default("agent"),
+});
+
+export const acceptInvitationSchema = z.object({
+  token: z.string().min(1),
+  name: z.string().min(2),
+  password: z.string().min(6),
 });
 
 export type Tenant = typeof tenants.$inferSelect;
@@ -150,3 +187,5 @@ export type AiKnowledge = typeof aiKnowledge.$inferSelect;
 export type InsertAiKnowledge = z.infer<typeof insertAiKnowledgeSchema>;
 export type QuickReply = typeof quickReplies.$inferSelect;
 export type InsertQuickReply = z.infer<typeof insertQuickReplySchema>;
+export type Invitation = typeof invitations.$inferSelect;
+export type InsertInvitation = z.infer<typeof insertInvitationSchema>;

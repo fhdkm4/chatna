@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import express from "express";
 import type { Server } from "http";
 import { Server as SocketServer } from "socket.io";
 import bcrypt from "bcryptjs";
@@ -6,9 +7,11 @@ import jwt from "jsonwebtoken";
 import { eq } from "drizzle-orm";
 import { storage } from "./storage";
 import { db } from "./db";
-import { registerSchema, loginSchema, createAgentSchema, users as usersTable, messages as messagesTable, conversations as conversationsTable } from "@shared/schema";
+import { registerSchema, loginSchema, createAgentSchema, inviteAgentSchema, acceptInvitationSchema, users as usersTable, messages as messagesTable, conversations as conversationsTable, invitations as invitationsTable } from "@shared/schema";
+import crypto from "crypto";
 import { parseIncomingMessage, sendWhatsAppMessage } from "./services/twilio";
 import { checkAutoReply, generateAiResponse } from "./services/ai";
+import { simulateTypingDelay } from "./services/typing-delay";
 import { count, sql as sqlHelper, and, inArray, not, desc } from "drizzle-orm";
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || "jawab-default-secret";
@@ -35,6 +38,13 @@ function authMiddleware(req: any, res: any, next: any) {
 function adminOnly(req: any, res: any, next: any) {
   if (req.user?.role !== "admin") {
     return res.status(403).json({ message: "هذا الإجراء للمدير فقط" });
+  }
+  next();
+}
+
+function managerOrAdmin(req: any, res: any, next: any) {
+  if (req.user?.role !== "admin" && req.user?.role !== "manager") {
+    return res.status(403).json({ message: "هذا الإجراء للمدير أو المشرف فقط" });
   }
   next();
 }
@@ -132,14 +142,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(400).json({ message: "بيانات غير صحيحة", errors: parsed.error.issues });
       }
 
-      const { companyName, email, password, name } = parsed.data;
+      const { companyName, email, password, name, discountCode } = parsed.data;
 
       const existing = await storage.getUserByEmail(email);
       if (existing) {
         return res.status(409).json({ message: "البريد الإلكتروني مستخدم بالفعل" });
       }
 
-      const tenant = await storage.createTenant({ name: companyName });
+      const tenant = await storage.createTenant({ name: companyName, discountCode: discountCode || undefined });
       const passwordHash = await bcrypt.hash(password, 10);
       const user = await storage.createUser({
         tenantId: tenant.id,
@@ -234,7 +244,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.post("/api/team", authMiddleware, adminOnly, async (req: any, res) => {
+  app.post("/api/team", authMiddleware, managerOrAdmin, async (req: any, res) => {
     try {
       const parsed = createAgentSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -286,6 +296,264 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err) {
       console.error("Delete agent error:", err);
       res.status(500).json({ message: "خطأ في حذف الموظف" });
+    }
+  });
+
+  // Invitation routes
+  app.post("/api/invitations", authMiddleware, managerOrAdmin, async (req: any, res) => {
+    try {
+      const parsed = inviteAgentSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "بيانات غير صحيحة", errors: parsed.error.issues });
+      }
+
+      const { email, role } = parsed.data;
+
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(409).json({ message: "البريد الإلكتروني مستخدم بالفعل" });
+      }
+
+      const existingInvitations = await storage.getInvitationsByTenant(req.user.tenantId);
+      const activeInvitation = existingInvitations.find(
+        (inv) => inv.email === email && !inv.acceptedAt && new Date(inv.expiresAt) > new Date()
+      );
+      if (activeInvitation) {
+        return res.status(409).json({ message: "يوجد دعوة نشطة لهذا البريد الإلكتروني" });
+      }
+
+      const token = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+      const invitation = await storage.createInvitation({
+        tenantId: req.user.tenantId,
+        email,
+        role,
+        token,
+        invitedBy: req.user.id,
+        expiresAt,
+      });
+
+      res.status(201).json({
+        ...invitation,
+        inviteLink: `/accept-invitation?token=${token}`,
+      });
+    } catch (err) {
+      console.error("Create invitation error:", err);
+      res.status(500).json({ message: "خطأ في إنشاء الدعوة" });
+    }
+  });
+
+  app.get("/api/invitations", authMiddleware, managerOrAdmin, async (req: any, res) => {
+    try {
+      const invitationsList = await storage.getInvitationsByTenant(req.user.tenantId);
+      res.json(invitationsList);
+    } catch (err) {
+      console.error("Get invitations error:", err);
+      res.status(500).json({ message: "خطأ في جلب الدعوات" });
+    }
+  });
+
+  app.delete("/api/invitations/:id", authMiddleware, adminOnly, async (req: any, res) => {
+    try {
+      await storage.deleteInvitation(req.params.id);
+      res.status(204).send();
+    } catch (err) {
+      console.error("Delete invitation error:", err);
+      res.status(500).json({ message: "خطأ في حذف الدعوة" });
+    }
+  });
+
+  app.get("/api/auth/invitation-info", async (req, res) => {
+    try {
+      const token = req.query.token as string;
+      if (!token) return res.status(400).json({ message: "رمز الدعوة مطلوب" });
+
+      const invitation = await storage.getInvitationByToken(token);
+      if (!invitation) return res.status(404).json({ message: "الدعوة غير موجودة" });
+      if (invitation.acceptedAt) return res.status(400).json({ message: "تم قبول هذه الدعوة مسبقاً" });
+      if (new Date(invitation.expiresAt) < new Date()) return res.status(400).json({ message: "انتهت صلاحية الدعوة" });
+
+      res.json({ email: invitation.email, role: invitation.role });
+    } catch (err) {
+      console.error("Invitation info error:", err);
+      res.status(500).json({ message: "خطأ في التحقق من الدعوة" });
+    }
+  });
+
+  app.post("/api/auth/accept-invitation", async (req, res) => {
+    try {
+      const parsed = acceptInvitationSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "بيانات غير صحيحة", errors: parsed.error.issues });
+      }
+
+      const { token, name, password } = parsed.data;
+
+      const invitation = await storage.getInvitationByToken(token);
+      if (!invitation) {
+        return res.status(404).json({ message: "الدعوة غير موجودة" });
+      }
+
+      if (invitation.acceptedAt) {
+        return res.status(400).json({ message: "تم قبول هذه الدعوة مسبقاً" });
+      }
+
+      if (new Date(invitation.expiresAt) < new Date()) {
+        return res.status(400).json({ message: "انتهت صلاحية الدعوة" });
+      }
+
+      const existingUser = await storage.getUserByEmail(invitation.email);
+      if (existingUser) {
+        return res.status(409).json({ message: "البريد الإلكتروني مستخدم بالفعل" });
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+      const user = await storage.createUser({
+        tenantId: invitation.tenantId,
+        email: invitation.email,
+        passwordHash,
+        name,
+        role: invitation.role,
+        status: "offline",
+      });
+
+      await storage.updateInvitation(invitation.id, { acceptedAt: new Date() } as any);
+
+      const tenant = invitation.tenantId ? await storage.getTenant(invitation.tenantId) : null;
+
+      const jwtToken = jwt.sign(
+        { id: user.id, tenantId: user.tenantId, role: user.role },
+        JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+
+      res.status(201).json({
+        token: jwtToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          tenantId: user.tenantId,
+          tenantName: tenant?.name || "",
+        },
+      });
+    } catch (err) {
+      console.error("Accept invitation error:", err);
+      res.status(500).json({ message: "خطأ في قبول الدعوة" });
+    }
+  });
+
+  // Settings endpoint
+  app.get("/api/settings", authMiddleware, async (req: any, res) => {
+    try {
+      const tenant = await storage.getTenant(req.user.tenantId);
+      if (!tenant) return res.status(404).json({ message: "لم يتم العثور على المؤسسة" });
+      res.json({
+        aiEnabled: tenant.aiEnabled,
+        aiSystemPrompt: tenant.aiSystemPrompt,
+        setupCompleted: tenant.setupCompleted,
+        qualityRating: tenant.qualityRating,
+        plan: tenant.plan,
+        maxAgents: tenant.maxAgents,
+        name: tenant.name,
+      });
+    } catch (err) {
+      console.error("Get settings error:", err);
+      res.status(500).json({ message: "خطأ في جلب الإعدادات" });
+    }
+  });
+
+  app.patch("/api/settings", authMiddleware, adminOnly, async (req: any, res) => {
+    try {
+      const { aiEnabled, aiSystemPrompt, setupCompleted, name } = req.body;
+      const updates: any = {};
+      if (typeof aiEnabled === "boolean") updates.aiEnabled = aiEnabled;
+      if (typeof aiSystemPrompt === "string") updates.aiSystemPrompt = aiSystemPrompt;
+      if (typeof setupCompleted === "boolean") updates.setupCompleted = setupCompleted;
+      if (typeof name === "string" && name.trim()) updates.name = name.trim();
+
+      const tenant = await storage.updateTenant(req.user.tenantId, updates);
+      res.json(tenant);
+    } catch (err) {
+      console.error("Update settings error:", err);
+      res.status(500).json({ message: "خطأ في تحديث الإعدادات" });
+    }
+  });
+
+  // Meta webhook endpoints
+  app.get("/webhook", (req, res) => {
+    const mode = req.query["hub.mode"];
+    const token = req.query["hub.verify_token"];
+    const challenge = req.query["hub.challenge"];
+
+    const VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN;
+    if (!VERIFY_TOKEN) {
+      console.warn("META_WEBHOOK_VERIFY_TOKEN not configured");
+      return res.status(503).send("Webhook not configured");
+    }
+
+    if (mode === "subscribe" && token === VERIFY_TOKEN) {
+      console.log("Meta webhook verified");
+      return res.status(200).send(challenge);
+    }
+    return res.status(403).send("Forbidden");
+  });
+
+  app.post("/webhook", express.raw({ type: "application/json" }), (req: any, res) => {
+    try {
+      const APP_SECRET = process.env.META_APP_SECRET;
+      const signature = req.headers["x-hub-signature-256"] as string;
+
+      if (APP_SECRET) {
+        if (!signature) {
+          console.warn("Missing webhook signature");
+          return res.status(403).send("Missing signature");
+        }
+        const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body);
+        const expectedSignature = "sha256=" + crypto.createHmac("sha256", APP_SECRET).update(rawBody).digest("hex");
+        if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+          console.warn("Invalid webhook signature");
+          return res.status(403).send("Invalid signature");
+        }
+      }
+
+      const body = Buffer.isBuffer(req.body) ? JSON.parse(req.body.toString()) : req.body;
+
+      if (body.object === "whatsapp_business_account") {
+        const entries = body.entry || [];
+        for (const entry of entries) {
+          const changes = entry.changes || [];
+          for (const change of changes) {
+            if (change.field === "messages") {
+              const value = change.value;
+              const msgMessages = value?.messages || [];
+              for (const msg of msgMessages) {
+                console.log("Meta webhook message received:", {
+                  from: msg.from,
+                  type: msg.type,
+                  timestamp: msg.timestamp,
+                  text: msg.text?.body,
+                });
+              }
+              const statuses = value?.statuses || [];
+              for (const status of statuses) {
+                console.log("Meta webhook status update:", {
+                  recipientId: status.recipient_id,
+                  status: status.status,
+                  timestamp: status.timestamp,
+                });
+              }
+            }
+          }
+        }
+      }
+
+      res.status(200).send("EVENT_RECEIVED");
+    } catch (err) {
+      console.error("Meta webhook error:", err);
+      res.status(500).send("Error");
     }
   });
 
@@ -366,6 +634,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       const autoReplyContent = await checkAutoReply(tenantId, messageContent);
       if (autoReplyContent) {
+        await simulateTypingDelay(autoReplyContent);
         const sid = await sendWhatsAppMessage(incoming.from, autoReplyContent);
         const aiMsg = await storage.createMessage({
           conversationId: conversation.id,
@@ -391,6 +660,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       );
 
       if (aiResponse.confidence >= 0.6) {
+        await simulateTypingDelay(aiResponse.content);
         const sid = await sendWhatsAppMessage(incoming.from, aiResponse.content);
         const aiMsg = await storage.createMessage({
           conversationId: conversation.id,

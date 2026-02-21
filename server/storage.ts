@@ -2,7 +2,7 @@ import { db } from "./db";
 import { eq, and, desc, ilike, or, sql, count, gte, lte, between } from "drizzle-orm";
 import {
   tenants, users, contacts, conversations, messages,
-  autoReplies, aiKnowledge, quickReplies,
+  autoReplies, aiKnowledge, quickReplies, invitations,
   type Tenant, type InsertTenant,
   type User, type InsertUser,
   type Contact, type InsertContact,
@@ -11,6 +11,7 @@ import {
   type AutoReply, type InsertAutoReply,
   type AiKnowledge, type InsertAiKnowledge,
   type QuickReply, type InsertQuickReply,
+  type Invitation, type InsertInvitation,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -55,6 +56,12 @@ export interface IStorage {
   createQuickReply(data: InsertQuickReply): Promise<QuickReply>;
   getQuickRepliesByTenant(tenantId: string): Promise<QuickReply[]>;
   deleteQuickReply(id: string): Promise<void>;
+
+  createInvitation(data: InsertInvitation): Promise<Invitation>;
+  getInvitationByToken(token: string): Promise<Invitation | undefined>;
+  getInvitationsByTenant(tenantId: string): Promise<Invitation[]>;
+  updateInvitation(id: string, data: Partial<InsertInvitation>): Promise<Invitation | undefined>;
+  deleteInvitation(id: string): Promise<void>;
 
   getStats(tenantId: string): Promise<any>;
   getAnalytics(tenantId: string, days: number): Promise<any>;
@@ -297,6 +304,31 @@ class DatabaseStorage implements IStorage {
 
   async deleteQuickReply(id: string): Promise<void> {
     await db.delete(quickReplies).where(eq(quickReplies.id, id));
+  }
+
+  async createInvitation(data: InsertInvitation): Promise<Invitation> {
+    const [invitation] = await db.insert(invitations).values(data).returning();
+    return invitation;
+  }
+
+  async getInvitationByToken(token: string): Promise<Invitation | undefined> {
+    const [invitation] = await db.select().from(invitations).where(eq(invitations.token, token));
+    return invitation;
+  }
+
+  async getInvitationsByTenant(tenantId: string): Promise<Invitation[]> {
+    return db.select().from(invitations)
+      .where(eq(invitations.tenantId, tenantId))
+      .orderBy(desc(invitations.createdAt));
+  }
+
+  async updateInvitation(id: string, data: Partial<InsertInvitation>): Promise<Invitation | undefined> {
+    const [invitation] = await db.update(invitations).set(data).where(eq(invitations.id, id)).returning();
+    return invitation;
+  }
+
+  async deleteInvitation(id: string): Promise<void> {
+    await db.delete(invitations).where(eq(invitations.id, id));
   }
 
   async getStats(tenantId: string): Promise<any> {

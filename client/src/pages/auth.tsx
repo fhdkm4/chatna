@@ -5,8 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
-import { SiWhatsapp } from "react-icons/si";
-import { Loader2 } from "lucide-react";
+import { SiWhatsapp, SiFacebook } from "react-icons/si";
+import { Loader2, ShieldCheck, Tag } from "lucide-react";
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -20,6 +20,7 @@ export default function AuthPage() {
     password: "",
     name: "",
     companyName: "",
+    discountCode: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -52,7 +53,13 @@ export default function AuthPage() {
       const url = isLogin ? "/api/auth/login" : "/api/auth/register";
       const body = isLogin
         ? { email: form.email, password: form.password }
-        : form;
+        : {
+            email: form.email,
+            password: form.password,
+            name: form.name,
+            companyName: form.companyName,
+            discountCode: form.discountCode || undefined,
+          };
 
       const res = await fetch(url, {
         method: "POST",
@@ -93,6 +100,13 @@ export default function AuthPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleFacebookSignup = () => {
+    toast({
+      title: "قريباً",
+      description: "ربط حساب فيسبوك سيكون متاحاً قريباً. يرجى التسجيل بالبريد الإلكتروني حالياً.",
+    });
   };
 
   return (
@@ -142,6 +156,26 @@ export default function AuthPage() {
             >
               حساب جديد
             </button>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleFacebookSignup}
+            data-testid="button-facebook-signup"
+            className="w-full mb-4 bg-[#1877F2]/10 border-[#1877F2]/30 text-[#1877F2] hover:bg-[#1877F2]/20 hover:text-[#1877F2] font-medium py-2.5"
+          >
+            <SiFacebook className="w-5 h-5 ml-2" />
+            {isLogin ? "الدخول باستخدام فيسبوك" : "التسجيل باستخدام فيسبوك"}
+          </Button>
+
+          <div className="relative mb-4">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-white/10" />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="bg-[#111827] px-3 text-gray-500">أو</span>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -210,6 +244,23 @@ export default function AuthPage() {
               {errors.password && <p className="text-red-400 text-xs" data-testid="error-password">{errors.password}</p>}
             </div>
 
+            {!isLogin && (
+              <div className="space-y-2">
+                <Label className="text-gray-300 text-sm flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5" />
+                  كود الخصم <span className="text-gray-500">(اختياري)</span>
+                </Label>
+                <Input
+                  data-testid="input-discount-code"
+                  value={form.discountCode}
+                  onChange={(e) => setForm({ ...form, discountCode: e.target.value })}
+                  placeholder="أدخل كود الخصم إن وجد"
+                  dir="ltr"
+                  className="bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 focus:border-emerald-500/50 focus:ring-emerald-500/20 text-left"
+                />
+              </div>
+            )}
+
             <Button
               type="submit"
               disabled={loading}
@@ -225,6 +276,15 @@ export default function AuthPage() {
               )}
             </Button>
           </form>
+
+          {!isLogin && (
+            <div className="mt-5 flex items-start gap-2 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
+              <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-gray-400 leading-relaxed" data-testid="text-whatsapp-api-notice">
+                نحن نستخدم WhatsApp Business API الرسمي لضمان أمان رقمك وعدم تعرضه للحظر.
+              </p>
+            </div>
+          )}
         </div>
 
         <p className="text-center text-gray-500 text-xs mt-6">

@@ -10,17 +10,23 @@ interface NavSidebarProps {
   onLogout: () => void;
 }
 
-const navItems: { id: ActiveView; icon: typeof MessageSquare; label: string; adminOnly?: boolean }[] = [
+const navItems: { id: ActiveView; icon: typeof MessageSquare; label: string; minRole?: "admin" | "manager" }[] = [
   { id: "chat", icon: MessageSquare, label: "المحادثات" },
   { id: "contacts", icon: Users, label: "جهات الاتصال" },
   { id: "ai", icon: Brain, label: "قاعدة المعرفة" },
   { id: "analytics", icon: BarChart3, label: "الإحصائيات" },
-  { id: "team", icon: UserCog, label: "إدارة الفريق", adminOnly: true },
-  { id: "settings", icon: Settings, label: "الإعدادات", adminOnly: true },
+  { id: "team", icon: UserCog, label: "إدارة الفريق", minRole: "manager" },
+  { id: "settings", icon: Settings, label: "الإعدادات", minRole: "admin" },
 ];
 
+function hasMinRole(userRole: string, minRole: "admin" | "manager"): boolean {
+  if (minRole === "admin") return userRole === "admin";
+  if (minRole === "manager") return userRole === "admin" || userRole === "manager";
+  return true;
+}
+
 export function NavSidebar({ activeView, onViewChange, user, onLogout }: NavSidebarProps) {
-  const visibleItems = navItems.filter(item => !item.adminOnly || user.role === "admin");
+  const visibleItems = navItems.filter(item => !item.minRole || hasMinRole(user.role, item.minRole));
 
   return (
     <div className="w-16 bg-[#0d1321] border-l border-white/5 flex flex-col items-center py-4 shrink-0">
