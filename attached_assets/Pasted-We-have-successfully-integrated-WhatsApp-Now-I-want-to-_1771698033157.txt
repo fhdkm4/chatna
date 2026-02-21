@@ -1,0 +1,89 @@
+We have successfully integrated WhatsApp.
+Now I want to upgrade the platform into a full SaaS system.
+Please implement the following features carefully while keeping the design Arabic-first (RTL) and maintaining the existing dark theme.
+
+⸻
+
+1) Team Management System
+
+•⁠  ⁠Add a new sidebar page: “إدارة الفريق” (Team Management)
+•⁠  ⁠Allow Admin to create Agents (email + password).
+•⁠  ⁠Implement roles:
+	•	Admin: can view all conversations.
+	•	Agent: can only view conversations assigned to them.
+•⁠  ⁠Add a button in the top conversation bar:
+“Assign to Agent”
+	•	This should update assigned_agent_id in the database.
+•⁠  ⁠Enforce role-based access control strictly.
+
+⸻
+
+2) AI Confidence Logic + Webhook Upgrade
+
+Update conversation automation logic:
+
+•⁠  ⁠After AI generates a reply, evaluate AI Confidence.
+•⁠  ⁠If confidence < 60%:
+	•	Change conversation status to waiting
+	•	Set ai_paused = true
+	•	Do NOT send WhatsApp reply
+	•	Send real-time notification via Socket.io to all agents
+•⁠  ⁠If confidence ≥ 60%, continue normal AI reply flow.
+
+Use Socket.io rooms grouped by tenant.
+
+⸻
+
+3) Media Support (Images & Files)
+
+•⁠  ⁠Modify webhook to handle image/document messages.
+•⁠  ⁠Store:
+	•	media_url
+	•	media_type
+	•	meta_media_id
+•⁠  ⁠Display images inside chat UI.
+•⁠  ⁠Files should render as downloadable cards.
+•⁠  ⁠Ensure media is stored safely (not temporary links only).
+
+⸻
+
+4) Knowledge Base Management UI
+
+Create a simple page:
+
+•⁠  ⁠Add / Edit / Delete knowledge items.
+•⁠  ⁠Fields:
+	•	Title
+	•	Content
+	•	Active/Inactive
+•⁠  ⁠The AI must use only active knowledge entries.
+•⁠  ⁠Keep UI simple and RTL aligned.
+
+⸻
+
+5) Analytics Page (Real Data Only)
+
+Create analytics dashboard using real database queries:
+
+•⁠  ⁠Daily conversation count
+•⁠  ⁠AI reply ratio
+•⁠  ⁠Average response time
+•⁠  ⁠Date range filter (7 days / 30 days)
+
+No fake data. All stats must be calculated from DB.
+
+⸻
+
+6) SaaS Architecture Rules
+
+•⁠  ⁠All tables must include tenant_id
+•⁠  ⁠All queries must be tenant-scoped
+•⁠  ⁠Agents cannot access conversations not assigned to them
+•⁠  ⁠Maintain existing dark theme
+•⁠  ⁠Keep full RTL layout
+
+⸻
+
+Please implement clean database schema updates, API routes, and frontend components accordingly.
+Do not remove existing features.
+Ensure production-ready structure.

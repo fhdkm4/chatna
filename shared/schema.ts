@@ -50,6 +50,7 @@ export const conversations = pgTable("conversations", {
   status: varchar("status", { length: 20 }).default("active"),
   channel: varchar("channel", { length: 20 }).default("whatsapp"),
   aiHandled: boolean("ai_handled").default(false),
+  aiPaused: boolean("ai_paused").default(false),
   startedAt: timestamp("started_at").defaultNow(),
   resolvedAt: timestamp("resolved_at"),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -66,6 +67,7 @@ export const messages = pgTable("messages", {
   content: text("content").notNull(),
   mediaUrl: text("media_url"),
   mediaType: varchar("media_type", { length: 50 }),
+  metaMediaId: varchar("meta_media_id", { length: 255 }),
   aiConfidence: real("ai_confidence"),
   twilioSid: varchar("twilio_sid", { length: 100 }),
   createdAt: timestamp("created_at").defaultNow(),
@@ -90,6 +92,7 @@ export const aiKnowledge = pgTable("ai_knowledge", {
   title: varchar("title", { length: 255 }),
   content: text("content").notNull(),
   category: varchar("category", { length: 100 }),
+  isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -121,6 +124,12 @@ export const registerSchema = z.object({
 export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
+});
+
+export const createAgentSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+  name: z.string().min(2),
 });
 
 export type Tenant = typeof tenants.$inferSelect;
