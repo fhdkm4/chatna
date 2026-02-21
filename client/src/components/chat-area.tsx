@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Zap, PanelRightOpen, Bot, UserCircle, Check, CheckCheck, UserPlus, FileDown, Image } from "lucide-react";
+import { Send, Zap, PanelRightOpen, Bot, UserCircle, Check, CheckCheck, UserPlus, FileDown, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { QuickRepliesPopup } from "@/components/quick-replies-popup";
@@ -12,27 +12,31 @@ import { ar } from "date-fns/locale";
 interface ChatAreaProps {
   conversation: ConversationWithDetails | null;
   messages: Message[];
-  onSend: (content: string) => void;
+  onSend: (content: string, isInternal?: boolean) => void;
   onToggleContact: () => void;
   onUpdateConversation: (id: string, updates: Partial<Conversation>) => void;
   onAssignAgent: (conversationId: string, agentId: string | null) => void;
   user: { id: string; name: string; role: string };
 }
 
-function getMessageBorderColor(senderType: string) {
+function getMessageBorderColor(senderType: string, isInternal?: boolean | null) {
+  if (isInternal) return "border-r-amber-400";
   switch (senderType) {
     case "ai": return "border-r-emerald-500";
     case "agent": return "border-r-blue-500";
+    case "internal": return "border-r-amber-400";
     case "customer": return "border-r-gray-500";
     case "system": return "border-r-amber-500";
     default: return "border-r-gray-500";
   }
 }
 
-function getMessageBg(senderType: string) {
+function getMessageBg(senderType: string, isInternal?: boolean | null) {
+  if (isInternal) return "bg-amber-500/10 border border-amber-500/20";
   switch (senderType) {
     case "ai": return "bg-emerald-500/5";
     case "agent": return "bg-blue-500/5";
+    case "internal": return "bg-amber-500/10 border border-amber-500/20";
     case "customer": return "bg-white/5";
     case "system": return "bg-amber-500/5";
     default: return "bg-white/5";
@@ -42,7 +46,7 @@ function getMessageBg(senderType: string) {
 function MediaDisplay({ mediaUrl, mediaType }: { mediaUrl: string; mediaType: string | null }) {
   if (!mediaUrl) return null;
 
-  if (mediaType?.startsWith("image")) {
+  if (mediaType?.startsWith("image") || mediaUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)) {
     return (
       <div className="mt-2 rounded-lg overflow-hidden max-w-[300px]">
         <a href={mediaUrl} target="_blank" rel="noopener noreferrer">
@@ -76,6 +80,7 @@ function MediaDisplay({ mediaUrl, mediaType }: { mediaUrl: string; mediaType: st
 
 export function ChatArea({ conversation, messages, onSend, onToggleContact, onUpdateConversation, onAssignAgent, user }: ChatAreaProps) {
   const [input, setInput] = useState("");
+  const [isInternalMode, setIsInternalMode] = useState(false);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -89,7 +94,7 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
 
   const handleSend = () => {
     if (!input.trim()) return;
-    onSend(input.trim());
+    onSend(input.trim(), isInternalMode);
     setInput("");
     inputRef.current?.focus();
   };
@@ -207,20 +212,36 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
           <div
             key={msg.id}
             data-testid={`message-${msg.id}`}
-            className={`max-w-[75%] rounded-lg p-3 border-r-2 ${getMessageBorderColor(msg.senderType)} ${getMessageBg(msg.senderType)} ${
-              msg.senderType === "agent" ? "mr-auto" : "ml-auto"
+            className={`max-w-[75%] rounded-lg p-3 border-r-2 ${getMessageBorderColor(msg.senderType, msg.isInternal)} ${getMessageBg(msg.senderType, msg.isInternal)} ${
+              msg.senderType === "customer" ? "ml-auto" : "mr-auto"
             }`}
           >
             <div className="flex items-center gap-2 mb-1">
+              {msg.isInternal && (
+                <EyeOff className="w-3 h-3 text-amber-400" />
+              )}
               {msg.senderType === "ai" && (
                 <Bot className="w-3 h-3 text-emerald-400" />
               )}
-              {msg.senderType === "agent" && (
+              {(msg.senderType === "agent" || msg.senderType === "internal") && !msg.isInternal && (
                 <UserCircle className="w-3 h-3 text-blue-400" />
               )}
               <span className="text-[10px] text-gray-500">
-                {msg.senderType === "ai" ? "مساعد ذكي" : msg.senderType === "agent" ? user.name : msg.senderType === "system" ? "النظام" : "العميل"}
+                {msg.isInternal
+                  ? "ملاحظة داخلية"
+                  : msg.senderType === "ai"
+                  ? "مساعد ذكي"
+                  : msg.senderType === "agent" || msg.senderType === "internal"
+                  ? user.name
+                  : msg.senderType === "system"
+                  ? "النظام"
+                  : "العميل"}
               </span>
+              {msg.isInternal && (
+                <Badge variant="outline" className="text-[8px] px-1 py-0 border-amber-500/30 text-amber-400 bg-amber-500/10">
+                  همس
+                </Badge>
+              )}
               {msg.aiConfidence != null && (
                 <Badge variant="outline" className={`text-[8px] px-1 py-0 ${
                   msg.aiConfidence >= 0.6
@@ -242,7 +263,7 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
             {msg.mediaUrl && (
               <MediaDisplay mediaUrl={msg.mediaUrl} mediaType={msg.mediaType} />
             )}
-            {msg.senderType === "agent" && (
+            {msg.senderType === "agent" && !msg.isInternal && (
               <div className="flex justify-start mt-1">
                 <CheckCheck className="w-3 h-3 text-emerald-400/50" />
               </div>
@@ -255,12 +276,17 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
         {showQuickReplies && (
           <QuickRepliesPopup
             onSelect={(content) => {
-              setInput(content);
+              onSend(content, false);
               setShowQuickReplies(false);
-              inputRef.current?.focus();
             }}
             onClose={() => setShowQuickReplies(false)}
           />
+        )}
+        {isInternalMode && (
+          <div className="flex items-center gap-2 mb-2 px-2">
+            <EyeOff className="w-3 h-3 text-amber-400" />
+            <span className="text-[11px] text-amber-400">وضع الهمس - الملاحظة لن تُرسل للعميل</span>
+          </div>
         )}
         <div className="flex items-end gap-2">
           <Button
@@ -269,8 +295,19 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
             data-testid="button-quick-replies"
             onClick={() => setShowQuickReplies(!showQuickReplies)}
             className="text-gray-400 shrink-0"
+            title="ردود سريعة"
           >
             <Zap className="w-4 h-4" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            data-testid="button-internal-note"
+            onClick={() => setIsInternalMode(!isInternalMode)}
+            className={`shrink-0 ${isInternalMode ? "text-amber-400 bg-amber-500/10" : "text-gray-400"}`}
+            title="ملاحظة داخلية (همس)"
+          >
+            {isInternalMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </Button>
           <div className="flex-1 relative">
             <textarea
@@ -279,9 +316,13 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="اكتب رسالة..."
+              placeholder={isInternalMode ? "اكتب ملاحظة داخلية..." : "اكتب رسالة..."}
               rows={1}
-              className="w-full bg-[#0a0f1a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 resize-none focus:outline-none focus:border-emerald-500/30 transition-colors"
+              className={`w-full bg-[#0a0f1a] border rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 resize-none focus:outline-none transition-colors ${
+                isInternalMode
+                  ? "border-amber-500/30 focus:border-amber-500/50"
+                  : "border-white/10 focus:border-emerald-500/30"
+              }`}
               style={{ minHeight: "40px", maxHeight: "120px" }}
             />
           </div>
@@ -290,7 +331,7 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
             data-testid="button-send-message"
             onClick={handleSend}
             disabled={!input.trim()}
-            className="bg-emerald-600 shrink-0"
+            className={`shrink-0 ${isInternalMode ? "bg-amber-600 hover:bg-amber-700" : "bg-emerald-600 hover:bg-emerald-700"}`}
           >
             <Send className="w-4 h-4" />
           </Button>

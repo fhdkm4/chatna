@@ -3,10 +3,13 @@ import type { Server } from "http";
 import { Server as SocketServer } from "socket.io";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { eq } from "drizzle-orm";
 import { storage } from "./storage";
-import { registerSchema, loginSchema, createAgentSchema } from "@shared/schema";
+import { db } from "./db";
+import { registerSchema, loginSchema, createAgentSchema, users as usersTable, messages as messagesTable } from "@shared/schema";
 import { parseIncomingMessage, sendWhatsAppMessage } from "./services/twilio";
 import { checkAutoReply, generateAiResponse } from "./services/ai";
+import { count, sql as sqlHelper } from "drizzle-orm";
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || "jawab-default-secret";
 
@@ -41,12 +44,32 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     cors: { origin: "*" },
   });
 
+  const onlineUsers = new Map<string, { tenantId: string; userId: string; socketId: string }>();
+
   io.on("connection", (socket) => {
     const token = socket.handshake.auth.token;
     if (token) {
       try {
         const decoded = jwt.verify(token, JWT_SECRET) as any;
         socket.join(`tenant:${decoded.tenantId}`);
+
+        onlineUsers.set(socket.id, { tenantId: decoded.tenantId, userId: decoded.id, socketId: socket.id });
+        db.update(usersTable).set({ status: "online" }).where(eq(usersTable.id, decoded.id)).then(() => {
+          io.to(`tenant:${decoded.tenantId}`).emit("agent_status", { userId: decoded.id, status: "online" });
+        }).catch((err: any) => console.error("Update online status error:", err));
+
+        socket.on("disconnect", () => {
+          const userData = onlineUsers.get(socket.id);
+          if (userData) {
+            onlineUsers.delete(socket.id);
+            const stillOnline = Array.from(onlineUsers.values()).some(u => u.userId === userData.userId);
+            if (!stillOnline) {
+              db.update(usersTable).set({ status: "offline" }).where(eq(usersTable.id, userData.userId)).then(() => {
+                io.to(`tenant:${userData.tenantId}`).emit("agent_status", { userId: userData.userId, status: "offline" });
+              }).catch((err: any) => console.error("Update offline status error:", err));
+            }
+          }
+        });
       } catch (err) {
         socket.disconnect();
       }
@@ -417,18 +440,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/conversations/:id/messages", authMiddleware, async (req: any, res) => {
     try {
-      const { content } = req.body;
+      const { content, isInternal, mediaUrl } = req.body;
       if (!content) return res.status(400).json({ message: "محتوى الرسالة مطلوب" });
 
       const conversation = await storage.getConversationById(req.params.id);
       if (!conversation) return res.status(404).json({ message: "المحادثة غير موجودة" });
 
       let twilioSid: string | null = null;
-      if (conversation.contactId) {
+      if (!isInternal && conversation.contactId) {
         const contact = await storage.getContactById(conversation.contactId);
         if (contact) {
           try {
-            twilioSid = await sendWhatsAppMessage(`whatsapp:${contact.phone}`, content);
+            twilioSid = await sendWhatsAppMessage(`whatsapp:${contact.phone}`, content, mediaUrl || undefined);
           } catch (err) {
             console.error("Twilio send failed:", err);
           }
@@ -438,13 +461,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const msg = await storage.createMessage({
         conversationId: conversation.id,
         tenantId: req.user.tenantId,
-        senderType: "agent",
+        senderType: isInternal ? "internal" : "agent",
         senderId: req.user.id,
         content,
+        isInternal: isInternal || false,
+        mediaUrl: mediaUrl || null,
+        mediaType: mediaUrl ? "image" : null,
         twilioSid,
       });
 
-      if (conversation.status === "waiting" || conversation.aiPaused) {
+      if (!isInternal && (conversation.status === "waiting" || conversation.aiPaused)) {
         await storage.updateConversation(conversation.id, {
           status: "active",
           assignedTo: req.user.id,
@@ -617,6 +643,44 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.status(204).send();
     } catch (err) {
       res.status(500).json({ message: "خطأ" });
+    }
+  });
+
+  app.get("/api/export/contacts", authMiddleware, async (req: any, res) => {
+    try {
+      const contactsList = await storage.getContactsByTenant(req.user.tenantId);
+
+      const rows = [];
+      for (const c of contactsList) {
+        const contactMsgCount = await db.select({ count: count() })
+          .from(messagesTable)
+          .where(sqlHelper`${messagesTable.conversationId} IN (
+            SELECT id FROM conversations WHERE contact_id = ${c.id}
+          )`);
+
+        rows.push({
+          name: c.name || "",
+          phone: c.phone,
+          tags: (c.tags || []).join(", "),
+          sentiment: c.sentiment || "",
+          totalConversations: c.totalConversations || 0,
+          messageCount: contactMsgCount[0]?.count || 0,
+          createdAt: c.createdAt ? new Date(c.createdAt).toLocaleDateString("ar-SA") : "",
+        });
+      }
+
+      const header = "الاسم,رقم الهاتف,الوسوم,المشاعر,عدد المحادثات,عدد الرسائل,تاريخ التسجيل\n";
+      const csvContent = rows.map(r =>
+        `"${r.name}","${r.phone}","${r.tags}","${r.sentiment}",${r.totalConversations},${r.messageCount},"${r.createdAt}"`
+      ).join("\n");
+
+      const bom = "\uFEFF";
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", "attachment; filename=contacts_report.csv");
+      res.send(bom + header + csvContent);
+    } catch (err) {
+      console.error("Export error:", err);
+      res.status(500).json({ message: "خطأ في التصدير" });
     }
   });
 

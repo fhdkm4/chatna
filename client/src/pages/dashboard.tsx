@@ -23,6 +23,24 @@ export interface ConversationWithDetails extends Conversation {
   assignedAgent?: { id: string; name: string; email: string } | null;
 }
 
+function requestNotificationPermission() {
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission();
+  }
+}
+
+function showBrowserNotification(title: string, body: string) {
+  if ("Notification" in window && Notification.permission === "granted") {
+    if (document.hidden) {
+      new Notification(title, {
+        body,
+        icon: "/favicon.ico",
+        tag: "jawab-notification",
+      });
+    }
+  }
+}
+
 export default function Dashboard() {
   const { user, token, logout } = useAuth();
   const [, setLocation] = useLocation();
@@ -34,6 +52,7 @@ export default function Dashboard() {
   const [showContactPanel, setShowContactPanel] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [onlineAgents, setOnlineAgents] = useState<Set<string>>(new Set());
   const socketRef = useRef<Socket | null>(null);
   const { toast } = useToast();
 
@@ -43,6 +62,8 @@ export default function Dashboard() {
       return;
     }
 
+    requestNotificationPermission();
+
     const socket = io({ auth: { token } });
     socketRef.current = socket;
 
@@ -50,6 +71,14 @@ export default function Dashboard() {
       if (selectedConversation?.id === data.conversationId) {
         setMessages((prev) => [...prev, data.message]);
       }
+
+      if (data.message.senderType === "customer") {
+        showBrowserNotification(
+          "رسالة جديدة - جواب",
+          data.message.content?.substring(0, 80) || "رسالة جديدة"
+        );
+      }
+
       fetchConversations();
     });
 
@@ -59,7 +88,20 @@ export default function Dashboard() {
         description: data.reason || "ثقة الذكاء الاصطناعي منخفضة",
         variant: "destructive",
       });
+      showBrowserNotification("تنبيه - جواب", "محادثة تحتاج تدخل بشري");
       fetchConversations();
+    });
+
+    socket.on("agent_status", (data: { userId: string; status: string }) => {
+      setOnlineAgents((prev) => {
+        const next = new Set(prev);
+        if (data.status === "online") {
+          next.add(data.userId);
+        } else {
+          next.delete(data.userId);
+        }
+        return next;
+      });
     });
 
     return () => {
@@ -105,12 +147,12 @@ export default function Dashboard() {
     fetchMessages(conv.id);
   }, [fetchMessages]);
 
-  const sendMessage = useCallback(async (content: string) => {
+  const sendMessage = useCallback(async (content: string, isInternal?: boolean) => {
     if (!selectedConversation) return;
     try {
       const res = await authFetch(`/api/conversations/${selectedConversation.id}/messages`, {
         method: "POST",
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, isInternal: isInternal || false }),
       });
       if (res.ok) {
         const msg = await res.json();
@@ -166,7 +208,7 @@ export default function Dashboard() {
       case "settings":
         return <AutoReplies />;
       case "team":
-        return <TeamManagement />;
+        return <TeamManagement onlineAgents={onlineAgents} />;
       default:
         return (
           <div className="flex h-full">

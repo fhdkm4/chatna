@@ -68,6 +68,7 @@ export const messages = pgTable("messages", {
   mediaUrl: text("media_url"),
   mediaType: varchar("media_type", { length: 50 }),
   metaMediaId: varchar("meta_media_id", { length: 255 }),
+  isInternal: boolean("is_internal").default(false),
   aiConfidence: real("ai_confidence"),
   twilioSid: varchar("twilio_sid", { length: 100 }),
   createdAt: timestamp("created_at").defaultNow(),

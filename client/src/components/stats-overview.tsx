@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
-import { BarChart3, MessageSquare, Clock, Bot, Users, Loader2, TrendingUp, Calendar } from "lucide-react";
+import { BarChart3, MessageSquare, Clock, Bot, Users, Loader2, TrendingUp, Calendar, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { authFetch } from "@/lib/auth";
+import { useToast } from "@/hooks/use-toast";
 
 interface Stats {
   active: number;
@@ -26,6 +27,8 @@ export function StatsOverview() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState(7);
+  const [exporting, setExporting] = useState(false);
+  const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
     try {
@@ -121,6 +124,35 @@ export function StatsOverview() {
           <h2 className="text-base font-semibold text-white">لوحة الإحصائيات</h2>
         </div>
         <div className="flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            data-testid="button-export-csv"
+            onClick={async () => {
+              setExporting(true);
+              try {
+                const res = await authFetch("/api/export/contacts");
+                if (res.ok) {
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = "contacts_report.csv";
+                  a.click();
+                  URL.revokeObjectURL(url);
+                  toast({ title: "تم التصدير", description: "تم تنزيل تقرير جهات الاتصال" });
+                }
+              } catch (err) {
+                toast({ title: "خطأ", description: "فشل في التصدير", variant: "destructive" });
+              } finally {
+                setExporting(false);
+              }
+            }}
+            className="text-xs text-gray-400 h-7 ml-2"
+          >
+            {exporting ? <Loader2 className="w-3 h-3 animate-spin ml-1" /> : <Download className="w-3 h-3 ml-1" />}
+            تصدير CSV
+          </Button>
           <Calendar className="w-4 h-4 text-gray-500 ml-2" />
           {[7, 30].map((d) => (
             <Button

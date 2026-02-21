@@ -17,20 +17,24 @@ function getClient(): twilio.Twilio | null {
   return client;
 }
 
-export async function sendWhatsAppMessage(to: string, body: string): Promise<string | null> {
+export async function sendWhatsAppMessage(to: string, body: string, mediaUrl?: string): Promise<string | null> {
   const twilioClient = getClient();
   if (!twilioClient) {
-    console.log(`[Twilio Disabled] Would send to ${to}: ${body}`);
+    console.log(`[Twilio Disabled] Would send to ${to}: ${body}${mediaUrl ? ` [media: ${mediaUrl}]` : ""}`);
     return null;
   }
 
   try {
     const toNumber = to.startsWith("whatsapp:") ? to : `whatsapp:${to}`;
-    const message = await twilioClient.messages.create({
+    const messageOptions: any = {
       from: twilioWhatsappNumber,
       to: toNumber,
       body,
-    });
+    };
+    if (mediaUrl) {
+      messageOptions.mediaUrl = [mediaUrl];
+    }
+    const message = await twilioClient.messages.create(messageOptions);
     return message.sid;
   } catch (error) {
     console.error("Twilio send error:", error);

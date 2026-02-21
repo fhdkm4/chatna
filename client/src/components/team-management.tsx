@@ -17,7 +17,11 @@ interface TeamMember {
   createdAt: string;
 }
 
-export function TeamManagement() {
+interface TeamManagementProps {
+  onlineAgents?: Set<string>;
+}
+
+export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps) {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
@@ -77,6 +81,8 @@ export function TeamManagement() {
     }
   };
 
+  const isOnline = (member: TeamMember) => onlineAgents.has(member.id) || member.status === "online";
+
   return (
     <div className="flex-1 flex flex-col h-full">
       <div className="h-14 border-b border-white/5 flex items-center justify-between px-6 bg-[#0d1321]/50 shrink-0">
@@ -107,10 +113,18 @@ export function TeamManagement() {
                 className="bg-[#111827]/50 border border-white/5 rounded-lg p-4 flex items-center justify-between group"
               >
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white ${
-                    member.role === "admin" ? "bg-gradient-to-br from-amber-400 to-amber-600" : "bg-gradient-to-br from-blue-400 to-blue-600"
-                  }`}>
-                    {member.name.charAt(0)}
+                  <div className="relative">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white ${
+                      member.role === "admin" ? "bg-gradient-to-br from-amber-400 to-amber-600" : "bg-gradient-to-br from-blue-400 to-blue-600"
+                    }`}>
+                      {member.name.charAt(0)}
+                    </div>
+                    <div
+                      data-testid={`status-indicator-${member.id}`}
+                      className={`absolute -bottom-0.5 -left-0.5 w-3.5 h-3.5 rounded-full border-2 border-[#111827] transition-colors ${
+                        isOnline(member) ? "bg-emerald-500" : "bg-gray-500"
+                      }`}
+                    />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
@@ -129,6 +143,9 @@ export function TeamManagement() {
                           <><UserCircle className="w-2.5 h-2.5 ml-0.5" />موظف</>
                         )}
                       </Badge>
+                      <span className={`text-[9px] ${isOnline(member) ? "text-emerald-400" : "text-gray-500"}`}>
+                        {isOnline(member) ? "متصل" : "غير متصل"}
+                      </span>
                     </div>
                     <span className="text-xs text-gray-500">{member.email}</span>
                   </div>
