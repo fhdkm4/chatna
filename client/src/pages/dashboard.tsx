@@ -9,11 +9,12 @@ import { KnowledgeBase } from "@/components/knowledge-base";
 import { AutoReplies } from "@/components/auto-replies";
 import { StatsOverview } from "@/components/stats-overview";
 import { TeamManagement } from "@/components/team-management";
+import { TeamMonitoring } from "@/components/team-monitoring";
 import { io, Socket } from "socket.io-client";
 import type { Conversation, Message, Contact } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
-export type ActiveView = "chat" | "contacts" | "ai" | "analytics" | "settings" | "team";
+export type ActiveView = "chat" | "contacts" | "ai" | "analytics" | "settings" | "team" | "monitoring";
 export type ConversationFilter = "all" | "active" | "waiting" | "resolved";
 
 export interface ConversationWithDetails extends Conversation {
@@ -202,6 +203,27 @@ export default function Dashboard() {
     }
   }, [selectedConversation, fetchConversations]);
 
+  const transferConversation = useCallback(async (conversationId: string, toAgentId: string, reason?: string) => {
+    try {
+      const res = await authFetch(`/api/conversations/${conversationId}/transfer`, {
+        method: "POST",
+        body: JSON.stringify({ toAgentId, reason }),
+      });
+      if (res.ok) {
+        toast({
+          title: "تم التحويل",
+          description: "تم تحويل المحادثة بنجاح",
+        });
+        fetchConversations();
+      } else {
+        const err = await res.json();
+        toast({ title: "خطأ", description: err.message, variant: "destructive" });
+      }
+    } catch (err) {
+      console.error("Failed to transfer conversation:", err);
+    }
+  }, [fetchConversations]);
+
   const assignAgent = useCallback(async (conversationId: string, agentId: string | null) => {
     try {
       const res = await authFetch(`/api/conversations/${conversationId}/assign`, {
@@ -227,7 +249,7 @@ export default function Dashboard() {
       setActiveView("chat");
       return null;
     }
-    if (activeView === "team" && user?.role !== "admin" && user?.role !== "manager") {
+    if ((activeView === "team" || activeView === "monitoring") && user?.role !== "admin" && user?.role !== "manager") {
       setActiveView("chat");
       return null;
     }
@@ -241,6 +263,8 @@ export default function Dashboard() {
         return <AutoReplies />;
       case "team":
         return <TeamManagement onlineAgents={onlineAgents} />;
+      case "monitoring":
+        return <TeamMonitoring onlineAgents={onlineAgents} />;
       default:
         return (
           <div className="flex h-full">
@@ -269,6 +293,7 @@ export default function Dashboard() {
               onToggleContact={() => setShowContactPanel(!showContactPanel)}
               onUpdateConversation={updateConversation}
               onAssignAgent={assignAgent}
+              onTransfer={transferConversation}
               user={user}
             />
             {showContactPanel && selectedConversation?.contact && (

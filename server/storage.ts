@@ -1,8 +1,9 @@
 import { db } from "./db";
-import { eq, and, desc, ilike, or, sql, count, gte, lte, between } from "drizzle-orm";
+import { eq, and, desc, ilike, or, sql, count, gte, lte, between, ne, isNull, asc } from "drizzle-orm";
 import {
   tenants, users, contacts, conversations, messages,
   autoReplies, aiKnowledge, quickReplies, invitations,
+  agentMetrics, activityLog,
   type Tenant, type InsertTenant,
   type User, type InsertUser,
   type Contact, type InsertContact,
@@ -12,6 +13,8 @@ import {
   type AiKnowledge, type InsertAiKnowledge,
   type QuickReply, type InsertQuickReply,
   type Invitation, type InsertInvitation,
+  type AgentMetric, type InsertAgentMetric,
+  type ActivityLogEntry, type InsertActivityLog,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -23,6 +26,7 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserById(id: string): Promise<User | undefined>;
   getUsersByTenant(tenantId: string): Promise<User[]>;
+  updateUser(id: string, data: Partial<InsertUser>): Promise<User | undefined>;
   deleteUser(id: string): Promise<void>;
 
   createContact(data: InsertContact): Promise<Contact>;
@@ -36,6 +40,7 @@ export interface IStorage {
   getConversationsByTenant(tenantId: string, status?: string, agentId?: string, role?: string): Promise<any[]>;
   getActiveConversation(tenantId: string, contactId: string): Promise<Conversation | undefined>;
   updateConversation(id: string, data: Partial<InsertConversation>): Promise<Conversation | undefined>;
+  getActiveConversationCountByAgent(agentId: string): Promise<number>;
 
   createMessage(data: InsertMessage): Promise<Message>;
   getMessagesByConversation(conversationId: string): Promise<Message[]>;
@@ -62,6 +67,18 @@ export interface IStorage {
   getInvitationsByTenant(tenantId: string): Promise<Invitation[]>;
   updateInvitation(id: string, data: Partial<InsertInvitation>): Promise<Invitation | undefined>;
   deleteInvitation(id: string): Promise<void>;
+
+  upsertAgentMetrics(data: InsertAgentMetric): Promise<AgentMetric>;
+  getAgentMetricsByTenant(tenantId: string, date?: string): Promise<AgentMetric[]>;
+  incrementAgentMetric(userId: string, tenantId: string, field: "totalConversations" | "resolvedConversations" | "totalMessages", increment?: number): Promise<void>;
+  updateAgentAvgResponseTime(userId: string, tenantId: string, responseTimeSeconds: number): Promise<void>;
+
+  createActivityLog(data: InsertActivityLog): Promise<ActivityLogEntry>;
+  getActivityLogByTenant(tenantId: string, limit?: number): Promise<any[]>;
+
+  autoAssignConversation(tenantId: string): Promise<string | null>;
+
+  getTeamMonitoring(tenantId: string): Promise<any>;
 
   getStats(tenantId: string): Promise<any>;
   getAnalytics(tenantId: string, days: number): Promise<any>;
@@ -101,6 +118,11 @@ class DatabaseStorage implements IStorage {
 
   async getUsersByTenant(tenantId: string): Promise<User[]> {
     return db.select().from(users).where(eq(users.tenantId, tenantId));
+  }
+
+  async updateUser(id: string, data: Partial<InsertUser>): Promise<User | undefined> {
+    const [user] = await db.update(users).set(data).where(eq(users.id, id)).returning();
+    return user;
   }
 
   async deleteUser(id: string): Promise<void> {
@@ -217,6 +239,15 @@ class DatabaseStorage implements IStorage {
     return conv;
   }
 
+  async getActiveConversationCountByAgent(agentId: string): Promise<number> {
+    const result = await db.select({ count: count() }).from(conversations)
+      .where(and(
+        eq(conversations.assignedTo, agentId),
+        or(eq(conversations.status, "active"), eq(conversations.status, "waiting"))
+      ));
+    return Number(result[0]?.count || 0);
+  }
+
   async createMessage(data: InsertMessage): Promise<Message> {
     const [msg] = await db.insert(messages).values(data).returning();
     if (data.conversationId) {
@@ -329,6 +360,193 @@ class DatabaseStorage implements IStorage {
 
   async deleteInvitation(id: string): Promise<void> {
     await db.delete(invitations).where(eq(invitations.id, id));
+  }
+
+  async upsertAgentMetrics(data: InsertAgentMetric): Promise<AgentMetric> {
+    const today = data.date || new Date().toISOString().split("T")[0];
+    const existing = await db.select().from(agentMetrics)
+      .where(and(eq(agentMetrics.userId, data.userId!), eq(agentMetrics.date, today)));
+
+    if (existing.length > 0) {
+      const [updated] = await db.update(agentMetrics).set(data)
+        .where(eq(agentMetrics.id, existing[0].id)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(agentMetrics).values({ ...data, date: today }).returning();
+    return created;
+  }
+
+  async getAgentMetricsByTenant(tenantId: string, date?: string): Promise<AgentMetric[]> {
+    const targetDate = date || new Date().toISOString().split("T")[0];
+    return db.select().from(agentMetrics)
+      .where(and(eq(agentMetrics.tenantId, tenantId), eq(agentMetrics.date, targetDate)));
+  }
+
+  async incrementAgentMetric(userId: string, tenantId: string, field: "totalConversations" | "resolvedConversations" | "totalMessages", increment = 1): Promise<void> {
+    const today = new Date().toISOString().split("T")[0];
+    const existing = await db.select().from(agentMetrics)
+      .where(and(eq(agentMetrics.userId, userId), eq(agentMetrics.date, today)));
+
+    if (existing.length > 0) {
+      const currentVal = Number(existing[0][field] || 0);
+      await db.update(agentMetrics)
+        .set({ [field]: currentVal + increment })
+        .where(eq(agentMetrics.id, existing[0].id));
+    } else {
+      await db.insert(agentMetrics).values({
+        userId,
+        tenantId,
+        date: today,
+        [field]: increment,
+      });
+    }
+  }
+
+  async updateAgentAvgResponseTime(userId: string, tenantId: string, responseTimeSeconds: number): Promise<void> {
+    const today = new Date().toISOString().split("T")[0];
+    const existing = await db.select().from(agentMetrics)
+      .where(and(eq(agentMetrics.userId, userId), eq(agentMetrics.date, today)));
+
+    if (existing.length > 0) {
+      const current = existing[0];
+      const totalMsgs = Number(current.totalMessages || 0);
+      const currentAvg = Number(current.avgResponseTimeSeconds || 0);
+      const newAvg = totalMsgs > 0
+        ? Math.round((currentAvg * totalMsgs + responseTimeSeconds) / (totalMsgs + 1))
+        : responseTimeSeconds;
+      await db.update(agentMetrics)
+        .set({ avgResponseTimeSeconds: newAvg })
+        .where(eq(agentMetrics.id, current.id));
+    } else {
+      await db.insert(agentMetrics).values({
+        userId,
+        tenantId,
+        date: today,
+        avgResponseTimeSeconds: Math.round(responseTimeSeconds),
+      });
+    }
+  }
+
+  async createActivityLog(data: InsertActivityLog): Promise<ActivityLogEntry> {
+    const [entry] = await db.insert(activityLog).values(data).returning();
+    return entry;
+  }
+
+  async getActivityLogByTenant(tenantId: string, limit = 50): Promise<any[]> {
+    const logs = await db.select().from(activityLog)
+      .where(eq(activityLog.tenantId, tenantId))
+      .orderBy(desc(activityLog.createdAt))
+      .limit(limit);
+
+    const result = [];
+    for (const log of logs) {
+      let userName: string | null = null;
+      if (log.userId) {
+        const user = await this.getUserById(log.userId);
+        userName = user?.name || null;
+      }
+      result.push({ ...log, userName });
+    }
+    return result;
+  }
+
+  async autoAssignConversation(tenantId: string): Promise<string | null> {
+    const tenant = await this.getTenant(tenantId);
+    if (!tenant || tenant.assignmentMode === "manual") return null;
+
+    const allAgents = await db.select().from(users)
+      .where(and(
+        eq(users.tenantId, tenantId),
+        eq(users.status, "online"),
+      ));
+
+    if (allAgents.length === 0) return null;
+
+    const eligibleAgents: { id: string; activeChats: number }[] = [];
+    for (const agent of allAgents) {
+      const activeCount = await this.getActiveConversationCountByAgent(agent.id);
+      const maxChats = agent.maxConcurrentChats || 10;
+      if (activeCount < maxChats) {
+        eligibleAgents.push({ id: agent.id, activeChats: activeCount });
+      }
+    }
+
+    if (eligibleAgents.length === 0) return null;
+
+    if (tenant.assignmentMode === "least_busy") {
+      eligibleAgents.sort((a, b) => a.activeChats - b.activeChats);
+      return eligibleAgents[0].id;
+    }
+
+    if (tenant.assignmentMode === "round_robin") {
+      const lastAssigned = tenant.lastAssignedUserId;
+      if (!lastAssigned) {
+        const chosen = eligibleAgents[0].id;
+        await this.updateTenant(tenantId, { lastAssignedUserId: chosen } as any);
+        return chosen;
+      }
+      const lastIdx = eligibleAgents.findIndex(a => a.id === lastAssigned);
+      const nextIdx = (lastIdx + 1) % eligibleAgents.length;
+      const chosen = eligibleAgents[nextIdx].id;
+      await this.updateTenant(tenantId, { lastAssignedUserId: chosen } as any);
+      return chosen;
+    }
+
+    return null;
+  }
+
+  async getTeamMonitoring(tenantId: string): Promise<any> {
+    const teamMembers = await db.select().from(users).where(eq(users.tenantId, tenantId));
+
+    const today = new Date().toISOString().split("T")[0];
+    const todayMetrics = await db.select().from(agentMetrics)
+      .where(and(eq(agentMetrics.tenantId, tenantId), eq(agentMetrics.date, today)));
+
+    const metricsMap = new Map<string, AgentMetric>();
+    for (const m of todayMetrics) {
+      if (m.userId) metricsMap.set(m.userId, m);
+    }
+
+    const agentStats = [];
+    for (const member of teamMembers) {
+      const activeChats = await this.getActiveConversationCountByAgent(member.id);
+      const metrics = metricsMap.get(member.id);
+
+      agentStats.push({
+        id: member.id,
+        name: member.name,
+        email: member.email,
+        role: member.role,
+        status: member.status,
+        maxConcurrentChats: member.maxConcurrentChats || 10,
+        activeChats,
+        resolvedToday: metrics?.resolvedConversations || 0,
+        totalMessagesToday: metrics?.totalMessages || 0,
+        avgResponseTimeSeconds: metrics?.avgResponseTimeSeconds || 0,
+      });
+    }
+
+    const totalActive = await db.select({ count: count() }).from(conversations)
+      .where(and(eq(conversations.tenantId, tenantId), eq(conversations.status, "active")));
+    const totalWaiting = await db.select({ count: count() }).from(conversations)
+      .where(and(eq(conversations.tenantId, tenantId), eq(conversations.status, "waiting")));
+    const unassigned = await db.select({ count: count() }).from(conversations)
+      .where(and(
+        eq(conversations.tenantId, tenantId),
+        or(eq(conversations.status, "active"), eq(conversations.status, "waiting")),
+        isNull(conversations.assignedTo)
+      ));
+
+    return {
+      agents: agentStats,
+      summary: {
+        totalActive: Number(totalActive[0]?.count || 0),
+        totalWaiting: Number(totalWaiting[0]?.count || 0),
+        unassigned: Number(unassigned[0]?.count || 0),
+        onlineAgents: teamMembers.filter(m => m.status === "online").length,
+        totalAgents: teamMembers.length,
+      },
+    };
   }
 
   async getStats(tenantId: string): Promise<any> {

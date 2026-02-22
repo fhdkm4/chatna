@@ -1,0 +1,47 @@
+حتاج تطوير نظام إدارة الفريق الموجود بإضافة ميزات توزيع المهام والمراقبة. التفاصيل:
+1.⁠ ⁠توزيع المحادثات التلقائي (Auto-Assignment)
+	∙	عند وصول محادثة جديدة، توزّع تلقائياً على الموظفين المتاحين (status: online)
+	∙	3 طرق للتوزيع يختار منها الأدمن في الإعدادات:
+	∙	Round Robin: بالدور على كل الموظفين
+	∙	Least Busy: للموظف اللي عنده أقل محادثات نشطة
+	∙	Manual: بدون توزيع تلقائي، الموظف يختار المحادثة بنفسه
+	∙	إضافة حقل assignmentMode في جدول tenants (enum: round_robin, least_busy, manual) default: round_robin
+	∙	إضافة حقل maxConcurrentChats في جدول users (default: 10) - الحد الأقصى للمحادثات لكل موظف
+	∙	لو كل الموظفين مشغولين أو offline، المحادثة تروح لقائمة “غير معيّنة” (unassigned)
+2.⁠ ⁠تحويل المحادثات بين الموظفين
+	∙	زر “تحويل” في المحادثة يظهر قائمة الموظفين المتاحين مع عدد محادثاتهم الحالية
+	∙	عند التحويل: تسجيل في سجل المحادثة (system message): “تم التحويل من [اسم] إلى [اسم]”
+	∙	إشعار فوري للموظف الجديد عبر Socket.io
+3.⁠ ⁠مراقبة أداء الفريق (Team Monitoring Dashboard)
+	∙	صفحة /team/monitoring للأدمن والمدير تعرض:
+	∙	قائمة الموظفين مع: الحالة (online/away/offline)، عدد المحادثات النشطة، متوسط وقت الرد (آخر 24 ساعة)، عدد المحادثات المحلولة اليوم
+	∙	إحصائيات عامة: إجمالي المحادثات النشطة، المحادثات غير المعيّنة، متوسط وقت الانتظار
+	∙	حساب متوسط وقت الرد: الفرق بين وقت رسالة العميل ووقت أول رد من الموظف
+	∙	إضافة جدول جديد:
+agent_metrics:
+	∙	id: serial primary key
+	∙	userId: references users(id)
+	∙	tenantId: references tenants(id)
+	∙	date: date
+	∙	totalConversations: integer (default: 0)
+	∙	resolvedConversations: integer (default: 0)
+	∙	avgResponseTimeSeconds: integer (default: 0)
+	∙	totalMessages: integer (default: 0)
+	∙	createdAt: timestamp
+	∙	تحديث الإحصائيات عند كل رد من موظف أو حل محادثة
+	∙	عرض البيانات بـ cards ملونة وأيقونات
+4.⁠ ⁠سجل النشاطات (Activity Log)
+	∙	جدول جديد:
+activity_log:
+	∙	id: serial primary key
+	∙	tenantId: references tenants(id)
+	∙	userId: references users(id)
+	∙	action: varchar (conversation_assigned, conversation_transferred, conversation_resolved, agent_status_changed, message_sent)
+	∙	details: jsonb
+	∙	createdAt: timestamp
+	∙	تسجيل كل حدث مهم تلقائياً
+	∙	عرضه في صفحة المراقبة كـ timeline
+واجهة المستخدم:
+	∙	نفس الستايل الموجود: dark theme، RTL، Tailwind + shadcn/ui
+	∙	صفحة المراقبة تتحدث كل 30 ثانية أو عبر Socket.io
+━━━━━━━━━━

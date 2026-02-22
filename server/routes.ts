@@ -459,6 +459,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         plan: tenant.plan,
         maxAgents: tenant.maxAgents,
         name: tenant.name,
+        assignmentMode: tenant.assignmentMode || "round_robin",
       });
     } catch (err) {
       console.error("Get settings error:", err);
@@ -468,12 +469,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.patch("/api/settings", authMiddleware, adminOnly, async (req: any, res) => {
     try {
-      const { aiEnabled, aiSystemPrompt, setupCompleted, name } = req.body;
+      const { aiEnabled, aiSystemPrompt, setupCompleted, name, assignmentMode } = req.body;
       const updates: any = {};
       if (typeof aiEnabled === "boolean") updates.aiEnabled = aiEnabled;
       if (typeof aiSystemPrompt === "string") updates.aiSystemPrompt = aiSystemPrompt;
       if (typeof setupCompleted === "boolean") updates.setupCompleted = setupCompleted;
       if (typeof name === "string" && name.trim()) updates.name = name.trim();
+      if (assignmentMode && ["round_robin", "least_busy", "manual"].includes(assignmentMode)) {
+        updates.assignmentMode = assignmentMode;
+      }
 
       const tenant = await storage.updateTenant(req.user.tenantId, updates);
       res.json(tenant);
@@ -628,16 +632,37 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     let conversation = await storage.getActiveConversation(tenantId, contact.id);
     if (!conversation) {
+      const assignedAgentId = await storage.autoAssignConversation(tenantId);
       conversation = await storage.createConversation({
         tenantId,
         contactId: contact.id,
         status: "active",
         channel: "whatsapp",
         aiHandled: false,
+        assignedTo: assignedAgentId,
       });
       await storage.updateContact(contact.id, {
         totalConversations: (contact.totalConversations || 0) + 1,
       });
+      if (assignedAgentId) {
+        const assignedAgent = await storage.getUserById(assignedAgentId);
+        await storage.createActivityLog({
+          tenantId,
+          action: "conversation_assigned",
+          details: {
+            conversationId: conversation.id,
+            agentId: assignedAgentId,
+            agentName: assignedAgent?.name,
+            method: "auto",
+          },
+        });
+        await storage.incrementAgentMetric(assignedAgentId, tenantId, "totalConversations");
+        io.to(`tenant:${tenantId}`).emit("conversation_assigned", {
+          conversationId: conversation.id,
+          agentId: assignedAgentId,
+          agentName: assignedAgent?.name,
+        });
+      }
     }
 
     const customerMessage = await storage.createMessage({
@@ -976,6 +1001,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         if (Object.keys(updateData).length > 0) {
           await storage.updateConversation(conversation.id, updateData);
         }
+        await storage.incrementAgentMetric(req.user.id, req.user.tenantId, "totalMessages");
+        await storage.createActivityLog({
+          tenantId: req.user.tenantId,
+          userId: req.user.id,
+          action: "message_sent",
+          details: { conversationId: conversation.id },
+        });
       }
 
       io.to(`tenant:${req.user.tenantId}`).emit("new_message", {
@@ -1018,6 +1050,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const conv = await storage.updateConversation(req.params.id, req.body);
       if (!conv) return res.status(404).json({ message: "المحادثة غير موجودة" });
+
+      if (req.body.status === "resolved" && conv.assignedTo) {
+        await storage.incrementAgentMetric(conv.assignedTo, req.user.tenantId, "resolvedConversations");
+        await storage.createActivityLog({
+          tenantId: req.user.tenantId,
+          userId: req.user.id,
+          action: "conversation_resolved",
+          details: { conversationId: conv.id },
+        });
+      }
+
       res.json(conv);
     } catch (err) {
       console.error("Update conversation error:", err);
@@ -1143,6 +1186,113 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.status(204).send();
     } catch (err) {
       res.status(500).json({ message: "خطأ" });
+    }
+  });
+
+  // Transfer conversation to another agent
+  app.post("/api/conversations/:id/transfer", authMiddleware, managerOrAdmin, async (req: any, res) => {
+    try {
+      const targetAgentId = req.body.toAgentId || req.body.targetAgentId;
+      if (!targetAgentId) return res.status(400).json({ message: "الموظف المستهدف مطلوب" });
+
+      const conversation = await storage.getConversationById(req.params.id);
+      if (!conversation || conversation.tenantId !== req.user.tenantId) {
+        return res.status(404).json({ message: "المحادثة غير موجودة" });
+      }
+
+      const targetAgent = await storage.getUserById(targetAgentId);
+      if (!targetAgent || targetAgent.tenantId !== req.user.tenantId) {
+        return res.status(400).json({ message: "الموظف غير موجود" });
+      }
+
+      const fromUser = await storage.getUserById(req.user.id);
+      const fromName = fromUser?.name || "موظف";
+
+      await storage.updateConversation(conversation.id, { assignedTo: targetAgentId });
+
+      const systemMsg = await storage.createMessage({
+        conversationId: conversation.id,
+        tenantId: req.user.tenantId,
+        senderType: "system",
+        content: `تم تحويل المحادثة من ${fromName} إلى ${targetAgent.name}`,
+      });
+
+      await storage.createActivityLog({
+        tenantId: req.user.tenantId,
+        userId: req.user.id,
+        action: "conversation_transferred",
+        details: {
+          conversationId: conversation.id,
+          fromAgentId: req.user.id,
+          fromAgentName: fromName,
+          toAgentId: targetAgentId,
+          toAgentName: targetAgent.name,
+        },
+      });
+
+      io.to(`tenant:${req.user.tenantId}`).emit("conversation_transferred", {
+        conversationId: conversation.id,
+        fromAgentId: req.user.id,
+        toAgentId: targetAgentId,
+        toAgentName: targetAgent.name,
+      });
+
+      io.to(`tenant:${req.user.tenantId}`).emit("new_message", {
+        conversationId: conversation.id,
+        message: systemMsg,
+      });
+
+      res.json({ message: "تم التحويل بنجاح" });
+    } catch (err) {
+      console.error("Transfer error:", err);
+      res.status(500).json({ message: "خطأ في تحويل المحادثة" });
+    }
+  });
+
+  // Team monitoring endpoint
+  app.get("/api/team/monitoring", authMiddleware, managerOrAdmin, async (req: any, res) => {
+    try {
+      const monitoring = await storage.getTeamMonitoring(req.user.tenantId);
+      res.json(monitoring);
+    } catch (err) {
+      console.error("Monitoring error:", err);
+      res.status(500).json({ message: "خطأ في جلب بيانات المراقبة" });
+    }
+  });
+
+  // Activity log endpoint
+  app.get("/api/activity-log", authMiddleware, managerOrAdmin, async (req: any, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const logs = await storage.getActivityLogByTenant(req.user.tenantId, limit);
+      res.json(logs);
+    } catch (err) {
+      console.error("Activity log error:", err);
+      res.status(500).json({ message: "خطأ في جلب سجل النشاطات" });
+    }
+  });
+
+  // Team members with active chat counts (for transfer popup)
+  app.get("/api/team/available", authMiddleware, async (req: any, res) => {
+    try {
+      const teamMembers = await storage.getUsersByTenant(req.user.tenantId);
+      const result = [];
+      for (const member of teamMembers) {
+        const activeChats = await storage.getActiveConversationCountByAgent(member.id);
+        result.push({
+          id: member.id,
+          name: member.name,
+          email: member.email,
+          role: member.role,
+          status: member.status,
+          activeChats,
+          maxConcurrentChats: member.maxConcurrentChats || 10,
+        });
+      }
+      res.json(result);
+    } catch (err) {
+      console.error("Available team error:", err);
+      res.status(500).json({ message: "خطأ في جلب الموظفين" });
     }
   });
 

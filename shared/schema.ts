@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, uuid, boolean, integer, real, timestamp, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, uuid, boolean, integer, real, timestamp, index, uniqueIndex, date, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -21,6 +21,8 @@ export const tenants = pgTable("tenants", {
   webhookVerifyToken: varchar("webhook_verify_token", { length: 100 }),
   qualityRating: varchar("quality_rating", { length: 20 }),
   qualityCheckedAt: timestamp("quality_checked_at"),
+  assignmentMode: varchar("assignment_mode", { length: 20 }).default("round_robin"),
+  lastAssignedUserId: uuid("last_assigned_user_id"),
   setupCompleted: boolean("setup_completed").default(false),
   discountCode: varchar("discount_code", { length: 50 }),
   createdAt: timestamp("created_at").defaultNow(),
@@ -35,6 +37,7 @@ export const users = pgTable("users", {
   name: varchar("name", { length: 255 }).notNull(),
   role: varchar("role", { length: 20 }).default("agent"),
   status: varchar("status", { length: 20 }).default("offline"),
+  maxConcurrentChats: integer("max_concurrent_chats").default(10),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -130,6 +133,31 @@ export const quickReplies = pgTable("quick_replies", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const agentMetrics = pgTable("agent_metrics", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
+  date: date("date").notNull(),
+  totalConversations: integer("total_conversations").default(0),
+  resolvedConversations: integer("resolved_conversations").default(0),
+  avgResponseTimeSeconds: integer("avg_response_time_seconds").default(0),
+  totalMessages: integer("total_messages").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("agent_metrics_user_date_idx").on(table.userId, table.date),
+]);
+
+export const activityLog = pgTable("activity_log", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").references(() => users.id),
+  action: varchar("action", { length: 50 }).notNull(),
+  details: jsonb("details"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("activity_log_tenant_idx").on(table.tenantId, table.createdAt),
+]);
+
 export const insertTenantSchema = createInsertSchema(tenants).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertContactSchema = createInsertSchema(contacts).omit({ id: true, createdAt: true, updatedAt: true });
@@ -139,6 +167,8 @@ export const insertAutoReplySchema = createInsertSchema(autoReplies).omit({ id: 
 export const insertAiKnowledgeSchema = createInsertSchema(aiKnowledge).omit({ id: true, createdAt: true });
 export const insertQuickReplySchema = createInsertSchema(quickReplies).omit({ id: true, createdAt: true });
 export const insertInvitationSchema = createInsertSchema(invitations).omit({ id: true, createdAt: true });
+export const insertAgentMetricsSchema = createInsertSchema(agentMetrics).omit({ id: true, createdAt: true });
+export const insertActivityLogSchema = createInsertSchema(activityLog).omit({ id: true, createdAt: true });
 
 export const registerSchema = z.object({
   companyName: z.string().min(2),
@@ -189,3 +219,7 @@ export type QuickReply = typeof quickReplies.$inferSelect;
 export type InsertQuickReply = z.infer<typeof insertQuickReplySchema>;
 export type Invitation = typeof invitations.$inferSelect;
 export type InsertInvitation = z.infer<typeof insertInvitationSchema>;
+export type AgentMetric = typeof agentMetrics.$inferSelect;
+export type InsertAgentMetric = z.infer<typeof insertAgentMetricsSchema>;
+export type ActivityLogEntry = typeof activityLog.$inferSelect;
+export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;

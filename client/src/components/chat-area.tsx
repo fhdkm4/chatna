@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Zap, PanelRightOpen, Bot, UserCircle, Check, CheckCheck, UserPlus, FileDown, Eye, EyeOff } from "lucide-react";
+import { Send, Zap, PanelRightOpen, Bot, UserCircle, Check, CheckCheck, UserPlus, FileDown, Eye, EyeOff, ArrowLeftRight, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { QuickRepliesPopup } from "@/components/quick-replies-popup";
 import { AssignAgentPopup } from "@/components/assign-agent-popup";
+import { authFetch } from "@/lib/auth";
 import type { ConversationWithDetails } from "@/pages/dashboard";
 import type { Message, Conversation } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
@@ -16,6 +17,7 @@ interface ChatAreaProps {
   onToggleContact: () => void;
   onUpdateConversation: (id: string, updates: Partial<Conversation>) => void;
   onAssignAgent: (conversationId: string, agentId: string | null) => void;
+  onTransfer?: (conversationId: string, toAgentId: string, reason?: string) => void;
   user: { id: string; name: string; role: string };
 }
 
@@ -78,11 +80,89 @@ function MediaDisplay({ mediaUrl, mediaType }: { mediaUrl: string; mediaType: st
   );
 }
 
-export function ChatArea({ conversation, messages, onSend, onToggleContact, onUpdateConversation, onAssignAgent, user }: ChatAreaProps) {
+function TransferPopup({ conversationId, currentAgentId, onTransfer, onClose }: {
+  conversationId: string;
+  currentAgentId: string;
+  onTransfer: (toAgentId: string, reason?: string) => void;
+  onClose: () => void;
+}) {
+  const [agents, setAgents] = useState<{ id: string; name: string; email: string; role: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [reason, setReason] = useState("");
+
+  useEffect(() => {
+    const fetchAgents = async () => {
+      try {
+        const res = await authFetch("/api/team/available");
+        if (res.ok) {
+          const data = await res.json();
+          setAgents(data.filter((a: any) => a.id !== currentAgentId));
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAgents();
+  }, [currentAgentId]);
+
+  return (
+    <div className="absolute top-full left-0 mt-1 w-64 bg-[#111827] border border-white/10 rounded-lg shadow-xl z-50 overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-white/5">
+        <span className="text-xs text-gray-400">تحويل المحادثة</span>
+        <button onClick={onClose} className="text-gray-500 hover:text-gray-300" data-testid="button-close-transfer">
+          <X className="w-3 h-3" />
+        </button>
+      </div>
+      <div className="px-3 py-2 border-b border-white/5">
+        <input
+          type="text"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="سبب التحويل (اختياري)"
+          data-testid="input-transfer-reason"
+          className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-emerald-500/50"
+        />
+      </div>
+      {loading ? (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
+        </div>
+      ) : agents.length === 0 ? (
+        <div className="px-3 py-4 text-center text-xs text-gray-500">
+          لا يوجد موظفين متاحين
+        </div>
+      ) : (
+        <div className="max-h-48 overflow-y-auto">
+          {agents.map((agent) => (
+            <button
+              key={agent.id}
+              data-testid={`button-transfer-to-${agent.id}`}
+              onClick={() => onTransfer(agent.id, reason || undefined)}
+              className="w-full px-3 py-2 flex items-center gap-2 text-right hover:bg-white/5 transition-colors"
+            >
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                {agent.name.charAt(0)}
+              </div>
+              <div className="flex-1 min-w-0 text-right">
+                <p className="text-xs text-white truncate">{agent.name}</p>
+                <p className="text-[10px] text-gray-500 truncate">{agent.role === "admin" ? "مدير" : agent.role === "manager" ? "مشرف" : "موظف"}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function ChatArea({ conversation, messages, onSend, onToggleContact, onUpdateConversation, onAssignAgent, onTransfer, user }: ChatAreaProps) {
   const [input, setInput] = useState("");
   const [isInternalMode, setIsInternalMode] = useState(false);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -183,6 +263,31 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
               />
             )}
           </div>
+          {conversation.assignedTo && onTransfer && (user.role === "admin" || user.role === "manager") && (
+            <div className="relative">
+              <Button
+                size="sm"
+                variant="ghost"
+                data-testid="button-transfer"
+                onClick={() => setShowTransfer(!showTransfer)}
+                className="text-xs text-gray-400 h-7"
+              >
+                <ArrowLeftRight className="w-3 h-3 ml-1" />
+                تحويل
+              </Button>
+              {showTransfer && (
+                <TransferPopup
+                  conversationId={conversation.id}
+                  currentAgentId={conversation.assignedTo}
+                  onTransfer={(toAgentId, reason) => {
+                    onTransfer(conversation.id, toAgentId, reason);
+                    setShowTransfer(false);
+                  }}
+                  onClose={() => setShowTransfer(false)}
+                />
+              )}
+            </div>
+          )}
           {conversation.status !== "resolved" && (
             <Button
               size="sm"
