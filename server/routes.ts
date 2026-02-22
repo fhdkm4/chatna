@@ -10,6 +10,7 @@ import { db } from "./db";
 import { registerSchema, loginSchema, createAgentSchema, inviteAgentSchema, acceptInvitationSchema, users as usersTable, messages as messagesTable, conversations as conversationsTable, invitations as invitationsTable } from "@shared/schema";
 import crypto from "crypto";
 import { parseIncomingMessage, sendWhatsAppMessage } from "./services/twilio";
+import { sendMetaWhatsAppMessage, markMessageAsRead } from "./services/meta-whatsapp";
 import { checkAutoReply, generateAiResponse } from "./services/ai";
 import { simulateTypingDelay } from "./services/typing-delay";
 import { count, sql as sqlHelper, and, inArray, not, desc } from "drizzle-orm";
@@ -482,20 +483,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  // Meta webhook endpoints
+  // Meta Cloud API webhook endpoints
   app.get("/webhook", (req, res) => {
     const mode = req.query["hub.mode"];
     const token = req.query["hub.verify_token"];
     const challenge = req.query["hub.challenge"];
 
-    const VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN;
+    const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
     if (!VERIFY_TOKEN) {
-      console.warn("META_WEBHOOK_VERIFY_TOKEN not configured");
+      console.warn("VERIFY_TOKEN not configured");
       return res.status(503).send("Webhook not configured");
     }
 
     if (mode === "subscribe" && token === VERIFY_TOKEN) {
-      console.log("Meta webhook verified");
+      console.log("Meta webhook verified successfully");
       return res.status(200).send(challenge);
     }
     return res.status(403).send("Forbidden");
@@ -519,43 +520,211 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
 
+      res.status(200).send("EVENT_RECEIVED");
+
       const body = Buffer.isBuffer(req.body) ? JSON.parse(req.body.toString()) : req.body;
 
-      if (body.object === "whatsapp_business_account") {
-        const entries = body.entry || [];
-        for (const entry of entries) {
-          const changes = entry.changes || [];
-          for (const change of changes) {
-            if (change.field === "messages") {
-              const value = change.value;
-              const msgMessages = value?.messages || [];
-              for (const msg of msgMessages) {
-                console.log("Meta webhook message received:", {
-                  from: msg.from,
-                  type: msg.type,
-                  timestamp: msg.timestamp,
-                  text: msg.text?.body,
-                });
-              }
-              const statuses = value?.statuses || [];
-              for (const status of statuses) {
-                console.log("Meta webhook status update:", {
-                  recipientId: status.recipient_id,
-                  status: status.status,
-                  timestamp: status.timestamp,
-                });
-              }
+      if (body.object !== "whatsapp_business_account") return;
+
+      const contactsMap = new Map<string, string>();
+      const entries = body.entry || [];
+      for (const entry of entries) {
+        const changes = entry.changes || [];
+        for (const change of changes) {
+          if (change.field !== "messages") continue;
+          const value = change.value;
+
+          const waContacts = value?.contacts || [];
+          for (const wc of waContacts) {
+            if (wc.wa_id && wc.profile?.name) {
+              contactsMap.set(wc.wa_id, wc.profile.name);
             }
+          }
+
+          const statuses = value?.statuses || [];
+          for (const status of statuses) {
+            console.log("WhatsApp status update:", status.status, "for", status.recipient_id);
+          }
+
+          const messages = value?.messages || [];
+          for (const msg of messages) {
+            processMetaMessage(msg, contactsMap, io).catch((err) => {
+              console.error("Error processing Meta message:", err);
+            });
           }
         }
       }
-
-      res.status(200).send("EVENT_RECEIVED");
     } catch (err) {
       console.error("Meta webhook error:", err);
-      res.status(500).send("Error");
+      if (!res.headersSent) {
+        res.status(500).send("Error");
+      }
     }
   });
+
+  async function processMetaMessage(msg: any, contactsMap: Map<string, string>, io: SocketServer) {
+    const senderPhone = msg.from;
+    const profileName = contactsMap.get(senderPhone) || null;
+
+    let messageContent = "";
+    let mediaType: string | undefined;
+
+    if (msg.type === "text") {
+      messageContent = msg.text?.body || "";
+    } else if (msg.type === "image") {
+      messageContent = msg.image?.caption || "[صورة]";
+      mediaType = "image";
+    } else if (msg.type === "video") {
+      messageContent = msg.video?.caption || "[فيديو]";
+      mediaType = "video";
+    } else if (msg.type === "audio" || msg.type === "voice") {
+      messageContent = "[رسالة صوتية]";
+      mediaType = "audio";
+    } else if (msg.type === "document") {
+      messageContent = msg.document?.caption || `[مستند: ${msg.document?.filename || "ملف"}]`;
+      mediaType = "document";
+    } else if (msg.type === "location") {
+      messageContent = `[موقع: ${msg.location?.latitude}, ${msg.location?.longitude}]`;
+    } else if (msg.type === "sticker") {
+      messageContent = "[ملصق]";
+      mediaType = "image";
+    } else {
+      messageContent = `[رسالة من نوع: ${msg.type}]`;
+    }
+
+    if (!messageContent) return;
+
+    markMessageAsRead(msg.id).catch(() => {});
+    console.log(`WhatsApp message from ${senderPhone}: ${messageContent.substring(0, 100)}`);
+
+    let tenantId: string | null = null;
+
+    const existingContact = await storage.getContactByPhone("*", senderPhone);
+    if (existingContact) {
+      tenantId = existingContact.tenantId;
+    }
+
+    if (!tenantId) {
+      const { tenants: tenantsTable } = await import("@shared/schema");
+      const allT = await db.select().from(tenantsTable).limit(1);
+      if (allT.length > 0) {
+        tenantId = allT[0].id;
+      } else {
+        console.warn("No tenant found, ignoring message");
+        return;
+      }
+    }
+
+    let contact = await storage.getContactByPhone(tenantId, senderPhone);
+    if (!contact) {
+      contact = await storage.createContact({
+        tenantId,
+        phone: senderPhone,
+        name: profileName,
+      });
+    } else if (profileName && !contact.name) {
+      await storage.updateContact(contact.id, { name: profileName });
+    }
+
+    let conversation = await storage.getActiveConversation(tenantId, contact.id);
+    if (!conversation) {
+      conversation = await storage.createConversation({
+        tenantId,
+        contactId: contact.id,
+        status: "active",
+        channel: "whatsapp",
+        aiHandled: false,
+      });
+      await storage.updateContact(contact.id, {
+        totalConversations: (contact.totalConversations || 0) + 1,
+      });
+    }
+
+    const customerMessage = await storage.createMessage({
+      conversationId: conversation.id,
+      tenantId,
+      senderType: "customer",
+      content: messageContent,
+      mediaType,
+    });
+
+    io.to(`tenant:${tenantId}`).emit("new_message", {
+      conversationId: conversation.id,
+      message: customerMessage,
+    });
+
+    if (conversation.aiPaused) return;
+
+    const tenant = await storage.getTenant(tenantId);
+    if (!tenant?.aiEnabled) return;
+
+    const hasTextContent = messageContent && !messageContent.startsWith("[") ;
+    if (!hasTextContent) return;
+
+    const autoReplyContent = await checkAutoReply(tenantId, messageContent);
+    if (autoReplyContent) {
+      await simulateTypingDelay(autoReplyContent);
+      await sendMetaWhatsAppMessage(senderPhone, autoReplyContent);
+      const aiMsg = await storage.createMessage({
+        conversationId: conversation.id,
+        tenantId,
+        senderType: "ai",
+        content: autoReplyContent,
+        aiConfidence: 1.0,
+      });
+      await storage.updateConversation(conversation.id, { aiHandled: true, delayAlerted: false });
+      io.to(`tenant:${tenantId}`).emit("new_message", {
+        conversationId: conversation.id,
+        message: aiMsg,
+      });
+      return;
+    }
+
+    const aiResponse = await generateAiResponse(
+      tenantId,
+      conversation.id,
+      messageContent,
+      tenant.aiSystemPrompt,
+    );
+
+    if (aiResponse.confidence >= 0.6) {
+      await simulateTypingDelay(aiResponse.content);
+      await sendMetaWhatsAppMessage(senderPhone, aiResponse.content);
+      const aiMsg = await storage.createMessage({
+        conversationId: conversation.id,
+        tenantId,
+        senderType: "ai",
+        content: aiResponse.content,
+        aiConfidence: aiResponse.confidence,
+      });
+      await storage.updateConversation(conversation.id, { aiHandled: true, delayAlerted: false });
+      io.to(`tenant:${tenantId}`).emit("new_message", {
+        conversationId: conversation.id,
+        message: aiMsg,
+      });
+    } else {
+      const aiMsg = await storage.createMessage({
+        conversationId: conversation.id,
+        tenantId,
+        senderType: "system",
+        content: `[تم تحويل المحادثة لموظف] ${aiResponse.content}`,
+        aiConfidence: aiResponse.confidence,
+      });
+      await storage.updateConversation(conversation.id, {
+        status: "waiting",
+        aiPaused: true,
+      });
+      io.to(`tenant:${tenantId}`).emit("escalation", {
+        conversationId: conversation.id,
+        message: aiMsg,
+        reason: "ثقة AI منخفضة",
+      });
+      io.to(`tenant:${tenantId}`).emit("new_message", {
+        conversationId: conversation.id,
+        message: aiMsg,
+      });
+    }
+  }
 
   // Twilio webhook
   app.post("/api/webhook/twilio", async (req, res) => {
@@ -770,9 +939,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const contact = await storage.getContactById(conversation.contactId);
         if (contact) {
           try {
-            twilioSid = await sendWhatsAppMessage(`whatsapp:${contact.phone}`, content, mediaUrl || undefined);
+            const metaMsgId = await sendMetaWhatsAppMessage(contact.phone, content);
+            if (metaMsgId) {
+              twilioSid = metaMsgId;
+            } else {
+              twilioSid = await sendWhatsAppMessage(`whatsapp:${contact.phone}`, content, mediaUrl || undefined);
+            }
           } catch (err) {
-            console.error("Twilio send failed:", err);
+            console.error("WhatsApp send failed:", err);
           }
         }
       }
