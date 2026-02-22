@@ -47,8 +47,8 @@ Preferred communication style: Simple, everyday language.
 - **Database**: PostgreSQL via Drizzle ORM (`drizzle-orm/node-postgres`)
 - **Schema** (`shared/schema.ts`): Defined with Drizzle's `pgTable` helpers. Uses `drizzle-zod` for validation schema generation
 - **Key Tables**:
-  - `tenants` — Multi-tenant organizations with plan, AI settings, Twilio config, Meta Cloud API encrypted tokens, quality rating
-  - `users` — Agents/admins/managers belonging to a tenant (email/password auth, roles: admin, manager, agent)
+  - `tenants` — Multi-tenant organizations with plan, AI settings, Twilio config, Meta Cloud API encrypted tokens, quality rating, assignmentMode (round_robin/least_busy/manual)
+  - `users` — Agents/admins/managers belonging to a tenant (email/password auth, roles: admin, manager, agent, maxConcurrentChats)
   - `invitations` — Email-based team invitations with token, role, expiration
   - `contacts` — Customer contacts per tenant (unique by tenant+phone)
   - `conversations` — Chat sessions between contacts and tenants, with status tracking and agent assignment
@@ -56,6 +56,8 @@ Preferred communication style: Simple, everyday language.
   - `autoReplies` — Rule-based automatic responses (keyword, exact, pattern triggers)
   - `aiKnowledge` — Knowledge base entries for AI context
   - `quickReplies` — Pre-written response templates for agents
+  - `agentMetrics` — Daily agent performance metrics (totalConversations, resolvedConversations, avgResponseTimeSeconds, totalMessages)
+  - `activityLog` — System activity audit trail (transfers, assignments, resolutions)
 - **Schema push**: Use `npm run db:push` (runs `drizzle-kit push`) to sync schema to database
 - **Storage layer** (`server/storage.ts`): Repository pattern interface (`IStorage`) abstracting all database operations
 
