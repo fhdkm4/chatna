@@ -940,15 +940,30 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         message: customerMessage,
       });
 
-      if (conversation.aiPaused) return;
+      console.log("🤖 AI check - aiPaused:", conversation.aiPaused, "conversationId:", conversation.id);
 
-      const tenant = await storage.getTenant(tenantId);
-      if (!tenant?.aiEnabled) return;
+      if (conversation.aiPaused) {
+        console.log("⏸️ AI paused for this conversation, skipping");
+        return;
+      }
 
-      if (incoming.mediaUrl && !incoming.content) return;
+      const tenant = await storage.getTenant(tenantId!);
+      console.log("🏢 Tenant AI config - aiEnabled:", tenant?.aiEnabled, "tenantId:", tenantId);
 
-      const autoReplyContent = await checkAutoReply(tenantId, messageContent);
+      if (!tenant?.aiEnabled) {
+        console.log("❌ AI is disabled for tenant, skipping AI response");
+        return;
+      }
+
+      if (incoming.mediaUrl && !incoming.content) {
+        console.log("📎 Media-only message, skipping AI");
+        return;
+      }
+
+      console.log("🔍 Checking auto-replies for:", messageContent);
+      const autoReplyContent = await checkAutoReply(tenantId!, messageContent);
       if (autoReplyContent) {
+        console.log("✅ Auto-reply matched:", autoReplyContent);
         await simulateTypingDelay(autoReplyContent);
         const sid = await sendWhatsAppMessage(incoming.from, autoReplyContent);
         const aiMsg = await storage.createMessage({
@@ -967,12 +982,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return;
       }
 
+      console.log("🧠 Generating AI response for:", messageContent);
       const aiResponse = await generateAiResponse(
-        tenantId,
+        tenantId!,
         conversation.id,
         messageContent,
         tenant.aiSystemPrompt,
       );
+      console.log("🧠 AI response:", aiResponse.content.substring(0, 100), "confidence:", aiResponse.confidence);
 
       if (aiResponse.confidence >= 0.6) {
         await simulateTypingDelay(aiResponse.content);
