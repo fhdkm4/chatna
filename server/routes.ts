@@ -856,8 +856,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   }
 
+  app.get("/api/webhook/test", (_req, res) => {
+    res.json({ status: "webhook is working" });
+  });
+
   // Twilio webhook
   app.post("/api/webhook/twilio", async (req, res) => {
+    console.log("📩 Webhook received:", req.body);
     res.set("Content-Type", "text/xml");
     res.status(200).send("<Response></Response>");
 
@@ -870,11 +875,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       let tenantId: string | null = null;
       let contact = null;
 
-      const allContact = await storage.getContactByPhone("*", phone);
+      const { db: database } = await import("./db");
+      const { tenants: tenantsTable, contacts: contactsTable } = await import("@shared/schema");
 
-      if (!tenantId) {
-        const { db: database } = await import("./db");
-        const { tenants: tenantsTable } = await import("@shared/schema");
+      const existingContact = await database.select().from(contactsTable)
+        .where(eq(contactsTable.phone, phone)).limit(1);
+
+      if (existingContact.length > 0) {
+        tenantId = existingContact[0].tenantId;
+        contact = existingContact[0];
+      } else {
         const allT = await database.select().from(tenantsTable).limit(1);
         if (allT.length > 0) {
           tenantId = allT[0].id;
@@ -883,7 +893,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
 
-      contact = await storage.getContactByPhone(tenantId, phone);
+      if (!contact) {
+        contact = await storage.getContactByPhone(tenantId!, phone);
+      }
       if (!contact) {
         contact = await storage.createContact({
           tenantId,
