@@ -27,7 +27,8 @@ export function Campaigns() {
   const [sending, setSending] = useState<string | null>(null);
   const [generatingImage, setGeneratingImage] = useState(false);
   const [generatingText, setGeneratingText] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [savingSend, setSavingSend] = useState(false);
   const { toast } = useToast();
 
   const [form, setForm] = useState({
@@ -111,54 +112,73 @@ export function Campaigns() {
     finally { setGeneratingText(false); }
   };
 
-  const saveCampaign = async (sendNow: boolean) => {
-    if (saving) return;
-    setSaving(true);
+  const buildPayload = () => ({
+    title: form.title,
+    description: form.description || "",
+    imageUrl: form.imageUrl || "",
+    messageText: form.messageText || "",
+    ctaType: form.ctaType,
+    ctaValue: form.ctaValue || "",
+    targetType: form.targetType,
+    targetTags: form.targetTags,
+    targetContactIds: form.targetContactIds,
+    status: "draft",
+  });
+
+  const handleSaveDraft = async () => {
+    setSavingDraft(true);
     try {
-      const payload: Record<string, any> = {
-        title: form.title,
-        description: form.description || "",
-        imageUrl: form.imageUrl || null,
-        messageText: form.messageText || "",
-        ctaType: form.ctaType,
-        ctaValue: form.ctaValue || null,
-        targetType: form.targetType,
-        targetTags: form.targetTags,
-        targetContactIds: form.targetContactIds,
-        status: "draft",
-      };
       const res = await authFetch("/api/campaigns", {
         method: "POST",
-        body: JSON.stringify(payload),
+        body: JSON.stringify(buildPayload()),
       });
       if (res.ok) {
-        const campaign = await res.json();
-        if (sendNow) {
-          setSending(campaign.id);
-          const sendRes = await authFetch(`/api/campaigns/${campaign.id}/send`, { method: "POST" });
-          if (sendRes.ok) {
-            const result = await sendRes.json();
-            toast({ title: "تم إرسال الحملة", description: `تم الإرسال إلى ${result.deliveredCount} من ${result.totalRecipients} جهة اتصال` });
-          } else {
-            const err = await sendRes.json().catch(() => ({ message: "خطأ غير معروف" }));
-            toast({ title: "خطأ في الإرسال", description: err.message, variant: "destructive" });
-          }
-          setSending(null);
-        } else {
-          toast({ title: "تم حفظ الحملة كمسودة" });
-        }
+        toast({ title: "تم حفظ الحملة كمسودة" });
         setShowWizard(false);
         fetchCampaigns();
       } else {
         const err = await res.json().catch(() => ({ message: "خطأ في الخادم" }));
-        toast({ title: "خطأ في حفظ الحملة", description: err.message || "تعذر حفظ الحملة", variant: "destructive" });
+        toast({ title: "خطأ في حفظ الحملة", description: err.message, variant: "destructive" });
       }
     } catch (err) {
-      console.error("Save campaign error:", err);
+      console.error("Save draft error:", err);
       toast({ title: "خطأ في حفظ الحملة", description: "تحقق من اتصال الإنترنت وحاول مرة أخرى", variant: "destructive" });
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
+  const handleSendNow = async () => {
+    setSavingSend(true);
+    try {
+      const res = await authFetch("/api/campaigns", {
+        method: "POST",
+        body: JSON.stringify(buildPayload()),
+      });
+      if (res.ok) {
+        const campaign = await res.json();
+        setSending(campaign.id);
+        const sendRes = await authFetch(`/api/campaigns/${campaign.id}/send`, { method: "POST" });
+        if (sendRes.ok) {
+          const result = await sendRes.json();
+          toast({ title: "تم إرسال الحملة", description: `تم الإرسال إلى ${result.deliveredCount} من ${result.totalRecipients} جهة اتصال` });
+        } else {
+          const err = await sendRes.json().catch(() => ({ message: "خطأ غير معروف" }));
+          toast({ title: "خطأ في الإرسال", description: err.message, variant: "destructive" });
+        }
+        setSending(null);
+        setShowWizard(false);
+        fetchCampaigns();
+      } else {
+        const err = await res.json().catch(() => ({ message: "خطأ في الخادم" }));
+        toast({ title: "خطأ في حفظ الحملة", description: err.message, variant: "destructive" });
+      }
+    } catch (err) {
+      console.error("Send campaign error:", err);
+      toast({ title: "خطأ في إرسال الحملة", description: "تحقق من اتصال الإنترنت وحاول مرة أخرى", variant: "destructive" });
       setSending(null);
     } finally {
-      setSaving(false);
+      setSavingSend(false);
     }
   };
 
@@ -592,14 +612,14 @@ export function Campaigns() {
       </ScrollArea>
 
       <Dialog open={showWizard} onOpenChange={setShowWizard}>
-        <DialogContent className="bg-[#111827] border-white/10 text-white max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogContent className="bg-[#111827] border-white/10 text-white max-w-lg max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-white flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-emerald-400" /> إنشاء حملة جديدة
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex items-center gap-1 mb-4">
+          <div className="flex items-center gap-1 mb-4 shrink-0">
             {wizardSteps.map((step, i) => (
               <div key={step.id} className="flex items-center flex-1">
                 <button
@@ -625,11 +645,11 @@ export function Campaigns() {
             ))}
           </div>
 
-          <ScrollArea className="flex-1 -mx-6 px-6">
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1" style={{ maxHeight: "calc(85vh - 200px)" }}>
             {renderWizardContent()}
-          </ScrollArea>
+          </div>
 
-          <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/10">
+          <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/10 shrink-0">
             <Button
               data-testid="button-wizard-back"
               variant="ghost"
@@ -648,20 +668,20 @@ export function Campaigns() {
                   <Button
                     data-testid="button-save-draft"
                     variant="outline"
-                    onClick={() => saveCampaign(false)}
-                    disabled={saving}
-                    className="border-white/20 text-gray-300 hover:bg-white/5"
+                    onClick={handleSaveDraft}
+                    disabled={savingDraft || savingSend}
+                    className="border-white/20 text-gray-300"
                   >
-                    {saving && !sending ? <Loader2 className="w-4 h-4 animate-spin ml-1" /> : null}
+                    {savingDraft ? <Loader2 className="w-4 h-4 animate-spin ml-1" /> : null}
                     حفظ كمسودة
                   </Button>
                   <Button
                     data-testid="button-send-now"
-                    onClick={() => saveCampaign(true)}
-                    disabled={saving || !!sending}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={handleSendNow}
+                    disabled={savingDraft || savingSend || !!sending}
+                    className="bg-emerald-600 text-white"
                   >
-                    {sending ? <Loader2 className="w-4 h-4 animate-spin ml-1" /> : <Send className="w-4 h-4 ml-1" />}
+                    {savingSend || sending ? <Loader2 className="w-4 h-4 animate-spin ml-1" /> : <Send className="w-4 h-4 ml-1" />}
                     إرسال الآن
                   </Button>
                 </>
@@ -673,7 +693,7 @@ export function Campaigns() {
                     if (next) setWizardStep(next.id);
                   }}
                   disabled={!canProceed()}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="bg-emerald-600 text-white"
                 >
                   التالي <ArrowLeft className="w-4 h-4 mr-1" />
                 </Button>
