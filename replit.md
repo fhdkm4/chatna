@@ -64,9 +64,20 @@ Preferred communication style: Simple, everyday language.
 - **Schema push**: Use `npm run db:push` (runs `drizzle-kit push`) to sync schema to database
 - **Storage layer** (`server/storage.ts`): Repository pattern interface (`IStorage`) abstracting all database operations
 
-### Multi-Tenancy
-- Tenant isolation is enforced at the query level — most storage methods require `tenantId`
+### Multi-Tenancy & Security (Phase 1 Hardening)
+- **Dual-layer tenant isolation**: Both application-level (ORM queries) and database-level (PostgreSQL RLS)
+- All tables have `tenant_id` with NOT NULL constraints, indexes, and FK references to `tenants(id)`
+- All storage methods (get/update/delete) enforce `and(eq(table.id, id), eq(table.tenantId, tenantId))` pattern
+- All route handlers pass `req.user.tenantId` to storage methods; PATCH endpoints verify tenant ownership before updates
+- Global Express middleware strips `tenantId`/`tenant_id` from POST/PATCH/PUT request bodies to prevent client injection
+- **Row-Level Security (RLS)**: Enabled with FORCE on all 15 tables (tenants + 14 data tables)
+  - `jawab_app` DB role (NOBYPASSRLS) is used via `SET ROLE` on each pool connection
+  - Tenant policy: `tenant_id = current_setting('app.current_tenant')::uuid`
+  - Bypass policy: `current_setting('app.rls_bypass') = 'true'` (for system processes/webhooks)
+  - `AsyncLocalStorage` in `server/db.ts` tracks tenant context per-request; auth middleware wraps handlers with `tenantStore.run(tenantId, () => next())`
+  - Pool connections default to bypass mode; authenticated requests switch to tenant-scoped mode
 - Users belong to a single tenant; contacts, conversations, and all data are scoped per tenant
+- Some methods (getUserByEmail, getInvitationByToken) intentionally use bypass for global lookups (login, invitation acceptance)
 
 ### Authentication Flow
 1. User registers or logs in via `/api/auth/login` or `/api/auth/register`

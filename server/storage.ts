@@ -32,20 +32,20 @@ export interface IStorage {
   getUserById(id: string): Promise<User | undefined>;
   getUsersByTenant(tenantId: string): Promise<User[]>;
   updateUser(id: string, data: Partial<InsertUser>): Promise<User | undefined>;
-  deleteUser(id: string): Promise<void>;
+  deleteUser(id: string, tenantId: string): Promise<void>;
 
   createContact(data: InsertContact): Promise<Contact>;
   getContactByPhone(tenantId: string, phone: string): Promise<Contact | undefined>;
-  getContactById(id: string): Promise<Contact | undefined>;
+  getContactById(id: string, tenantId: string): Promise<Contact | undefined>;
   getContactsByTenant(tenantId: string, search?: string): Promise<Contact[]>;
-  updateContact(id: string, data: Partial<InsertContact>): Promise<Contact | undefined>;
+  updateContact(id: string, tenantId: string, data: Partial<InsertContact>): Promise<Contact | undefined>;
 
   createConversation(data: InsertConversation): Promise<Conversation>;
-  getConversationById(id: string): Promise<Conversation | undefined>;
+  getConversationById(id: string, tenantId: string): Promise<Conversation | undefined>;
   getConversationsByTenant(tenantId: string, status?: string, agentId?: string, role?: string): Promise<any[]>;
   getActiveConversation(tenantId: string, contactId: string): Promise<Conversation | undefined>;
   getLatestConversation(tenantId: string, contactId: string): Promise<Conversation | undefined>;
-  updateConversation(id: string, data: Partial<InsertConversation>): Promise<Conversation | undefined>;
+  updateConversation(id: string, tenantId: string, data: Partial<InsertConversation>): Promise<Conversation | undefined>;
   getActiveConversationCountByAgent(agentId: string): Promise<number>;
 
   createMessage(data: InsertMessage): Promise<Message>;
@@ -55,24 +55,24 @@ export interface IStorage {
   createAutoReply(data: InsertAutoReply): Promise<AutoReply>;
   getAutoRepliesByTenant(tenantId: string): Promise<AutoReply[]>;
   getActiveAutoReplies(tenantId: string): Promise<AutoReply[]>;
-  updateAutoReply(id: string, data: Partial<InsertAutoReply>): Promise<AutoReply | undefined>;
-  deleteAutoReply(id: string): Promise<void>;
+  updateAutoReply(id: string, tenantId: string, data: Partial<InsertAutoReply>): Promise<AutoReply | undefined>;
+  deleteAutoReply(id: string, tenantId: string): Promise<void>;
 
   createKnowledge(data: InsertAiKnowledge): Promise<AiKnowledge>;
   getKnowledgeByTenant(tenantId: string): Promise<AiKnowledge[]>;
   getActiveKnowledge(tenantId: string): Promise<AiKnowledge[]>;
-  updateKnowledge(id: string, data: Partial<InsertAiKnowledge>): Promise<AiKnowledge | undefined>;
-  deleteKnowledge(id: string): Promise<void>;
+  updateKnowledge(id: string, tenantId: string, data: Partial<InsertAiKnowledge>): Promise<AiKnowledge | undefined>;
+  deleteKnowledge(id: string, tenantId: string): Promise<void>;
 
   createQuickReply(data: InsertQuickReply): Promise<QuickReply>;
   getQuickRepliesByTenant(tenantId: string): Promise<QuickReply[]>;
-  deleteQuickReply(id: string): Promise<void>;
+  deleteQuickReply(id: string, tenantId: string): Promise<void>;
 
   createInvitation(data: InsertInvitation): Promise<Invitation>;
   getInvitationByToken(token: string): Promise<Invitation | undefined>;
   getInvitationsByTenant(tenantId: string): Promise<Invitation[]>;
-  updateInvitation(id: string, data: Partial<InsertInvitation>): Promise<Invitation | undefined>;
-  deleteInvitation(id: string): Promise<void>;
+  updateInvitation(id: string, tenantId: string, data: Partial<InsertInvitation>): Promise<Invitation | undefined>;
+  deleteInvitation(id: string, tenantId: string): Promise<void>;
 
   upsertAgentMetrics(data: InsertAgentMetric): Promise<AgentMetric>;
   getAgentMetricsByTenant(tenantId: string, date?: string): Promise<AgentMetric[]>;
@@ -100,8 +100,8 @@ export interface IStorage {
   createCampaign(data: InsertCampaign): Promise<Campaign>;
   getCampaignById(id: string): Promise<Campaign | undefined>;
   getCampaignsByTenant(tenantId: string): Promise<Campaign[]>;
-  updateCampaign(id: string, data: Partial<InsertCampaign>): Promise<Campaign | undefined>;
-  deleteCampaign(id: string): Promise<void>;
+  updateCampaign(id: string, tenantId: string, data: Partial<InsertCampaign>): Promise<Campaign | undefined>;
+  deleteCampaign(id: string, tenantId: string): Promise<void>;
 
   createCampaignLog(data: InsertCampaignLog): Promise<CampaignLog>;
   getCampaignLogsByCampaign(campaignId: string): Promise<CampaignLog[]>;
@@ -109,8 +109,8 @@ export interface IStorage {
   createProduct(data: InsertProduct): Promise<Product>;
   getProductById(id: string): Promise<Product | undefined>;
   getProductsByTenant(tenantId: string, search?: string): Promise<Product[]>;
-  updateProduct(id: string, data: Partial<InsertProduct>): Promise<Product | undefined>;
-  deleteProduct(id: string): Promise<void>;
+  updateProduct(id: string, tenantId: string, data: Partial<InsertProduct>): Promise<Product | undefined>;
+  deleteProduct(id: string, tenantId: string): Promise<void>;
 }
 
 class DatabaseStorage implements IStorage {
@@ -153,8 +153,8 @@ class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async deleteUser(id: string): Promise<void> {
-    await db.delete(users).where(eq(users.id, id));
+  async deleteUser(id: string, tenantId: string): Promise<void> {
+    await db.delete(users).where(and(eq(users.id, id), eq(users.tenantId, tenantId)));
   }
 
   async createContact(data: InsertContact): Promise<Contact> {
@@ -168,8 +168,8 @@ class DatabaseStorage implements IStorage {
     return contact;
   }
 
-  async getContactById(id: string): Promise<Contact | undefined> {
-    const [contact] = await db.select().from(contacts).where(eq(contacts.id, id));
+  async getContactById(id: string, tenantId: string): Promise<Contact | undefined> {
+    const [contact] = await db.select().from(contacts).where(and(eq(contacts.id, id), eq(contacts.tenantId, tenantId)));
     return contact;
   }
 
@@ -190,8 +190,8 @@ class DatabaseStorage implements IStorage {
       .orderBy(desc(contacts.updatedAt));
   }
 
-  async updateContact(id: string, data: Partial<InsertContact>): Promise<Contact | undefined> {
-    const [contact] = await db.update(contacts).set({ ...data, updatedAt: new Date() }).where(eq(contacts.id, id)).returning();
+  async updateContact(id: string, tenantId: string, data: Partial<InsertContact>): Promise<Contact | undefined> {
+    const [contact] = await db.update(contacts).set({ ...data, updatedAt: new Date() }).where(and(eq(contacts.id, id), eq(contacts.tenantId, tenantId))).returning();
     return contact;
   }
 
@@ -200,8 +200,8 @@ class DatabaseStorage implements IStorage {
     return conv;
   }
 
-  async getConversationById(id: string): Promise<Conversation | undefined> {
-    const [conv] = await db.select().from(conversations).where(eq(conversations.id, id));
+  async getConversationById(id: string, tenantId: string): Promise<Conversation | undefined> {
+    const [conv] = await db.select().from(conversations).where(and(eq(conversations.id, id), eq(conversations.tenantId, tenantId)));
     return conv;
   }
 
@@ -221,7 +221,7 @@ class DatabaseStorage implements IStorage {
     const result = [];
     for (const conv of convs) {
       const contact = conv.contactId
-        ? await this.getContactById(conv.contactId)
+        ? await this.getContactById(conv.contactId, tenantId)
         : undefined;
 
       const lastMsgs = await db.select().from(messages)
@@ -269,12 +269,12 @@ class DatabaseStorage implements IStorage {
     return conv;
   }
 
-  async updateConversation(id: string, data: Partial<InsertConversation>): Promise<Conversation | undefined> {
+  async updateConversation(id: string, tenantId: string, data: Partial<InsertConversation>): Promise<Conversation | undefined> {
     const updateData: any = { ...data, updatedAt: new Date() };
     if (data.status === "resolved") {
       updateData.resolvedAt = new Date();
     }
-    const [conv] = await db.update(conversations).set(updateData).where(eq(conversations.id, id)).returning();
+    const [conv] = await db.update(conversations).set(updateData).where(and(eq(conversations.id, id), eq(conversations.tenantId, tenantId))).returning();
     return conv;
   }
 
@@ -326,13 +326,13 @@ class DatabaseStorage implements IStorage {
       .orderBy(desc(autoReplies.priority));
   }
 
-  async updateAutoReply(id: string, data: Partial<InsertAutoReply>): Promise<AutoReply | undefined> {
-    const [reply] = await db.update(autoReplies).set(data).where(eq(autoReplies.id, id)).returning();
+  async updateAutoReply(id: string, tenantId: string, data: Partial<InsertAutoReply>): Promise<AutoReply | undefined> {
+    const [reply] = await db.update(autoReplies).set(data).where(and(eq(autoReplies.id, id), eq(autoReplies.tenantId, tenantId))).returning();
     return reply;
   }
 
-  async deleteAutoReply(id: string): Promise<void> {
-    await db.delete(autoReplies).where(eq(autoReplies.id, id));
+  async deleteAutoReply(id: string, tenantId: string): Promise<void> {
+    await db.delete(autoReplies).where(and(eq(autoReplies.id, id), eq(autoReplies.tenantId, tenantId)));
   }
 
   async createKnowledge(data: InsertAiKnowledge): Promise<AiKnowledge> {
@@ -352,13 +352,13 @@ class DatabaseStorage implements IStorage {
       .orderBy(desc(aiKnowledge.createdAt));
   }
 
-  async updateKnowledge(id: string, data: Partial<InsertAiKnowledge>): Promise<AiKnowledge | undefined> {
-    const [entry] = await db.update(aiKnowledge).set(data).where(eq(aiKnowledge.id, id)).returning();
+  async updateKnowledge(id: string, tenantId: string, data: Partial<InsertAiKnowledge>): Promise<AiKnowledge | undefined> {
+    const [entry] = await db.update(aiKnowledge).set(data).where(and(eq(aiKnowledge.id, id), eq(aiKnowledge.tenantId, tenantId))).returning();
     return entry;
   }
 
-  async deleteKnowledge(id: string): Promise<void> {
-    await db.delete(aiKnowledge).where(eq(aiKnowledge.id, id));
+  async deleteKnowledge(id: string, tenantId: string): Promise<void> {
+    await db.delete(aiKnowledge).where(and(eq(aiKnowledge.id, id), eq(aiKnowledge.tenantId, tenantId)));
   }
 
   async createQuickReply(data: InsertQuickReply): Promise<QuickReply> {
@@ -372,8 +372,8 @@ class DatabaseStorage implements IStorage {
       .orderBy(quickReplies.title);
   }
 
-  async deleteQuickReply(id: string): Promise<void> {
-    await db.delete(quickReplies).where(eq(quickReplies.id, id));
+  async deleteQuickReply(id: string, tenantId: string): Promise<void> {
+    await db.delete(quickReplies).where(and(eq(quickReplies.id, id), eq(quickReplies.tenantId, tenantId)));
   }
 
   async createInvitation(data: InsertInvitation): Promise<Invitation> {
@@ -392,13 +392,13 @@ class DatabaseStorage implements IStorage {
       .orderBy(desc(invitations.createdAt));
   }
 
-  async updateInvitation(id: string, data: Partial<InsertInvitation>): Promise<Invitation | undefined> {
-    const [invitation] = await db.update(invitations).set(data).where(eq(invitations.id, id)).returning();
+  async updateInvitation(id: string, tenantId: string, data: Partial<InsertInvitation>): Promise<Invitation | undefined> {
+    const [invitation] = await db.update(invitations).set(data).where(and(eq(invitations.id, id), eq(invitations.tenantId, tenantId))).returning();
     return invitation;
   }
 
-  async deleteInvitation(id: string): Promise<void> {
-    await db.delete(invitations).where(eq(invitations.id, id));
+  async deleteInvitation(id: string, tenantId: string): Promise<void> {
+    await db.delete(invitations).where(and(eq(invitations.id, id), eq(invitations.tenantId, tenantId)));
   }
 
   async upsertAgentMetrics(data: InsertAgentMetric): Promise<AgentMetric> {
@@ -806,13 +806,13 @@ class DatabaseStorage implements IStorage {
       .orderBy(desc(campaigns.createdAt));
   }
 
-  async updateCampaign(id: string, data: Partial<InsertCampaign>): Promise<Campaign | undefined> {
-    const [campaign] = await db.update(campaigns).set({ ...data, updatedAt: new Date() }).where(eq(campaigns.id, id)).returning();
+  async updateCampaign(id: string, tenantId: string, data: Partial<InsertCampaign>): Promise<Campaign | undefined> {
+    const [campaign] = await db.update(campaigns).set({ ...data, updatedAt: new Date() }).where(and(eq(campaigns.id, id), eq(campaigns.tenantId, tenantId))).returning();
     return campaign;
   }
 
-  async deleteCampaign(id: string): Promise<void> {
-    await db.delete(campaigns).where(eq(campaigns.id, id));
+  async deleteCampaign(id: string, tenantId: string): Promise<void> {
+    await db.delete(campaigns).where(and(eq(campaigns.id, id), eq(campaigns.tenantId, tenantId)));
   }
 
   async createCampaignLog(data: InsertCampaignLog): Promise<CampaignLog> {
@@ -853,13 +853,13 @@ class DatabaseStorage implements IStorage {
       .orderBy(desc(products.createdAt));
   }
 
-  async updateProduct(id: string, data: Partial<InsertProduct>): Promise<Product | undefined> {
-    const [product] = await db.update(products).set(data).where(eq(products.id, id)).returning();
+  async updateProduct(id: string, tenantId: string, data: Partial<InsertProduct>): Promise<Product | undefined> {
+    const [product] = await db.update(products).set(data).where(and(eq(products.id, id), eq(products.tenantId, tenantId))).returning();
     return product;
   }
 
-  async deleteProduct(id: string): Promise<void> {
-    await db.delete(products).where(eq(products.id, id));
+  async deleteProduct(id: string, tenantId: string): Promise<void> {
+    await db.delete(products).where(and(eq(products.id, id), eq(products.tenantId, tenantId)));
   }
 }
 
