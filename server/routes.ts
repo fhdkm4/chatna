@@ -1609,7 +1609,40 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       for (const contact of targetContacts) {
         try {
           const messageText = campaign.messageText || campaign.title;
-          await sendMetaWhatsAppMessage(req.user.tenantId, contact.phone, messageText);
+          const metaMsgId = await sendMetaWhatsAppMessage(contact.phone, messageText);
+
+          let conversation = await storage.getActiveConversation(req.user.tenantId, contact.id);
+          if (!conversation) {
+            const assignedAgentId = await storage.autoAssignConversation(req.user.tenantId);
+            conversation = await storage.createConversation({
+              tenantId: req.user.tenantId,
+              contactId: contact.id,
+              status: "active",
+              channel: "whatsapp",
+              aiHandled: false,
+              assignedTo: assignedAgentId,
+            });
+            await storage.updateContact(contact.id, {
+              totalConversations: (contact.totalConversations || 0) + 1,
+            });
+            if (assignedAgentId) {
+              await storage.incrementAgentMetric(assignedAgentId, req.user.tenantId, "totalConversations");
+            }
+          }
+
+          const msg = await storage.createMessage({
+            conversationId: conversation.id,
+            tenantId: req.user.tenantId,
+            senderType: "system",
+            content: `📢 حملة "${campaign.title}": ${messageText}`,
+            twilioSid: metaMsgId,
+          });
+
+          io.to(`tenant:${req.user.tenantId}`).emit("new_message", {
+            conversationId: conversation.id,
+            message: msg,
+          });
+
           await storage.createCampaignLog({
             campaignId: campaign.id,
             contactId: contact.id,
@@ -1827,7 +1860,40 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const priceText = product.price ? `${product.price} ${product.currency || "SAR"}` : "";
       const messageText = `📦 *${product.name}*\n${product.description || ""}\n${priceText ? `💰 السعر: ${priceText}` : ""}${product.link ? `\n🔗 ${product.link}` : ""}`;
 
-      await sendMetaWhatsAppMessage(req.user.tenantId, contact.phone, messageText);
+      const metaMsgId = await sendMetaWhatsAppMessage(contact.phone, messageText);
+
+      let conversation = await storage.getActiveConversation(req.user.tenantId, contact.id);
+      if (!conversation) {
+        const assignedAgentId = await storage.autoAssignConversation(req.user.tenantId);
+        conversation = await storage.createConversation({
+          tenantId: req.user.tenantId,
+          contactId: contact.id,
+          status: "active",
+          channel: "whatsapp",
+          aiHandled: false,
+          assignedTo: assignedAgentId,
+        });
+        await storage.updateContact(contact.id, {
+          totalConversations: (contact.totalConversations || 0) + 1,
+        });
+        if (assignedAgentId) {
+          await storage.incrementAgentMetric(assignedAgentId, req.user.tenantId, "totalConversations");
+        }
+      }
+
+      const msg = await storage.createMessage({
+        conversationId: conversation.id,
+        tenantId: req.user.tenantId,
+        senderType: "system",
+        content: messageText,
+        twilioSid: metaMsgId,
+      });
+
+      io.to(`tenant:${req.user.tenantId}`).emit("new_message", {
+        conversationId: conversation.id,
+        message: msg,
+      });
+
       res.json({ success: true });
     } catch (err) {
       console.error("Product send error:", err);
