@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, uuid, boolean, integer, real, timestamp, index, uniqueIndex, date, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, uuid, boolean, integer, real, timestamp, index, uniqueIndex, date, jsonb, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -176,6 +176,58 @@ export const activityLog = pgTable("activity_log", {
   index("activity_log_tenant_idx").on(table.tenantId, table.createdAt),
 ]);
 
+export const campaigns = pgTable("campaigns", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
+  createdBy: uuid("created_by").references(() => users.id),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  imageUrl: text("image_url"),
+  messageText: text("message_text"),
+  ctaType: varchar("cta_type", { length: 20 }).default("none"),
+  ctaValue: text("cta_value"),
+  targetType: varchar("target_type", { length: 20 }).default("all"),
+  targetTags: text("target_tags").array().default(sql`'{}'`),
+  targetContactIds: uuid("target_contact_ids").array().default(sql`'{}'`),
+  status: varchar("status", { length: 20 }).default("draft"),
+  scheduledAt: timestamp("scheduled_at"),
+  sentAt: timestamp("sent_at"),
+  totalRecipients: integer("total_recipients").default(0),
+  deliveredCount: integer("delivered_count").default(0),
+  readCount: integer("read_count").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("campaigns_tenant_idx").on(table.tenantId, table.status),
+]);
+
+export const campaignLogs = pgTable("campaign_logs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: uuid("campaign_id").references(() => campaigns.id, { onDelete: "cascade" }),
+  contactId: uuid("contact_id").references(() => contacts.id),
+  status: varchar("status", { length: 20 }).default("pending"),
+  error: text("error"),
+  sentAt: timestamp("sent_at"),
+}, (table) => [
+  index("campaign_logs_campaign_idx").on(table.campaignId, table.status),
+]);
+
+export const products = pgTable("products", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  price: numeric("price", { precision: 10, scale: 2 }),
+  currency: varchar("currency", { length: 10 }).default("SAR"),
+  imageUrl: text("image_url"),
+  link: text("link"),
+  category: varchar("category", { length: 100 }),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("products_tenant_idx").on(table.tenantId),
+]);
+
 export const insertTenantSchema = createInsertSchema(tenants).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertContactSchema = createInsertSchema(contacts).omit({ id: true, createdAt: true, updatedAt: true });
@@ -188,6 +240,9 @@ export const insertInvitationSchema = createInsertSchema(invitations).omit({ id:
 export const insertRatingSchema = createInsertSchema(ratings).omit({ id: true, createdAt: true });
 export const insertAgentMetricsSchema = createInsertSchema(agentMetrics).omit({ id: true, createdAt: true });
 export const insertActivityLogSchema = createInsertSchema(activityLog).omit({ id: true, createdAt: true });
+export const insertCampaignSchema = createInsertSchema(campaigns).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCampaignLogSchema = createInsertSchema(campaignLogs).omit({ id: true });
+export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true });
 
 export const registerSchema = z.object({
   companyName: z.string().min(2),
@@ -244,3 +299,9 @@ export type AgentMetric = typeof agentMetrics.$inferSelect;
 export type InsertAgentMetric = z.infer<typeof insertAgentMetricsSchema>;
 export type ActivityLogEntry = typeof activityLog.$inferSelect;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
+export type Campaign = typeof campaigns.$inferSelect;
+export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
+export type CampaignLog = typeof campaignLogs.$inferSelect;
+export type InsertCampaignLog = z.infer<typeof insertCampaignLogSchema>;
+export type Product = typeof products.$inferSelect;
+export type InsertProduct = z.infer<typeof insertProductSchema>;
