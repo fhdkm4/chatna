@@ -44,6 +44,43 @@ function showBrowserNotification(title: string, body: string) {
   }
 }
 
+function playNotificationSound(type: "assignment" | "escalation" | "message" = "message") {
+  try {
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    gainNode.gain.value = 0.3;
+
+    if (type === "assignment") {
+      oscillator.frequency.value = 880;
+      oscillator.type = "sine";
+      oscillator.start();
+      setTimeout(() => { oscillator.frequency.value = 1100; }, 150);
+      setTimeout(() => { oscillator.frequency.value = 1320; }, 300);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+      setTimeout(() => { oscillator.stop(); audioCtx.close(); }, 600);
+    } else if (type === "escalation") {
+      oscillator.frequency.value = 600;
+      oscillator.type = "triangle";
+      oscillator.start();
+      setTimeout(() => { oscillator.frequency.value = 800; }, 200);
+      setTimeout(() => { oscillator.frequency.value = 600; }, 400);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+      setTimeout(() => { oscillator.stop(); audioCtx.close(); }, 800);
+    } else {
+      oscillator.frequency.value = 523;
+      oscillator.type = "sine";
+      oscillator.start();
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+      setTimeout(() => { oscillator.stop(); audioCtx.close(); }, 300);
+    }
+  } catch (e) {
+    // Audio not supported
+  }
+}
+
 export default function Dashboard() {
   const { user, token, logout } = useAuth();
   const [, setLocation] = useLocation();
@@ -77,6 +114,7 @@ export default function Dashboard() {
       }
 
       if (data.message.senderType === "customer") {
+        playNotificationSound("message");
         showBrowserNotification(
           "رسالة جديدة - جواب",
           data.message.content?.substring(0, 80) || "رسالة جديدة"
@@ -87,12 +125,32 @@ export default function Dashboard() {
     });
 
     socket.on("escalation", (data: { conversationId: string; reason: string }) => {
+      playNotificationSound("escalation");
       toast({
         title: "تنبيه: محادثة تحتاج تدخل",
         description: data.reason || "ثقة الذكاء الاصطناعي منخفضة",
         variant: "destructive",
       });
       showBrowserNotification("تنبيه - جواب", "محادثة تحتاج تدخل بشري");
+      fetchConversations();
+    });
+
+    socket.on("new_assignment", (data: { conversationId: string; contactName: string; contactPhone: string; lastMessage: string; priority: string; agentName: string }) => {
+      playNotificationSound("assignment");
+      toast({
+        title: "📋 محادثة جديدة معيّنة لك",
+        description: `عميل: ${data.contactName}\n${data.lastMessage?.substring(0, 60) || ""}`,
+        variant: "default",
+        duration: 10000,
+      });
+      showBrowserNotification(
+        "محادثة جديدة - جواب",
+        `تم تعيين محادثة ${data.contactName} لك`
+      );
+      fetchConversations();
+    });
+
+    socket.on("conversation_updated", (_data: { conversationId: string; status: string; assignedTo?: string }) => {
       fetchConversations();
     });
 

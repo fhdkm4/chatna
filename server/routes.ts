@@ -16,6 +16,7 @@ import { parseIncomingMessage, sendWhatsAppMessage } from "./services/twilio";
 import { sendMetaWhatsAppMessage, sendMetaWhatsAppInteractiveButtons, markMessageAsRead } from "./services/meta-whatsapp";
 import { checkAutoReply, generateAiResponse } from "./services/ai";
 import { simulateTypingDelay } from "./services/typing-delay";
+import { isHandoverRequest, assignConversationToAgent } from "./services/assignment";
 import { count, sql as sqlHelper, and, inArray, not, desc } from "drizzle-orm";
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || "jawab-default-secret";
@@ -71,6 +72,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       try {
         const decoded = jwt.verify(token, JWT_SECRET) as any;
         socket.join(`tenant:${decoded.tenantId}`);
+        socket.join(`user:${decoded.id}`);
 
         onlineUsers.set(socket.id, { tenantId: decoded.tenantId, userId: decoded.id, socketId: socket.id });
         db.update(usersTable).set({ status: "online" }).where(eq(usersTable.id, decoded.id)).then(() => {
@@ -94,6 +96,110 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
     }
   });
+
+  async function handleEscalation(
+    conversationId: string,
+    tenantId: string,
+    customerPhone: string,
+    reason: string,
+  ) {
+    const handoverReply = "جاري تحويلك لموظف متخصص، الرجاء الانتظار ⏳";
+    await simulateTypingDelay(handoverReply);
+    const sid = await sendWhatsAppMessage(customerPhone, handoverReply);
+    const systemMsg = await storage.createMessage({
+      conversationId,
+      tenantId,
+      senderType: "system",
+      content: handoverReply,
+      twilioSid: sid,
+    });
+    await storage.updateConversation(conversationId, {
+      status: "waiting",
+      aiPaused: true,
+      aiHandled: false,
+    });
+    io.to(`tenant:${tenantId}`).emit("new_message", {
+      conversationId,
+      message: systemMsg,
+    });
+    io.to(`tenant:${tenantId}`).emit("escalation", {
+      conversationId,
+      message: systemMsg,
+      reason,
+    });
+
+    let assignment;
+    try {
+      assignment = await assignConversationToAgent(tenantId, conversationId);
+    } catch (assignErr) {
+      console.error("Assignment error:", assignErr);
+      io.to(`tenant:${tenantId}`).emit("conversation_updated", {
+        conversationId,
+        status: "waiting",
+      });
+      return;
+    }
+
+    if (assignment.reason === "assigned" && assignment.agentId && assignment.agentName) {
+      const assignConfirm = `تم توصيلك مع ${assignment.agentName}، كيف أقدر أساعدك؟ 😊`;
+      await simulateTypingDelay(assignConfirm);
+      const confirmSid = await sendWhatsAppMessage(customerPhone, assignConfirm);
+      const confirmMsg = await storage.createMessage({
+        conversationId,
+        tenantId,
+        senderType: "system",
+        content: assignConfirm,
+        twilioSid: confirmSid,
+      });
+      io.to(`tenant:${tenantId}`).emit("new_message", {
+        conversationId,
+        message: confirmMsg,
+      });
+
+      const conversation = await storage.getConversationById(conversationId);
+      const contact = conversation?.contactId ? await storage.getContactById(conversation.contactId) : null;
+      const recentMsgs = await storage.getRecentMessages(conversationId, 1);
+
+      io.to(`user:${assignment.agentId}`).emit("new_assignment", {
+        conversationId,
+        contactName: contact?.name || contact?.phone || "عميل",
+        contactPhone: contact?.phone || "",
+        lastMessage: recentMsgs[0]?.content || "",
+        priority: "high",
+        agentName: assignment.agentName,
+      });
+
+      io.to(`tenant:${tenantId}`).emit("conversation_updated", {
+        conversationId,
+        status: "active",
+        assignedTo: assignment.agentId,
+      });
+    } else if (assignment.reason === "no_agents_available") {
+      const busyMsg = "جميع موظفينا مشغولون حالياً، سيتم الرد عليك في أقرب وقت 🙏";
+      await simulateTypingDelay(busyMsg);
+      const busySid = await sendWhatsAppMessage(customerPhone, busyMsg);
+      const busySystemMsg = await storage.createMessage({
+        conversationId,
+        tenantId,
+        senderType: "system",
+        content: busyMsg,
+        twilioSid: busySid,
+      });
+      io.to(`tenant:${tenantId}`).emit("new_message", {
+        conversationId,
+        message: busySystemMsg,
+      });
+      io.to(`tenant:${tenantId}`).emit("conversation_updated", {
+        conversationId,
+        status: "waiting",
+      });
+    } else {
+      io.to(`tenant:${tenantId}`).emit("conversation_updated", {
+        conversationId,
+        status: "waiting",
+      });
+    }
+  }
 
   const DELAY_CHECK_INTERVAL = 60_000;
   const DELAY_THRESHOLD_MS = 10 * 60 * 1000;
@@ -785,44 +891,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     if (conversation.aiPaused) return;
 
-    const metaHandoverKeywords = [
-      "موظف", "بشري", "كلم موظف", "تحويل", "وكيل", "ممثل",
-      "أبي أكلم شخص", "ابي اكلم شخص", "كلمني موظف", "تكلم مع موظف",
-      "أريد التحدث مع شخص", "اريد موظف", "أبغى موظف", "ابغى موظف",
-      "human", "agent", "representative", "talk to someone", "real person",
-      "transfer", "speak to agent", "connect me"
-    ];
-    const metaNormalizedMsg = messageContent.trim().toLowerCase();
-    const metaIsHandover = metaHandoverKeywords.some(kw => metaNormalizedMsg.includes(kw.toLowerCase()));
-
-    if (metaIsHandover) {
-      const handoverReply = "جاري تحويلك إلى موظف بشري، الرجاء الانتظار... ⏳";
-      await simulateTypingDelay(handoverReply);
-      await sendWhatsAppMessage(senderPhone, handoverReply);
-      const systemMsg = await storage.createMessage({
-        conversationId: conversation.id,
-        tenantId,
-        senderType: "system",
-        content: handoverReply,
-      });
-      await storage.updateConversation(conversation.id, {
-        status: "waiting",
-        aiPaused: true,
-        aiHandled: false,
-      });
-      io.to(`tenant:${tenantId}`).emit("new_message", {
-        conversationId: conversation.id,
-        message: systemMsg,
-      });
-      io.to(`tenant:${tenantId}`).emit("escalation", {
-        conversationId: conversation.id,
-        message: systemMsg,
-        reason: "طلب تحويل لموظف بشري",
-      });
-      io.to(`tenant:${tenantId}`).emit("conversation_updated", {
-        conversationId: conversation.id,
-        status: "waiting",
-      });
+    if (isHandoverRequest(messageContent)) {
+      await handleEscalation(conversation.id, tenantId, senderPhone, "طلب تحويل لموظف بشري");
       return;
     }
 
@@ -874,32 +944,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         message: aiMsg,
       });
     } else {
-      const handoverNotice = "جاري تحويلك إلى موظف بشري، الرجاء الانتظار... ⏳";
-      await sendWhatsAppMessage(senderPhone, handoverNotice);
-      const aiMsg = await storage.createMessage({
-        conversationId: conversation.id,
-        tenantId,
-        senderType: "system",
-        content: handoverNotice,
-        aiConfidence: aiResponse.confidence,
-      });
-      await storage.updateConversation(conversation.id, {
-        status: "waiting",
-        aiPaused: true,
-      });
-      io.to(`tenant:${tenantId}`).emit("escalation", {
-        conversationId: conversation.id,
-        message: aiMsg,
-        reason: "ثقة AI منخفضة",
-      });
-      io.to(`tenant:${tenantId}`).emit("new_message", {
-        conversationId: conversation.id,
-        message: aiMsg,
-      });
-      io.to(`tenant:${tenantId}`).emit("conversation_updated", {
-        conversationId: conversation.id,
-        status: "waiting",
-      });
+      await handleEscalation(conversation.id, tenantId, senderPhone, "ثقة AI منخفضة");
     }
   }
 
@@ -994,47 +1039,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return;
       }
 
-      const handoverKeywords = [
-        "موظف", "بشري", "كلم موظف", "تحويل", "وكيل", "ممثل",
-        "أبي أكلم شخص", "ابي اكلم شخص", "كلمني موظف", "تكلم مع موظف",
-        "أريد التحدث مع شخص", "اريد موظف", "أبغى موظف", "ابغى موظف",
-        "human", "agent", "representative", "talk to someone", "real person",
-        "transfer", "speak to agent", "connect me"
-      ];
-      const normalizedMsg = messageContent.trim().toLowerCase();
-      const isHandoverRequest = handoverKeywords.some(kw => normalizedMsg.includes(kw.toLowerCase()));
-      console.log("🔄 Handover check:", { message: normalizedMsg, isHandoverRequest });
+      const handoverDetected = isHandoverRequest(messageContent);
+      console.log("🔄 Handover check:", { message: messageContent.substring(0, 50), handoverDetected });
 
-      if (isHandoverRequest) {
-        console.log("🙋 Handover requested! Pausing AI and setting status to waiting");
-        const handoverReply = "جاري تحويلك إلى موظف بشري، الرجاء الانتظار... ⏳";
-        await simulateTypingDelay(handoverReply);
-        const sid = await sendWhatsAppMessage(incoming.from, handoverReply);
-        const systemMsg = await storage.createMessage({
-          conversationId: conversation.id,
-          tenantId,
-          senderType: "system",
-          content: handoverReply,
-          twilioSid: sid,
-        });
-        await storage.updateConversation(conversation.id, {
-          status: "waiting",
-          aiPaused: true,
-          aiHandled: false,
-        });
-        io.to(`tenant:${tenantId}`).emit("new_message", {
-          conversationId: conversation.id,
-          message: systemMsg,
-        });
-        io.to(`tenant:${tenantId}`).emit("escalation", {
-          conversationId: conversation.id,
-          message: systemMsg,
-          reason: "طلب تحويل لموظف بشري",
-        });
-        io.to(`tenant:${tenantId}`).emit("conversation_updated", {
-          conversationId: conversation.id,
-          status: "waiting",
-        });
+      if (handoverDetected) {
+        console.log("🙋 Handover requested! Running escalation flow");
+        await handleEscalation(conversation.id, tenantId!, incoming.from, "طلب تحويل لموظف بشري");
         return;
       }
 
@@ -1099,33 +1109,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           message: aiMsg,
         });
       } else {
-        const handoverNotice = "جاري تحويلك إلى موظف بشري، الرجاء الانتظار... ⏳";
-        const escalationSid = await sendWhatsAppMessage(incoming.from, handoverNotice);
-        const aiMsg = await storage.createMessage({
-          conversationId: conversation.id,
-          tenantId,
-          senderType: "system",
-          content: handoverNotice,
-          aiConfidence: aiResponse.confidence,
-          twilioSid: escalationSid,
-        });
-        await storage.updateConversation(conversation.id, {
-          status: "waiting",
-          aiPaused: true,
-        });
-        io.to(`tenant:${tenantId}`).emit("escalation", {
-          conversationId: conversation.id,
-          message: aiMsg,
-          reason: "ثقة AI منخفضة",
-        });
-        io.to(`tenant:${tenantId}`).emit("new_message", {
-          conversationId: conversation.id,
-          message: aiMsg,
-        });
-        io.to(`tenant:${tenantId}`).emit("conversation_updated", {
-          conversationId: conversation.id,
-          status: "waiting",
-        });
+        console.log("⚠️ Low AI confidence, escalating to human agent");
+        await handleEscalation(conversation.id, tenantId!, incoming.from, "ثقة AI منخفضة");
       }
     } catch (err) {
       console.error("Webhook error:", err);
