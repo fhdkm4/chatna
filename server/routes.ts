@@ -594,21 +594,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   }
 
   async function sendRatingRequest(tenantId: string, contactPhone: string, ratingMessage: string) {
-    const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
-
-    if (WHATSAPP_TOKEN) {
-      await sendMetaWhatsAppInteractiveButtons(
-        contactPhone,
-        ratingMessage,
-        [
-          { id: "rating_excellent", title: "ممتاز 😊" },
-          { id: "rating_good", title: "جيد 👍" },
-          { id: "rating_bad", title: "سيئ 😞" },
-        ],
-      );
-    } else {
-      await sendWhatsAppMessage(contactPhone, ratingMessage);
-    }
+    const fullMessage = `${ratingMessage}\n\nأرسل:\n1 - ممتاز\n2 - جيد\n3 - سيئ`;
+    await sendWhatsAppMessage(contactPhone, fullMessage);
   }
 
   setInterval(async () => {
@@ -722,7 +709,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         } as any);
 
         const thankYouMsg = "شكراً على تقييمك! نسعد بخدمتك دائماً 💚";
-        await sendMetaWhatsAppMessage(senderPhone, thankYouMsg);
+        await sendWhatsAppMessage(senderPhone, thankYouMsg);
 
         const systemMsg = await storage.createMessage({
           conversationId: resolvedConv.id,
@@ -803,7 +790,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const autoReplyContent = await checkAutoReply(tenantId, messageContent);
     if (autoReplyContent) {
       await simulateTypingDelay(autoReplyContent);
-      await sendMetaWhatsAppMessage(senderPhone, autoReplyContent);
+      await sendWhatsAppMessage(senderPhone, autoReplyContent);
       const aiMsg = await storage.createMessage({
         conversationId: conversation.id,
         tenantId,
@@ -828,7 +815,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     if (aiResponse.confidence >= 0.6) {
       await simulateTypingDelay(aiResponse.content);
-      await sendMetaWhatsAppMessage(senderPhone, aiResponse.content);
+      await sendWhatsAppMessage(senderPhone, aiResponse.content);
       const aiMsg = await storage.createMessage({
         conversationId: conversation.id,
         tenantId,
@@ -1078,12 +1065,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const contact = await storage.getContactById(conversation.contactId);
         if (contact) {
           try {
-            const metaMsgId = await sendMetaWhatsAppMessage(contact.phone, content);
-            if (metaMsgId) {
-              twilioSid = metaMsgId;
-            } else {
-              twilioSid = await sendWhatsAppMessage(`whatsapp:${contact.phone}`, content, mediaUrl || undefined);
-            }
+            twilioSid = await sendWhatsAppMessage(`whatsapp:${contact.phone}`, content, mediaUrl || undefined);
           } catch (err) {
             console.error("WhatsApp send failed:", err);
           }
@@ -1609,7 +1591,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       for (const contact of targetContacts) {
         try {
           const messageText = campaign.messageText || campaign.title;
-          const metaMsgId = await sendMetaWhatsAppMessage(contact.phone, messageText);
+          let sid: string | null = null;
+          try {
+            sid = await sendWhatsAppMessage(contact.phone, messageText);
+          } catch (whatsappErr) {
+            console.error("WhatsApp campaign send failed for", contact.phone, whatsappErr);
+          }
 
           let conversation = await storage.getActiveConversation(req.user.tenantId, contact.id);
           if (!conversation) {
@@ -1635,7 +1622,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             tenantId: req.user.tenantId,
             senderType: "system",
             content: `📢 حملة "${campaign.title}": ${messageText}`,
-            twilioSid: metaMsgId,
+            twilioSid: sid,
           });
 
           io.to(`tenant:${req.user.tenantId}`).emit("new_message", {
@@ -1860,7 +1847,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const priceText = product.price ? `${product.price} ${product.currency || "SAR"}` : "";
       const messageText = `📦 *${product.name}*\n${product.description || ""}\n${priceText ? `💰 السعر: ${priceText}` : ""}${product.link ? `\n🔗 ${product.link}` : ""}`;
 
-      const metaMsgId = await sendMetaWhatsAppMessage(contact.phone, messageText);
+      let sid: string | null = null;
+      try {
+        sid = await sendWhatsAppMessage(contact.phone, messageText);
+      } catch (sendErr) {
+        console.error("WhatsApp product send failed:", sendErr);
+      }
 
       let conversation = await storage.getActiveConversation(req.user.tenantId, contact.id);
       if (!conversation) {
@@ -1886,7 +1878,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         tenantId: req.user.tenantId,
         senderType: "system",
         content: messageText,
-        twilioSid: metaMsgId,
+        twilioSid: sid,
       });
 
       io.to(`tenant:${req.user.tenantId}`).emit("new_message", {
