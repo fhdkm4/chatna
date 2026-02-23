@@ -2,12 +2,14 @@ import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "@shared/schema";
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL is required");
+const dbUrl = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+
+if (!dbUrl) {
+  throw new Error("NEON_DATABASE_URL or DATABASE_URL is required");
 }
 
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: dbUrl,
   max: 10,
 });
 
