@@ -37,6 +37,7 @@ Preferred communication style: Simple, everyday language.
 - **API Pattern**: RESTful endpoints under `/api/` prefix. Auth middleware validates JWT Bearer tokens
 - **Real-time**: Socket.io integrated with the HTTP server for pushing new messages to connected clients
 - **AI Service** (`server/services/ai.ts`): Uses Anthropic Claude API (via `@anthropic-ai/sdk`) for generating customer service responses. Supports auto-replies (keyword/exact/pattern matching) and AI-generated responses with knowledge base context
+- **Prompt Builder** (`server/services/prompt-builder.ts`): Layered system prompt builder for AI responses. Builds prompts in 7 layers: BASE_SYSTEM, TENANT_IDENTITY, STYLE_LAYER, BUSINESS_INFO, STRICT_RULES, KNOWLEDGE_BASE, CONVERSATION_CONTEXT. Enforces tenant-specific identity, tone, language preference, and escalation messages. Reusable for both live responses and future preview features
 - **WhatsApp Integration** (`server/services/twilio.ts`): Twilio API for sending/receiving WhatsApp messages. Gracefully degrades when credentials aren't configured. Migration to Meta Cloud API in progress with webhook endpoint at `/webhook`
 - **Encryption Service** (`server/services/encryption.ts`): AES-256-GCM encryption for Meta access tokens using PBKDF2 key derivation
 - **Typing Delay** (`server/services/typing-delay.ts`): Human-like typing delay (800ms-4000ms) before sending AI/auto-reply messages
