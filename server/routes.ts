@@ -10,6 +10,8 @@ import { db } from "./db";
 import { registerSchema, loginSchema, createAgentSchema, inviteAgentSchema, acceptInvitationSchema, insertCampaignSchema, insertProductSchema, users as usersTable, messages as messagesTable, conversations as conversationsTable, invitations as invitationsTable } from "@shared/schema";
 import { z } from "zod";
 import crypto from "crypto";
+import fs from "fs";
+import path from "path";
 import { parseIncomingMessage, sendWhatsAppMessage } from "./services/twilio";
 import { sendMetaWhatsAppMessage, sendMetaWhatsAppInteractiveButtons, markMessageAsRead } from "./services/meta-whatsapp";
 import { checkAutoReply, generateAiResponse } from "./services/ai";
@@ -51,7 +53,12 @@ function managerOrAdmin(req: any, res: any, next: any) {
   next();
 }
 
+const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads", "campaigns");
+fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
+  app.use("/uploads", express.static(path.join(process.cwd(), "public", "uploads")));
+
   const io = new SocketServer(httpServer, {
     cors: { origin: "*" },
   });
@@ -1655,11 +1662,51 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
       const { generateImageBuffer } = await import("./replit_integrations/image/client");
       const buffer = await generateImageBuffer(prompt, "1024x1024");
-      const base64 = buffer.toString("base64");
-      res.json({ imageUrl: `data:image/png;base64,${base64}` });
+
+      if (buffer.length > 10 * 1024 * 1024) {
+        return res.status(400).json({ message: "حجم الصورة يتجاوز الحد المسموح (10 ميجابايت)" });
+      }
+
+      const filename = `campaign_${Date.now()}_${crypto.randomBytes(4).toString("hex")}.png`;
+      const filepath = path.join(UPLOADS_DIR, filename);
+      fs.writeFileSync(filepath, buffer);
+
+      const imageUrl = `/uploads/campaigns/${filename}`;
+      res.json({ imageUrl });
     } catch (err) {
       console.error("Image generation error:", err);
       res.status(500).json({ message: "خطأ في إنشاء الصورة" });
+    }
+  });
+
+  app.post("/api/campaigns/upload-image", authMiddleware, managerOrAdmin, async (req: any, res) => {
+    try {
+      const { base64Data } = req.body;
+      if (!base64Data) {
+        return res.status(400).json({ message: "لم يتم تقديم بيانات الصورة" });
+      }
+
+      const match = base64Data.match(/^data:image\/(png|jpe?g|webp);base64,(.+)$/);
+      if (!match) {
+        return res.status(400).json({ message: "نوع الصورة غير مدعوم. الأنواع المسموحة: png, jpg, jpeg, webp" });
+      }
+
+      const ext = match[1] === "jpeg" ? "jpg" : match[1];
+      const buffer = Buffer.from(match[2], "base64");
+
+      if (buffer.length > 10 * 1024 * 1024) {
+        return res.status(400).json({ message: "حجم الصورة يتجاوز الحد المسموح (10 ميجابايت)" });
+      }
+
+      const filename = `campaign_${Date.now()}_${crypto.randomBytes(4).toString("hex")}.${ext}`;
+      const filepath = path.join(UPLOADS_DIR, filename);
+      fs.writeFileSync(filepath, buffer);
+
+      const imageUrl = `/uploads/campaigns/${filename}`;
+      res.json({ imageUrl });
+    } catch (err) {
+      console.error("Image upload error:", err);
+      res.status(500).json({ message: "خطأ في رفع الصورة" });
     }
   });
 
