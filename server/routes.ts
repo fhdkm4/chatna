@@ -7,7 +7,8 @@ import jwt from "jsonwebtoken";
 import { eq } from "drizzle-orm";
 import { storage } from "./storage";
 import { db } from "./db";
-import { registerSchema, loginSchema, createAgentSchema, inviteAgentSchema, acceptInvitationSchema, users as usersTable, messages as messagesTable, conversations as conversationsTable, invitations as invitationsTable } from "@shared/schema";
+import { registerSchema, loginSchema, createAgentSchema, inviteAgentSchema, acceptInvitationSchema, insertCampaignSchema, insertProductSchema, users as usersTable, messages as messagesTable, conversations as conversationsTable, invitations as invitationsTable } from "@shared/schema";
+import { z } from "zod";
 import crypto from "crypto";
 import { parseIncomingMessage, sendWhatsAppMessage } from "./services/twilio";
 import { sendMetaWhatsAppMessage, sendMetaWhatsAppInteractiveButtons, markMessageAsRead } from "./services/meta-whatsapp";
@@ -1466,6 +1467,324 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err) {
       console.error("Agent ratings error:", err);
       res.status(500).json({ message: "خطأ في جلب التقييمات" });
+    }
+  });
+
+  // ==================== CAMPAIGNS ====================
+
+  app.get("/api/campaigns", authMiddleware, async (req: any, res) => {
+    try {
+      const list = await storage.getCampaignsByTenant(req.user.tenantId);
+      res.json(list);
+    } catch (err) {
+      console.error("Campaigns list error:", err);
+      res.status(500).json({ message: "خطأ في جلب الحملات" });
+    }
+  });
+
+  app.get("/api/campaigns/:id", authMiddleware, async (req: any, res) => {
+    try {
+      const campaign = await storage.getCampaignById(req.params.id);
+      if (!campaign || campaign.tenantId !== req.user.tenantId) {
+        return res.status(404).json({ message: "الحملة غير موجودة" });
+      }
+      res.json(campaign);
+    } catch (err) {
+      console.error("Campaign get error:", err);
+      res.status(500).json({ message: "خطأ في جلب الحملة" });
+    }
+  });
+
+  const campaignCreateSchema = z.object({
+    title: z.string().min(1),
+    description: z.string().optional().nullable(),
+    imageUrl: z.string().optional().nullable(),
+    messageText: z.string().optional().nullable(),
+    ctaType: z.string().optional().nullable(),
+    ctaValue: z.string().optional().nullable(),
+    targetType: z.string().optional(),
+    targetTags: z.array(z.string()).optional(),
+    targetContactIds: z.array(z.string()).optional(),
+    status: z.string().optional(),
+    scheduledAt: z.string().optional().nullable(),
+  });
+
+  const productCreateSchema = z.object({
+    name: z.string().min(1),
+    description: z.string().optional().nullable(),
+    price: z.string().optional().nullable(),
+    currency: z.string().optional(),
+    imageUrl: z.string().optional().nullable(),
+    link: z.string().optional().nullable(),
+    category: z.string().optional().nullable(),
+    isActive: z.boolean().optional(),
+  });
+
+  app.post("/api/campaigns", authMiddleware, managerOrAdmin, async (req: any, res) => {
+    try {
+      const parsed = campaignCreateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "بيانات غير صالحة", errors: parsed.error.errors });
+      }
+      const campaign = await storage.createCampaign({
+        ...parsed.data,
+        tenantId: req.user.tenantId,
+        createdBy: req.user.id,
+      });
+      res.status(201).json(campaign);
+    } catch (err) {
+      console.error("Campaign create error:", err);
+      res.status(500).json({ message: "خطأ في إنشاء الحملة" });
+    }
+  });
+
+  app.patch("/api/campaigns/:id", authMiddleware, managerOrAdmin, async (req: any, res) => {
+    try {
+      const existing = await storage.getCampaignById(req.params.id);
+      if (!existing || existing.tenantId !== req.user.tenantId) {
+        return res.status(404).json({ message: "الحملة غير موجودة" });
+      }
+      const updated = await storage.updateCampaign(req.params.id, req.body);
+      res.json(updated);
+    } catch (err) {
+      console.error("Campaign update error:", err);
+      res.status(500).json({ message: "خطأ في تحديث الحملة" });
+    }
+  });
+
+  app.delete("/api/campaigns/:id", authMiddleware, managerOrAdmin, async (req: any, res) => {
+    try {
+      const existing = await storage.getCampaignById(req.params.id);
+      if (!existing || existing.tenantId !== req.user.tenantId) {
+        return res.status(404).json({ message: "الحملة غير موجودة" });
+      }
+      await storage.deleteCampaign(req.params.id);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Campaign delete error:", err);
+      res.status(500).json({ message: "خطأ في حذف الحملة" });
+    }
+  });
+
+  app.post("/api/campaigns/:id/send", authMiddleware, managerOrAdmin, async (req: any, res) => {
+    try {
+      const campaign = await storage.getCampaignById(req.params.id);
+      if (!campaign || campaign.tenantId !== req.user.tenantId) {
+        return res.status(404).json({ message: "الحملة غير موجودة" });
+      }
+
+      let targetContacts: any[] = [];
+      if (campaign.targetType === "all") {
+        targetContacts = await storage.getContactsByTenant(req.user.tenantId);
+      } else if (campaign.targetType === "tags" && campaign.targetTags?.length) {
+        const allContacts = await storage.getContactsByTenant(req.user.tenantId);
+        targetContacts = allContacts.filter((c: any) =>
+          c.tags?.some((t: string) => campaign.targetTags!.includes(t))
+        );
+      } else if (campaign.targetType === "specific" && campaign.targetContactIds?.length) {
+        const allContacts = await storage.getContactsByTenant(req.user.tenantId);
+        targetContacts = allContacts.filter((c: any) =>
+          campaign.targetContactIds!.includes(c.id)
+        );
+      }
+
+      if (targetContacts.length === 0) {
+        return res.status(400).json({ message: "لا يوجد جهات اتصال مستهدفة" });
+      }
+
+      await storage.updateCampaign(campaign.id, {
+        status: "sent",
+        sentAt: new Date(),
+        totalRecipients: targetContacts.length,
+      } as any);
+
+      let deliveredCount = 0;
+      for (const contact of targetContacts) {
+        try {
+          const messageText = campaign.messageText || campaign.title;
+          await sendMetaWhatsAppMessage(req.user.tenantId, contact.phone, messageText);
+          await storage.createCampaignLog({
+            campaignId: campaign.id,
+            contactId: contact.id,
+            status: "sent",
+            sentAt: new Date(),
+          });
+          deliveredCount++;
+        } catch (sendErr: any) {
+          await storage.createCampaignLog({
+            campaignId: campaign.id,
+            contactId: contact.id,
+            status: "failed",
+            error: sendErr.message,
+          });
+        }
+      }
+
+      await storage.updateCampaign(campaign.id, { deliveredCount } as any);
+
+      res.json({
+        success: true,
+        totalRecipients: targetContacts.length,
+        deliveredCount,
+      });
+    } catch (err) {
+      console.error("Campaign send error:", err);
+      res.status(500).json({ message: "خطأ في إرسال الحملة" });
+    }
+  });
+
+  app.get("/api/campaigns/:id/logs", authMiddleware, async (req: any, res) => {
+    try {
+      const campaign = await storage.getCampaignById(req.params.id);
+      if (!campaign || campaign.tenantId !== req.user.tenantId) {
+        return res.status(404).json({ message: "الحملة غير موجودة" });
+      }
+      const logs = await storage.getCampaignLogsByCampaign(req.params.id);
+      res.json(logs);
+    } catch (err) {
+      console.error("Campaign logs error:", err);
+      res.status(500).json({ message: "خطأ في جلب سجلات الحملة" });
+    }
+  });
+
+  app.post("/api/campaigns/generate-image", authMiddleware, managerOrAdmin, async (req: any, res) => {
+    try {
+      const { prompt } = req.body;
+      if (!prompt) {
+        return res.status(400).json({ message: "يجب تقديم وصف للصورة" });
+      }
+      const { generateImageBuffer } = await import("./replit_integrations/image/client");
+      const buffer = await generateImageBuffer(prompt, "1024x1024");
+      const base64 = buffer.toString("base64");
+      res.json({ imageUrl: `data:image/png;base64,${base64}` });
+    } catch (err) {
+      console.error("Image generation error:", err);
+      res.status(500).json({ message: "خطأ في إنشاء الصورة" });
+    }
+  });
+
+  app.post("/api/campaigns/generate-text", authMiddleware, managerOrAdmin, async (req: any, res) => {
+    try {
+      const { description, tone } = req.body;
+      if (!description) {
+        return res.status(400).json({ message: "يجب تقديم وصف الحملة" });
+      }
+      const { openai } = await import("./replit_integrations/image/client");
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: `أنت كاتب محتوى تسويقي محترف. اكتب رسالة تسويقية قصيرة ومقنعة بالعربية لإرسالها عبر واتساب. النبرة: ${tone || "احترافية"}. الرسالة يجب أن تكون مختصرة (أقل من 500 حرف) ومناسبة للواتساب.`,
+          },
+          {
+            role: "user",
+            content: `اكتب رسالة تسويقية عن: ${description}`,
+          },
+        ],
+        max_tokens: 300,
+      });
+      const text = completion.choices[0]?.message?.content || "";
+      res.json({ text });
+    } catch (err) {
+      console.error("Text generation error:", err);
+      res.status(500).json({ message: "خطأ في إنشاء النص" });
+    }
+  });
+
+  // ==================== PRODUCTS ====================
+
+  app.get("/api/products", authMiddleware, async (req: any, res) => {
+    try {
+      const search = req.query.search as string | undefined;
+      const list = await storage.getProductsByTenant(req.user.tenantId, search);
+      res.json(list);
+    } catch (err) {
+      console.error("Products list error:", err);
+      res.status(500).json({ message: "خطأ في جلب المنتجات" });
+    }
+  });
+
+  app.get("/api/products/:id", authMiddleware, async (req: any, res) => {
+    try {
+      const product = await storage.getProductById(req.params.id);
+      if (!product || product.tenantId !== req.user.tenantId) {
+        return res.status(404).json({ message: "المنتج غير موجود" });
+      }
+      res.json(product);
+    } catch (err) {
+      console.error("Product get error:", err);
+      res.status(500).json({ message: "خطأ في جلب المنتج" });
+    }
+  });
+
+  app.post("/api/products", authMiddleware, managerOrAdmin, async (req: any, res) => {
+    try {
+      const parsed = productCreateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "بيانات غير صالحة", errors: parsed.error.errors });
+      }
+      const product = await storage.createProduct({
+        ...parsed.data,
+        tenantId: req.user.tenantId,
+      });
+      res.status(201).json(product);
+    } catch (err) {
+      console.error("Product create error:", err);
+      res.status(500).json({ message: "خطأ في إنشاء المنتج" });
+    }
+  });
+
+  app.patch("/api/products/:id", authMiddleware, managerOrAdmin, async (req: any, res) => {
+    try {
+      const existing = await storage.getProductById(req.params.id);
+      if (!existing || existing.tenantId !== req.user.tenantId) {
+        return res.status(404).json({ message: "المنتج غير موجود" });
+      }
+      const updated = await storage.updateProduct(req.params.id, req.body);
+      res.json(updated);
+    } catch (err) {
+      console.error("Product update error:", err);
+      res.status(500).json({ message: "خطأ في تحديث المنتج" });
+    }
+  });
+
+  app.delete("/api/products/:id", authMiddleware, managerOrAdmin, async (req: any, res) => {
+    try {
+      const existing = await storage.getProductById(req.params.id);
+      if (!existing || existing.tenantId !== req.user.tenantId) {
+        return res.status(404).json({ message: "المنتج غير موجود" });
+      }
+      await storage.deleteProduct(req.params.id);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Product delete error:", err);
+      res.status(500).json({ message: "خطأ في حذف المنتج" });
+    }
+  });
+
+  app.post("/api/products/:id/send", authMiddleware, async (req: any, res) => {
+    try {
+      const product = await storage.getProductById(req.params.id);
+      if (!product || product.tenantId !== req.user.tenantId) {
+        return res.status(404).json({ message: "المنتج غير موجود" });
+      }
+      const { contactId } = req.body;
+      if (!contactId) {
+        return res.status(400).json({ message: "يجب تحديد جهة الاتصال" });
+      }
+      const contact = await storage.getContactById(contactId);
+      if (!contact || contact.tenantId !== req.user.tenantId) {
+        return res.status(404).json({ message: "جهة الاتصال غير موجودة" });
+      }
+      const priceText = product.price ? `${product.price} ${product.currency || "SAR"}` : "";
+      const messageText = `📦 *${product.name}*\n${product.description || ""}\n${priceText ? `💰 السعر: ${priceText}` : ""}${product.link ? `\n🔗 ${product.link}` : ""}`;
+
+      await sendMetaWhatsAppMessage(req.user.tenantId, contact.phone, messageText);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Product send error:", err);
+      res.status(500).json({ message: "خطأ في إرسال المنتج" });
     }
   });
 

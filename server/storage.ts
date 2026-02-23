@@ -4,6 +4,7 @@ import {
   tenants, users, contacts, conversations, messages,
   autoReplies, aiKnowledge, quickReplies, invitations,
   ratings, agentMetrics, activityLog,
+  campaigns, campaignLogs, products,
   type Tenant, type InsertTenant,
   type User, type InsertUser,
   type Contact, type InsertContact,
@@ -16,6 +17,9 @@ import {
   type Rating, type InsertRating,
   type AgentMetric, type InsertAgentMetric,
   type ActivityLogEntry, type InsertActivityLog,
+  type Campaign, type InsertCampaign,
+  type CampaignLog, type InsertCampaignLog,
+  type Product, type InsertProduct,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -90,6 +94,21 @@ export interface IStorage {
   getStats(tenantId: string): Promise<any>;
   getAnalytics(tenantId: string, days: number): Promise<any>;
   getContactCount(tenantId: string): Promise<number>;
+
+  createCampaign(data: InsertCampaign): Promise<Campaign>;
+  getCampaignById(id: string): Promise<Campaign | undefined>;
+  getCampaignsByTenant(tenantId: string): Promise<Campaign[]>;
+  updateCampaign(id: string, data: Partial<InsertCampaign>): Promise<Campaign | undefined>;
+  deleteCampaign(id: string): Promise<void>;
+
+  createCampaignLog(data: InsertCampaignLog): Promise<CampaignLog>;
+  getCampaignLogsByCampaign(campaignId: string): Promise<CampaignLog[]>;
+
+  createProduct(data: InsertProduct): Promise<Product>;
+  getProductById(id: string): Promise<Product | undefined>;
+  getProductsByTenant(tenantId: string, search?: string): Promise<Product[]>;
+  updateProduct(id: string, data: Partial<InsertProduct>): Promise<Product | undefined>;
+  deleteProduct(id: string): Promise<void>;
 }
 
 class DatabaseStorage implements IStorage {
@@ -715,6 +734,78 @@ class DatabaseStorage implements IStorage {
     const result = await db.select({ count: count() }).from(contacts)
       .where(eq(contacts.tenantId, tenantId));
     return result[0]?.count || 0;
+  }
+
+  async createCampaign(data: InsertCampaign): Promise<Campaign> {
+    const [campaign] = await db.insert(campaigns).values(data).returning();
+    return campaign;
+  }
+
+  async getCampaignById(id: string): Promise<Campaign | undefined> {
+    const [campaign] = await db.select().from(campaigns).where(eq(campaigns.id, id));
+    return campaign;
+  }
+
+  async getCampaignsByTenant(tenantId: string): Promise<Campaign[]> {
+    return db.select().from(campaigns)
+      .where(eq(campaigns.tenantId, tenantId))
+      .orderBy(desc(campaigns.createdAt));
+  }
+
+  async updateCampaign(id: string, data: Partial<InsertCampaign>): Promise<Campaign | undefined> {
+    const [campaign] = await db.update(campaigns).set({ ...data, updatedAt: new Date() }).where(eq(campaigns.id, id)).returning();
+    return campaign;
+  }
+
+  async deleteCampaign(id: string): Promise<void> {
+    await db.delete(campaigns).where(eq(campaigns.id, id));
+  }
+
+  async createCampaignLog(data: InsertCampaignLog): Promise<CampaignLog> {
+    const [log] = await db.insert(campaignLogs).values(data).returning();
+    return log;
+  }
+
+  async getCampaignLogsByCampaign(campaignId: string): Promise<CampaignLog[]> {
+    return db.select().from(campaignLogs)
+      .where(eq(campaignLogs.campaignId, campaignId))
+      .orderBy(desc(campaignLogs.sentAt));
+  }
+
+  async createProduct(data: InsertProduct): Promise<Product> {
+    const [product] = await db.insert(products).values(data).returning();
+    return product;
+  }
+
+  async getProductById(id: string): Promise<Product | undefined> {
+    const [product] = await db.select().from(products).where(eq(products.id, id));
+    return product;
+  }
+
+  async getProductsByTenant(tenantId: string, search?: string): Promise<Product[]> {
+    if (search) {
+      return db.select().from(products)
+        .where(and(
+          eq(products.tenantId, tenantId),
+          or(
+            ilike(products.name, `%${search}%`),
+            ilike(products.category, `%${search}%`)
+          )
+        ))
+        .orderBy(desc(products.createdAt));
+    }
+    return db.select().from(products)
+      .where(eq(products.tenantId, tenantId))
+      .orderBy(desc(products.createdAt));
+  }
+
+  async updateProduct(id: string, data: Partial<InsertProduct>): Promise<Product | undefined> {
+    const [product] = await db.update(products).set(data).where(eq(products.id, id)).returning();
+    return product;
+  }
+
+  async deleteProduct(id: string): Promise<void> {
+    await db.delete(products).where(eq(products.id, id));
   }
 }
 
