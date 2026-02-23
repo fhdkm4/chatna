@@ -58,6 +58,9 @@ Preferred communication style: Simple, everyday language.
   - `quickReplies` — Pre-written response templates for agents
   - `agentMetrics` — Daily agent performance metrics (totalConversations, resolvedConversations, avgResponseTimeSeconds, totalMessages)
   - `activityLog` — System activity audit trail (transfers, assignments, resolutions)
+  - `campaigns` — Marketing campaigns with targeting (all/tags/specific contacts), AI-generated content, scheduling, and delivery tracking
+  - `campaignLogs` — Per-contact delivery logs for each campaign (status, error, sentAt)
+  - `products` — Product catalog entries with name, description, price, currency, category, image, and WhatsApp sharing
 - **Schema push**: Use `npm run db:push` (runs `drizzle-kit push`) to sync schema to database
 - **Storage layer** (`server/storage.ts`): Repository pattern interface (`IStorage`) abstracting all database operations
 
