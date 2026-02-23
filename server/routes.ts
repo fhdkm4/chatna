@@ -731,7 +731,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
     }
 
-    let conversation = await storage.getActiveConversation(tenantId, contact.id);
+    let conversation = await storage.getLatestConversation(tenantId, contact.id);
+    if (conversation && conversation.status === "resolved") {
+      await storage.updateConversation(conversation.id, { status: "active" } as any);
+      conversation = await storage.getConversationById(conversation.id);
+    }
     if (!conversation) {
       const assignedAgentId = await storage.autoAssignConversation(tenantId);
       conversation = await storage.createConversation({
@@ -888,7 +892,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         });
       }
 
-      let conversation = await storage.getActiveConversation(tenantId, contact.id);
+      let conversation = await storage.getLatestConversation(tenantId, contact.id);
+      if (conversation && conversation.status === "resolved") {
+        await storage.updateConversation(conversation.id, { status: "active" } as any);
+        conversation = await storage.getConversationById(conversation.id);
+      }
       if (!conversation) {
         conversation = await storage.createConversation({
           tenantId,
@@ -1598,7 +1606,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             console.error("WhatsApp campaign send failed for", contact.phone, whatsappErr);
           }
 
-          let conversation = await storage.getActiveConversation(req.user.tenantId, contact.id);
+          let conversation = await storage.getLatestConversation(req.user.tenantId, contact.id);
+          if (conversation && conversation.status === "resolved") {
+            await storage.updateConversation(conversation.id, { status: "active" } as any);
+            conversation = await storage.getConversationById(conversation.id);
+          }
           if (!conversation) {
             const assignedAgentId = await storage.autoAssignConversation(req.user.tenantId);
             conversation = await storage.createConversation({
@@ -1618,7 +1630,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           }
 
           const msg = await storage.createMessage({
-            conversationId: conversation.id,
+            conversationId: conversation!.id,
             tenantId: req.user.tenantId,
             senderType: "system",
             content: `📢 حملة "${campaign.title}": ${messageText}`,
@@ -1854,7 +1866,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         console.error("WhatsApp product send failed:", sendErr);
       }
 
-      let conversation = await storage.getActiveConversation(req.user.tenantId, contact.id);
+      let conversation = await storage.getLatestConversation(req.user.tenantId, contact.id);
+      if (conversation && conversation.status === "resolved") {
+        await storage.updateConversation(conversation.id, { status: "active" } as any);
+        conversation = await storage.getConversationById(conversation.id);
+      }
       if (!conversation) {
         const assignedAgentId = await storage.autoAssignConversation(req.user.tenantId);
         conversation = await storage.createConversation({
@@ -1874,7 +1890,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
 
       const msg = await storage.createMessage({
-        conversationId: conversation.id,
+        conversationId: conversation!.id,
         tenantId: req.user.tenantId,
         senderType: "system",
         content: messageText,

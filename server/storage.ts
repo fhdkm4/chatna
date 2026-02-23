@@ -44,6 +44,7 @@ export interface IStorage {
   getConversationById(id: string): Promise<Conversation | undefined>;
   getConversationsByTenant(tenantId: string, status?: string, agentId?: string, role?: string): Promise<any[]>;
   getActiveConversation(tenantId: string, contactId: string): Promise<Conversation | undefined>;
+  getLatestConversation(tenantId: string, contactId: string): Promise<Conversation | undefined>;
   updateConversation(id: string, data: Partial<InsertConversation>): Promise<Conversation | undefined>;
   getActiveConversationCountByAgent(agentId: string): Promise<number>;
 
@@ -88,6 +89,7 @@ export interface IStorage {
   getRecentResolvedConversation(tenantId: string, contactId: string): Promise<Conversation | undefined>;
 
   autoAssignConversation(tenantId: string): Promise<string | null>;
+  mergeDuplicateConversations(): Promise<number>;
 
   getTeamMonitoring(tenantId: string): Promise<any>;
 
@@ -250,6 +252,17 @@ class DatabaseStorage implements IStorage {
         eq(conversations.tenantId, tenantId),
         eq(conversations.contactId, contactId),
         or(eq(conversations.status, "active"), eq(conversations.status, "waiting"))
+      ))
+      .orderBy(desc(conversations.updatedAt))
+      .limit(1);
+    return conv;
+  }
+
+  async getLatestConversation(tenantId: string, contactId: string): Promise<Conversation | undefined> {
+    const [conv] = await db.select().from(conversations)
+      .where(and(
+        eq(conversations.tenantId, tenantId),
+        eq(conversations.contactId, contactId),
       ))
       .orderBy(desc(conversations.updatedAt))
       .limit(1);
@@ -586,6 +599,46 @@ class DatabaseStorage implements IStorage {
     }
 
     return null;
+  }
+
+  async mergeDuplicateConversations(): Promise<number> {
+    const allConvs = await db.select().from(conversations).orderBy(desc(conversations.updatedAt));
+
+    const grouped = new Map<string, typeof allConvs>();
+    for (const conv of allConvs) {
+      if (!conv.contactId || !conv.tenantId) continue;
+      const key = `${conv.tenantId}:${conv.contactId}`;
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key)!.push(conv);
+    }
+
+    let mergedCount = 0;
+    const keys = Array.from(grouped.keys());
+    for (const key of keys) {
+      const convGroup = grouped.get(key)!;
+      if (convGroup.length <= 1) continue;
+
+      const primary = convGroup[0];
+      const duplicates = convGroup.slice(1);
+
+      for (const dup of duplicates) {
+        await db.update(messages)
+          .set({ conversationId: primary.id })
+          .where(eq(messages.conversationId, dup.id));
+
+        await db.delete(conversations).where(eq(conversations.id, dup.id));
+        mergedCount++;
+      }
+
+      const hasActive = convGroup.some((c: any) => c.status === "active" || c.status === "waiting");
+      if (hasActive && primary.status === "resolved") {
+        await db.update(conversations)
+          .set({ status: "active", updatedAt: new Date() })
+          .where(eq(conversations.id, primary.id));
+      }
+    }
+
+    return mergedCount;
   }
 
   async getTeamMonitoring(tenantId: string): Promise<any> {
