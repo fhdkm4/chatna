@@ -615,6 +615,70 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.get("/api/settings/ai", authMiddleware, adminOnly, async (req: any, res) => {
+    try {
+      const tenant = await storage.getTenant(req.user.tenantId);
+      if (!tenant) return res.status(404).json({ message: "لم يتم العثور على المؤسسة" });
+      const knowledgeEntries = await storage.getKnowledgeByTenant(req.user.tenantId);
+      res.json({
+        aiEnabled: tenant.aiEnabled ?? true,
+        aiTone: tenant.aiTone || "friendly",
+        languagePreference: tenant.languagePreference || "auto",
+        aiPersonalityInstructions: tenant.aiPersonalityInstructions || "",
+        aiSystemPrompt: tenant.aiSystemPrompt || "",
+        businessDescription: tenant.businessDescription || "",
+        businessType: tenant.businessType || "",
+        contactPhone: tenant.contactPhone || "",
+        website: tenant.website || "",
+        workingHours: tenant.workingHours || "",
+        address: tenant.address || "",
+        welcomeMessage: tenant.welcomeMessage || "",
+        offHoursMessage: tenant.offHoursMessage || "",
+        defaultEscalationMessage: tenant.defaultEscalationMessage || "",
+        name: tenant.name,
+        knowledgeBaseCount: knowledgeEntries.filter((e: any) => e.isActive !== false).length,
+      });
+    } catch (err) {
+      console.error("Get AI settings error:", err);
+      res.status(500).json({ message: "خطأ في جلب إعدادات الذكاء الاصطناعي" });
+    }
+  });
+
+  app.patch("/api/settings/ai", authMiddleware, adminOnly, async (req: any, res) => {
+    try {
+      const allowedFields = [
+        "aiEnabled", "aiTone", "languagePreference", "aiPersonalityInstructions",
+        "aiSystemPrompt", "businessDescription", "businessType", "contactPhone",
+        "website", "workingHours", "address", "welcomeMessage", "offHoursMessage",
+        "defaultEscalationMessage"
+      ];
+      const updates: any = {};
+      for (const field of allowedFields) {
+        if (req.body[field] !== undefined) {
+          if (field === "aiEnabled") {
+            if (typeof req.body[field] === "boolean") updates[field] = req.body[field];
+          } else if (field === "aiTone") {
+            if (["friendly", "professional", "formal", "casual"].includes(req.body[field])) {
+              updates[field] = req.body[field];
+            }
+          } else if (field === "languagePreference") {
+            if (["auto", "ar", "en"].includes(req.body[field])) {
+              updates[field] = req.body[field];
+            }
+          } else if (typeof req.body[field] === "string") {
+            updates[field] = req.body[field];
+          }
+        }
+      }
+
+      const tenant = await storage.updateTenant(req.user.tenantId, updates);
+      res.json({ success: true, tenant });
+    } catch (err) {
+      console.error("Update AI settings error:", err);
+      res.status(500).json({ message: "خطأ في تحديث إعدادات الذكاء الاصطناعي" });
+    }
+  });
+
   // Meta Cloud API webhook endpoints
   app.get("/webhook", (req, res) => {
     const mode = req.query["hub.mode"];
