@@ -8,6 +8,7 @@ import { ContactPanel } from "@/components/contact-panel";
 import { KnowledgeBase } from "@/components/knowledge-base";
 import { AutoReplies } from "@/components/auto-replies";
 import { AiSettings } from "@/components/ai-settings";
+import { CompanyIdentity } from "@/components/company-identity";
 import { StatsOverview } from "@/components/stats-overview";
 import { TeamManagement } from "@/components/team-management";
 import { TeamMonitoring } from "@/components/team-monitoring";
@@ -17,7 +18,7 @@ import { io, Socket } from "socket.io-client";
 import type { Conversation, Message, Contact } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
-export type ActiveView = "chat" | "contacts" | "ai" | "ai-settings" | "analytics" | "settings" | "team" | "monitoring" | "campaigns" | "catalog";
+export type ActiveView = "chat" | "contacts" | "ai" | "ai-settings" | "company-identity" | "analytics" | "settings" | "team" | "monitoring" | "campaigns" | "catalog";
 export type ConversationFilter = "all" | "active" | "waiting" | "resolved";
 
 export interface ConversationWithDetails extends Conversation {
@@ -306,7 +307,7 @@ export default function Dashboard() {
   if (!user) return null;
 
   const renderMainContent = () => {
-    if ((activeView === "settings" || activeView === "ai-settings") && user?.role !== "admin") {
+    if ((activeView === "settings" || activeView === "ai-settings" || activeView === "company-identity") && user?.role !== "admin") {
       setActiveView("chat");
       return null;
     }
@@ -320,6 +321,8 @@ export default function Dashboard() {
         return <KnowledgeBase />;
       case "ai-settings":
         return <AiSettings onNavigateToKnowledgeBase={() => setActiveView("ai")} />;
+      case "company-identity":
+        return <CompanyIdentity />;
       case "analytics":
         return <StatsOverview />;
       case "settings":

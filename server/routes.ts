@@ -615,6 +615,61 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.get("/api/settings/company", authMiddleware, adminOnly, async (req: any, res) => {
+    try {
+      const tenant = await storage.getTenant(req.user.tenantId);
+      if (!tenant) return res.status(404).json({ message: "لم يتم العثور على المؤسسة" });
+      res.json({
+        name: tenant.name,
+        businessDescription: tenant.businessDescription || "",
+        businessType: tenant.businessType || "",
+        contactPhone: tenant.contactPhone || "",
+        website: tenant.website || "",
+        workingHours: typeof tenant.workingHours === "string" ? tenant.workingHours : (tenant.workingHours ? JSON.stringify(tenant.workingHours) : ""),
+        address: tenant.address || "",
+        aiTone: tenant.aiTone || "friendly",
+        welcomeMessage: tenant.welcomeMessage || "",
+        offHoursMessage: tenant.offHoursMessage || "",
+      });
+    } catch (err) {
+      console.error("Get company settings error:", err);
+      res.status(500).json({ message: "خطأ في جلب بيانات الشركة" });
+    }
+  });
+
+  app.patch("/api/settings/company", authMiddleware, adminOnly, async (req: any, res) => {
+    try {
+      const { name, businessDescription, businessType, contactPhone, website, workingHours, address, aiTone, welcomeMessage, offHoursMessage } = req.body;
+
+      if (name !== undefined && (typeof name !== "string" || !name.trim())) {
+        return res.status(400).json({ message: "اسم الشركة مطلوب" });
+      }
+      if (businessDescription !== undefined && typeof businessDescription !== "string") {
+        return res.status(400).json({ message: "وصف الشركة غير صالح" });
+      }
+
+      const updates: any = {};
+      if (typeof name === "string" && name.trim()) updates.name = name.trim().slice(0, 255);
+      if (typeof businessDescription === "string") updates.businessDescription = businessDescription.slice(0, 2000);
+      if (typeof businessType === "string") updates.businessType = businessType.slice(0, 100);
+      if (typeof contactPhone === "string") updates.contactPhone = contactPhone.slice(0, 50);
+      if (typeof website === "string") updates.website = website.slice(0, 255);
+      if (typeof workingHours === "string") updates.workingHours = workingHours.slice(0, 255);
+      if (typeof address === "string") updates.address = address.slice(0, 500);
+      if (typeof aiTone === "string" && ["friendly", "professional", "formal", "casual"].includes(aiTone)) {
+        updates.aiTone = aiTone;
+      }
+      if (typeof welcomeMessage === "string") updates.welcomeMessage = welcomeMessage.slice(0, 2000);
+      if (typeof offHoursMessage === "string") updates.offHoursMessage = offHoursMessage.slice(0, 2000);
+
+      const tenant = await storage.updateTenant(req.user.tenantId, updates);
+      res.json({ success: true, tenant });
+    } catch (err) {
+      console.error("Update company settings error:", err);
+      res.status(500).json({ message: "خطأ في تحديث بيانات الشركة" });
+    }
+  });
+
   app.get("/api/settings/ai", authMiddleware, adminOnly, async (req: any, res) => {
     try {
       const tenant = await storage.getTenant(req.user.tenantId);

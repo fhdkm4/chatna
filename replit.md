@@ -28,7 +28,7 @@ Preferred communication style: Simple, everyday language.
 - **Styling**: Tailwind CSS with CSS variables for theming (light/dark mode support), IBM Plex Sans Arabic font
 - **RTL Support**: The HTML root is set to `dir="rtl"` and `lang="ar"`
 - **Real-time**: Socket.io client for live message updates
-- **Key Pages**: Login/Register (`/login`), Dashboard (`/`) with views for chat, contacts, AI knowledge base, analytics, and settings; Accept Invitation (`/accept-invitation`); Setup Wizard (`/wizard`)
+- **Key Pages**: Login/Register (`/login`), Dashboard (`/`) with views for chat, contacts, AI knowledge base, AI settings, company identity, analytics, and settings; Accept Invitation (`/accept-invitation`); Setup Wizard (`/wizard`)
 - **Path aliases**: `@/` maps to `client/src/`, `@shared/` maps to `shared/`
 
 ### Backend Architecture
