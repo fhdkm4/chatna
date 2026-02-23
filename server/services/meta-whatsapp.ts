@@ -46,6 +46,62 @@ export async function sendMetaWhatsAppMessage(
   }
 }
 
+export async function sendMetaWhatsAppInteractiveButtons(
+  recipientPhone: string,
+  bodyText: string,
+  buttons: { id: string; title: string }[],
+): Promise<string | null> {
+  const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+  const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
+
+  if (!WHATSAPP_TOKEN || !PHONE_NUMBER_ID) {
+    console.warn("Meta WhatsApp credentials not configured");
+    return null;
+  }
+
+  try {
+    const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${PHONE_NUMBER_ID}/messages`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${WHATSAPP_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: recipientPhone,
+        type: "interactive",
+        interactive: {
+          type: "button",
+          body: { text: bodyText },
+          action: {
+            buttons: buttons.map((btn) => ({
+              type: "reply",
+              reply: { id: btn.id, title: btn.title },
+            })),
+          },
+        },
+      }),
+    });
+
+    const data = await response.json() as any;
+
+    if (!response.ok) {
+      console.error("Meta WhatsApp Interactive API error:", data.error?.message || data);
+      return null;
+    }
+
+    const messageId = data.messages?.[0]?.id || null;
+    console.log(`Meta WhatsApp interactive message sent to ${recipientPhone}, id: ${messageId}`);
+    return messageId;
+  } catch (error) {
+    console.error("Meta WhatsApp interactive send error:", error);
+    return null;
+  }
+}
+
 export async function markMessageAsRead(messageId: string): Promise<void> {
   const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
   const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;

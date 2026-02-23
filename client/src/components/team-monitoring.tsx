@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Activity, Users, MessageSquare, Clock, CheckCircle, Circle, RefreshCw, Loader2, ArrowLeftRight, UserCheck, Shield, UserCircle } from "lucide-react";
+import { Activity, Users, MessageSquare, Clock, CheckCircle, Circle, RefreshCw, Loader2, ArrowLeftRight, UserCheck, Shield, UserCircle, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { authFetch } from "@/lib/auth";
@@ -41,6 +41,12 @@ interface ActivityLogEntry {
   createdAt: string;
 }
 
+interface RatingStat {
+  agentId: string;
+  avgRating: number;
+  totalRatings: number;
+}
+
 interface TeamMonitoringProps {
   onlineAgents?: Set<string>;
 }
@@ -48,16 +54,24 @@ interface TeamMonitoringProps {
 export function TeamMonitoring({ onlineAgents = new Set() }: TeamMonitoringProps) {
   const [data, setData] = useState<MonitoringData | null>(null);
   const [activities, setActivities] = useState<ActivityLogEntry[]>([]);
+  const [ratingStats, setRatingStats] = useState<Map<string, RatingStat>>(new Map());
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     try {
-      const [monRes, actRes] = await Promise.all([
+      const [monRes, actRes, ratRes] = await Promise.all([
         authFetch("/api/team/monitoring"),
         authFetch("/api/activity-log"),
+        authFetch("/api/ratings/stats"),
       ]);
       if (monRes.ok) setData(await monRes.json());
       if (actRes.ok) setActivities(await actRes.json());
+      if (ratRes.ok) {
+        const stats: RatingStat[] = await ratRes.json();
+        const map = new Map<string, RatingStat>();
+        stats.forEach((s) => map.set(s.agentId, s));
+        setRatingStats(map);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -207,6 +221,7 @@ export function TeamMonitoring({ onlineAgents = new Set() }: TeamMonitoringProps
                     <th className="text-right text-gray-400 text-xs font-medium p-4">إجمالي المحادثات</th>
                     <th className="text-right text-gray-400 text-xs font-medium p-4">تم الحل</th>
                     <th className="text-right text-gray-400 text-xs font-medium p-4">متوسط وقت الرد</th>
+                    <th className="text-right text-gray-400 text-xs font-medium p-4">تقييم العملاء</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -278,12 +293,30 @@ export function TeamMonitoring({ onlineAgents = new Set() }: TeamMonitoringProps
                             {formatTime(agent.metrics?.avgResponseTimeSeconds || 0)}
                           </span>
                         </td>
+                        <td className="p-4">
+                          {ratingStats.has(agent.id) ? (
+                            <div className="flex items-center gap-1.5" data-testid={`rating-cell-${agent.id}`}>
+                              <Star className={`w-3.5 h-3.5 fill-current ${
+                                ratingStats.get(agent.id)!.avgRating >= 4 ? "text-emerald-400" :
+                                ratingStats.get(agent.id)!.avgRating >= 3 ? "text-amber-400" : "text-red-400"
+                              }`} />
+                              <span className="text-white text-sm font-medium">
+                                {ratingStats.get(agent.id)!.avgRating.toFixed(1)}
+                              </span>
+                              <span className="text-gray-500 text-xs">
+                                ({ratingStats.get(agent.id)!.totalRatings})
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-gray-500 text-xs" data-testid={`no-rating-${agent.id}`}>لا تقييمات</span>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
                   {agents.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="p-8 text-center text-gray-500 text-sm">
+                      <td colSpan={7} className="p-8 text-center text-gray-500 text-sm">
                         لا يوجد موظفين
                       </td>
                     </tr>

@@ -10,7 +10,7 @@ import { db } from "./db";
 import { registerSchema, loginSchema, createAgentSchema, inviteAgentSchema, acceptInvitationSchema, users as usersTable, messages as messagesTable, conversations as conversationsTable, invitations as invitationsTable } from "@shared/schema";
 import crypto from "crypto";
 import { parseIncomingMessage, sendWhatsAppMessage } from "./services/twilio";
-import { sendMetaWhatsAppMessage, markMessageAsRead } from "./services/meta-whatsapp";
+import { sendMetaWhatsAppMessage, sendMetaWhatsAppInteractiveButtons, markMessageAsRead } from "./services/meta-whatsapp";
 import { checkAutoReply, generateAiResponse } from "./services/ai";
 import { simulateTypingDelay } from "./services/typing-delay";
 import { count, sql as sqlHelper, and, inArray, not, desc } from "drizzle-orm";
@@ -460,6 +460,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         maxAgents: tenant.maxAgents,
         name: tenant.name,
         assignmentMode: tenant.assignmentMode || "round_robin",
+        ratingEnabled: tenant.ratingEnabled ?? true,
+        ratingMessage: tenant.ratingMessage || "شكراً لتواصلك معنا! 🙏\nكيف تقيّم الخدمة اللي حصلت عليها؟\n\n1️⃣ ممتاز 😊\n2️⃣ جيد 👍\n3️⃣ سيئ 😞",
+        ratingDelayMinutes: tenant.ratingDelayMinutes ?? 2,
       });
     } catch (err) {
       console.error("Get settings error:", err);
@@ -469,7 +472,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.patch("/api/settings", authMiddleware, adminOnly, async (req: any, res) => {
     try {
-      const { aiEnabled, aiSystemPrompt, setupCompleted, name, assignmentMode } = req.body;
+      const { aiEnabled, aiSystemPrompt, setupCompleted, name, assignmentMode, ratingEnabled, ratingMessage, ratingDelayMinutes } = req.body;
       const updates: any = {};
       if (typeof aiEnabled === "boolean") updates.aiEnabled = aiEnabled;
       if (typeof aiSystemPrompt === "string") updates.aiSystemPrompt = aiSystemPrompt;
@@ -478,6 +481,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (assignmentMode && ["round_robin", "least_busy", "manual"].includes(assignmentMode)) {
         updates.assignmentMode = assignmentMode;
       }
+      if (typeof ratingEnabled === "boolean") updates.ratingEnabled = ratingEnabled;
+      if (typeof ratingMessage === "string") updates.ratingMessage = ratingMessage;
+      if (typeof ratingDelayMinutes === "number" && ratingDelayMinutes >= 0) updates.ratingDelayMinutes = ratingDelayMinutes;
 
       const tenant = await storage.updateTenant(req.user.tenantId, updates);
       res.json(tenant);
@@ -566,6 +572,63 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  function parseRatingResponse(text: string, buttonReplyId?: string | null): number | null {
+    if (buttonReplyId === "rating_excellent") return 5;
+    if (buttonReplyId === "rating_good") return 3;
+    if (buttonReplyId === "rating_bad") return 1;
+
+    const normalized = text.replace(/[\u{FE0F}\u{20E3}]/gu, "").trim();
+
+    if (normalized === "1" || normalized === "1️⃣" || normalized.includes("ممتاز")) return 5;
+    if (normalized === "2" || normalized === "2️⃣" || normalized.includes("جيد")) return 3;
+    if (normalized === "3" || normalized === "3️⃣" || normalized.includes("سيئ")) return 1;
+    return null;
+  }
+
+  async function sendRatingRequest(tenantId: string, contactPhone: string, ratingMessage: string) {
+    const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+
+    if (WHATSAPP_TOKEN) {
+      await sendMetaWhatsAppInteractiveButtons(
+        contactPhone,
+        ratingMessage,
+        [
+          { id: "rating_excellent", title: "ممتاز 😊" },
+          { id: "rating_good", title: "جيد 👍" },
+          { id: "rating_bad", title: "سيئ 😞" },
+        ],
+      );
+    } else {
+      await sendWhatsAppMessage(contactPhone, ratingMessage);
+    }
+  }
+
+  setInterval(async () => {
+    try {
+      const pending = await storage.getConversationsPendingRating();
+      for (const conv of pending) {
+        const contact = await storage.getContactById(conv.contactId);
+        if (!contact?.phone) continue;
+
+        const tenant = await storage.getTenant(conv.tenantId);
+        if (!tenant?.ratingEnabled) continue;
+
+        const ratingMessage = tenant.ratingMessage ||
+          "شكراً لتواصلك معنا! 🙏\nكيف تقيّم الخدمة اللي حصلت عليها؟\n\n1️⃣ ممتاز 😊\n2️⃣ جيد 👍\n3️⃣ سيئ 😞";
+
+        await sendRatingRequest(conv.tenantId, contact.phone, ratingMessage);
+
+        await storage.updateConversation(conv.conversationId, {
+          ratingRequested: true,
+        } as any);
+
+        console.log(`Rating request sent to ${contact.phone} for conversation ${conv.conversationId}`);
+      }
+    } catch (err) {
+      console.error("Rating dispatch error:", err);
+    }
+  }, 30000);
+
   async function processMetaMessage(msg: any, contactsMap: Map<string, string>, io: SocketServer) {
     const senderPhone = msg.from;
     const profileName = contactsMap.get(senderPhone) || null;
@@ -573,7 +636,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     let messageContent = "";
     let mediaType: string | undefined;
 
-    if (msg.type === "text") {
+    if (msg.type === "interactive" && msg.interactive?.button_reply) {
+      messageContent = msg.interactive.button_reply.title || msg.interactive.button_reply.id || "";
+    } else if (msg.type === "text") {
       messageContent = msg.text?.body || "";
     } else if (msg.type === "image") {
       messageContent = msg.image?.caption || "[صورة]";
@@ -628,6 +693,47 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       });
     } else if (profileName && !contact.name) {
       await storage.updateContact(contact.id, { name: profileName });
+    }
+
+    const resolvedConv = await storage.getRecentResolvedConversation(tenantId, contact.id);
+    if (resolvedConv) {
+      const buttonReplyId = msg.type === "interactive" ? msg.interactive?.button_reply?.id : null;
+      const ratingValue = parseRatingResponse(messageContent.trim(), buttonReplyId);
+
+      if (ratingValue !== null) {
+        await storage.createRating({
+          tenantId,
+          conversationId: resolvedConv.id,
+          agentId: resolvedConv.assignedTo,
+          contactId: contact.id,
+          rating: ratingValue,
+        });
+
+        await storage.updateConversation(resolvedConv.id, {
+          ratingRequested: false,
+        } as any);
+
+        const thankYouMsg = "شكراً على تقييمك! نسعد بخدمتك دائماً 💚";
+        await sendMetaWhatsAppMessage(senderPhone, thankYouMsg);
+
+        const systemMsg = await storage.createMessage({
+          conversationId: resolvedConv.id,
+          tenantId,
+          senderType: "system",
+          content: `تقييم العميل: ${ratingValue === 5 ? "ممتاز ⭐⭐⭐⭐⭐" : ratingValue === 3 ? "جيد ⭐⭐⭐" : "سيئ ⭐"}`,
+        });
+
+        io.to(`tenant:${tenantId}`).emit("new_message", {
+          conversationId: resolvedConv.id,
+          message: systemMsg,
+        });
+
+        return;
+      } else {
+        await storage.updateConversation(resolvedConv.id, {
+          ratingRequested: false,
+        } as any);
+      }
     }
 
     let conversation = await storage.getActiveConversation(tenantId, contact.id);
@@ -1059,6 +1165,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           action: "conversation_resolved",
           details: { conversationId: conv.id },
         });
+
+        const tenant = await storage.getTenant(req.user.tenantId);
+        if (tenant?.ratingEnabled) {
+          const delayMinutes = tenant.ratingDelayMinutes || 2;
+          const scheduledAt = new Date(Date.now() + delayMinutes * 60 * 1000);
+          await storage.updateConversation(conv.id, {
+            ratingScheduledAt: scheduledAt,
+          } as any);
+        }
       }
 
       res.json(conv);
@@ -1331,6 +1446,26 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err) {
       console.error("Export error:", err);
       res.status(500).json({ message: "خطأ في التصدير" });
+    }
+  });
+
+  app.get("/api/ratings/stats", authMiddleware, async (req: any, res) => {
+    try {
+      const stats = await storage.getAgentRatingStats(req.user.tenantId);
+      res.json(stats);
+    } catch (err) {
+      console.error("Rating stats error:", err);
+      res.status(500).json({ message: "خطأ في جلب إحصائيات التقييمات" });
+    }
+  });
+
+  app.get("/api/ratings/agent/:agentId", authMiddleware, async (req: any, res) => {
+    try {
+      const ratingsList = await storage.getRatingsByAgent(req.params.agentId, req.user.tenantId);
+      res.json(ratingsList);
+    } catch (err) {
+      console.error("Agent ratings error:", err);
+      res.status(500).json({ message: "خطأ في جلب التقييمات" });
     }
   });
 

@@ -23,6 +23,9 @@ export const tenants = pgTable("tenants", {
   qualityCheckedAt: timestamp("quality_checked_at"),
   assignmentMode: varchar("assignment_mode", { length: 20 }).default("round_robin"),
   lastAssignedUserId: uuid("last_assigned_user_id"),
+  ratingEnabled: boolean("rating_enabled").default(true),
+  ratingMessage: text("rating_message").default("شكراً لتواصلك معنا! 🙏\nكيف تقيّم الخدمة اللي حصلت عليها؟\n\n1️⃣ ممتاز 😊\n2️⃣ جيد 👍\n3️⃣ سيئ 😞"),
+  ratingDelayMinutes: integer("rating_delay_minutes").default(2),
   setupCompleted: boolean("setup_completed").default(false),
   discountCode: varchar("discount_code", { length: 50 }),
   createdAt: timestamp("created_at").defaultNow(),
@@ -78,6 +81,8 @@ export const conversations = pgTable("conversations", {
   aiHandled: boolean("ai_handled").default(false),
   aiPaused: boolean("ai_paused").default(false),
   delayAlerted: boolean("delay_alerted").default(false),
+  ratingRequested: boolean("rating_requested").default(false),
+  ratingScheduledAt: timestamp("rating_scheduled_at"),
   startedAt: timestamp("started_at").defaultNow(),
   resolvedAt: timestamp("resolved_at"),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -133,6 +138,19 @@ export const quickReplies = pgTable("quick_replies", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const ratings = pgTable("ratings", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
+  conversationId: uuid("conversation_id").references(() => conversations.id, { onDelete: "cascade" }),
+  agentId: uuid("agent_id").references(() => users.id),
+  contactId: uuid("contact_id").references(() => contacts.id),
+  rating: integer("rating").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("ratings_agent_idx").on(table.agentId),
+  index("ratings_tenant_idx").on(table.tenantId),
+]);
+
 export const agentMetrics = pgTable("agent_metrics", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
@@ -167,6 +185,7 @@ export const insertAutoReplySchema = createInsertSchema(autoReplies).omit({ id: 
 export const insertAiKnowledgeSchema = createInsertSchema(aiKnowledge).omit({ id: true, createdAt: true });
 export const insertQuickReplySchema = createInsertSchema(quickReplies).omit({ id: true, createdAt: true });
 export const insertInvitationSchema = createInsertSchema(invitations).omit({ id: true, createdAt: true });
+export const insertRatingSchema = createInsertSchema(ratings).omit({ id: true, createdAt: true });
 export const insertAgentMetricsSchema = createInsertSchema(agentMetrics).omit({ id: true, createdAt: true });
 export const insertActivityLogSchema = createInsertSchema(activityLog).omit({ id: true, createdAt: true });
 
@@ -219,6 +238,8 @@ export type QuickReply = typeof quickReplies.$inferSelect;
 export type InsertQuickReply = z.infer<typeof insertQuickReplySchema>;
 export type Invitation = typeof invitations.$inferSelect;
 export type InsertInvitation = z.infer<typeof insertInvitationSchema>;
+export type Rating = typeof ratings.$inferSelect;
+export type InsertRating = z.infer<typeof insertRatingSchema>;
 export type AgentMetric = typeof agentMetrics.$inferSelect;
 export type InsertAgentMetric = z.infer<typeof insertAgentMetricsSchema>;
 export type ActivityLogEntry = typeof activityLog.$inferSelect;

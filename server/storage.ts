@@ -3,7 +3,7 @@ import { eq, and, desc, ilike, or, sql, count, gte, lte, between, ne, isNull, as
 import {
   tenants, users, contacts, conversations, messages,
   autoReplies, aiKnowledge, quickReplies, invitations,
-  agentMetrics, activityLog,
+  ratings, agentMetrics, activityLog,
   type Tenant, type InsertTenant,
   type User, type InsertUser,
   type Contact, type InsertContact,
@@ -13,6 +13,7 @@ import {
   type AiKnowledge, type InsertAiKnowledge,
   type QuickReply, type InsertQuickReply,
   type Invitation, type InsertInvitation,
+  type Rating, type InsertRating,
   type AgentMetric, type InsertAgentMetric,
   type ActivityLogEntry, type InsertActivityLog,
 } from "@shared/schema";
@@ -75,6 +76,12 @@ export interface IStorage {
 
   createActivityLog(data: InsertActivityLog): Promise<ActivityLogEntry>;
   getActivityLogByTenant(tenantId: string, limit?: number): Promise<any[]>;
+
+  createRating(data: InsertRating): Promise<Rating>;
+  getRatingsByAgent(agentId: string, tenantId: string): Promise<any[]>;
+  getAgentRatingStats(tenantId: string): Promise<any[]>;
+  getConversationsPendingRating(): Promise<any[]>;
+  getRecentResolvedConversation(tenantId: string, contactId: string): Promise<Conversation | undefined>;
 
   autoAssignConversation(tenantId: string): Promise<string | null>;
 
@@ -448,6 +455,73 @@ class DatabaseStorage implements IStorage {
       result.push({ ...log, userName });
     }
     return result;
+  }
+
+  async createRating(data: InsertRating): Promise<Rating> {
+    const [rating] = await db.insert(ratings).values(data).returning();
+    return rating;
+  }
+
+  async getRatingsByAgent(agentId: string, tenantId: string): Promise<any[]> {
+    const result = await db.select({
+      id: ratings.id,
+      rating: ratings.rating,
+      conversationId: ratings.conversationId,
+      contactId: ratings.contactId,
+      createdAt: ratings.createdAt,
+      contactName: contacts.name,
+      contactPhone: contacts.phone,
+    })
+      .from(ratings)
+      .leftJoin(contacts, eq(ratings.contactId, contacts.id))
+      .where(and(eq(ratings.agentId, agentId), eq(ratings.tenantId, tenantId)))
+      .orderBy(desc(ratings.createdAt));
+    return result;
+  }
+
+  async getAgentRatingStats(tenantId: string): Promise<any[]> {
+    const result = await db.select({
+      agentId: ratings.agentId,
+      avgRating: sql<number>`ROUND(AVG(${ratings.rating})::numeric, 1)`,
+      totalRatings: count(),
+    })
+      .from(ratings)
+      .where(eq(ratings.tenantId, tenantId))
+      .groupBy(ratings.agentId);
+    return result;
+  }
+
+  async getConversationsPendingRating(): Promise<any[]> {
+    const result = await db.select({
+      conversationId: conversations.id,
+      tenantId: conversations.tenantId,
+      contactId: conversations.contactId,
+      agentId: conversations.assignedTo,
+      ratingScheduledAt: conversations.ratingScheduledAt,
+    })
+      .from(conversations)
+      .innerJoin(tenants, eq(conversations.tenantId, tenants.id))
+      .where(and(
+        eq(conversations.status, "resolved"),
+        eq(conversations.ratingRequested, false),
+        eq(tenants.ratingEnabled, true),
+        sql`${conversations.ratingScheduledAt} IS NOT NULL`,
+        sql`${conversations.ratingScheduledAt} <= NOW()`,
+      ));
+    return result;
+  }
+
+  async getRecentResolvedConversation(tenantId: string, contactId: string): Promise<Conversation | undefined> {
+    const [conv] = await db.select().from(conversations)
+      .where(and(
+        eq(conversations.tenantId, tenantId),
+        eq(conversations.contactId, contactId),
+        eq(conversations.status, "resolved"),
+        eq(conversations.ratingRequested, true),
+      ))
+      .orderBy(desc(conversations.resolvedAt))
+      .limit(1);
+    return conv;
   }
 
   async autoAssignConversation(tenantId: string): Promise<string | null> {

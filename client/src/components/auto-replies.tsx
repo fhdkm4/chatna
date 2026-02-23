@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Settings, Pencil, Trash2, Zap, X, Loader2, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Settings, Pencil, Trash2, Zap, X, Loader2, ToggleLeft, ToggleRight, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,6 +19,10 @@ export function AutoReplies() {
   const [editing, setEditing] = useState<AutoReply | null>(null);
   const [form, setForm] = useState({ triggerType: "keyword", triggerValue: "", response: "", priority: 0 });
   const [saving, setSaving] = useState(false);
+  const [ratingEnabled, setRatingEnabled] = useState(true);
+  const [ratingMessage, setRatingMessage] = useState("");
+  const [ratingDelayMinutes, setRatingDelayMinutes] = useState(2);
+  const [savingRating, setSavingRating] = useState(false);
   const { toast } = useToast();
 
   const fetchReplies = useCallback(async () => {
@@ -29,7 +33,34 @@ export function AutoReplies() {
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchReplies(); }, [fetchReplies]);
+  const fetchSettings = useCallback(async () => {
+    try {
+      const res = await authFetch("/api/settings");
+      if (res.ok) {
+        const data = await res.json();
+        setRatingEnabled(data.ratingEnabled ?? true);
+        setRatingMessage(data.ratingMessage || "");
+        setRatingDelayMinutes(data.ratingDelayMinutes ?? 2);
+      }
+    } catch (err) { console.error(err); }
+  }, []);
+
+  useEffect(() => { fetchReplies(); fetchSettings(); }, [fetchReplies, fetchSettings]);
+
+  const saveRatingSettings = async () => {
+    setSavingRating(true);
+    try {
+      const res = await authFetch("/api/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ ratingEnabled, ratingMessage, ratingDelayMinutes }),
+      });
+      if (res.ok) {
+        toast({ title: "تم حفظ إعدادات التقييم" });
+      }
+    } catch (err) {
+      toast({ title: "خطأ في حفظ الإعدادات", variant: "destructive" });
+    } finally { setSavingRating(false); }
+  };
 
   const openCreate = () => {
     setEditing(null);
@@ -156,6 +187,67 @@ export function AutoReplies() {
           </div>
         )}
       </ScrollArea>
+
+      <div className="border-t border-white/5 px-6 py-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Star className="w-5 h-5 text-amber-400" />
+          <h3 className="text-sm font-semibold text-white">إعدادات تقييم العملاء</h3>
+        </div>
+        <div className="max-w-3xl space-y-4">
+          <div className="flex items-center justify-between bg-[#111827]/50 border border-white/5 rounded-lg p-4">
+            <div>
+              <p className="text-sm text-white font-medium">تفعيل التقييم التلقائي</p>
+              <p className="text-xs text-gray-400 mt-0.5">إرسال طلب تقييم للعميل بعد إغلاق المحادثة</p>
+            </div>
+            <button
+              onClick={() => setRatingEnabled(!ratingEnabled)}
+              className="text-gray-400 hover:text-emerald-400 transition-colors"
+              data-testid="toggle-rating-enabled"
+            >
+              {ratingEnabled ? (
+                <ToggleRight className="w-7 h-7 text-emerald-400" />
+              ) : (
+                <ToggleLeft className="w-7 h-7" />
+              )}
+            </button>
+          </div>
+
+          {ratingEnabled && (
+            <>
+              <div className="space-y-2">
+                <Label className="text-gray-300 text-xs">مدة الانتظار قبل إرسال التقييم (بالدقائق)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={60}
+                  value={ratingDelayMinutes}
+                  onChange={(e) => setRatingDelayMinutes(parseInt(e.target.value) || 0)}
+                  className="bg-[#0a0f1a] border-white/10 text-white w-32"
+                  data-testid="input-rating-delay"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-gray-300 text-xs">رسالة طلب التقييم</Label>
+                <Textarea
+                  value={ratingMessage}
+                  onChange={(e) => setRatingMessage(e.target.value)}
+                  placeholder="شكراً لتواصلك معنا! كيف تقيّم الخدمة؟"
+                  className="bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 min-h-[80px]"
+                  data-testid="input-rating-message"
+                />
+              </div>
+              <Button
+                onClick={saveRatingSettings}
+                disabled={savingRating}
+                className="bg-emerald-600 text-xs"
+                data-testid="button-save-rating-settings"
+              >
+                {savingRating ? <Loader2 className="w-4 h-4 animate-spin" /> : "حفظ إعدادات التقييم"}
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="bg-[#111827] border-white/10 text-white max-w-lg">
