@@ -1497,16 +1497,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   const campaignCreateSchema = z.object({
     title: z.string().min(1),
-    description: z.string().optional().nullable(),
-    imageUrl: z.string().optional().nullable(),
-    messageText: z.string().optional().nullable(),
-    ctaType: z.string().optional().nullable(),
-    ctaValue: z.string().optional().nullable(),
+    description: z.union([z.string(), z.null()]).optional(),
+    imageUrl: z.union([z.string(), z.null()]).optional(),
+    messageText: z.union([z.string(), z.null()]).optional(),
+    ctaType: z.union([z.string(), z.null()]).optional(),
+    ctaValue: z.union([z.string(), z.null()]).optional(),
     targetType: z.string().optional(),
     targetTags: z.array(z.string()).optional(),
     targetContactIds: z.array(z.string()).optional(),
     status: z.string().optional(),
-    scheduledAt: z.string().optional().nullable(),
+    scheduledAt: z.union([z.string(), z.null()]).optional(),
   });
 
   const productCreateSchema = z.object({

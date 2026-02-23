@@ -27,6 +27,7 @@ export function Campaigns() {
   const [sending, setSending] = useState<string | null>(null);
   const [generatingImage, setGeneratingImage] = useState(false);
   const [generatingText, setGeneratingText] = useState(false);
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
   const [form, setForm] = useState({
@@ -111,18 +112,20 @@ export function Campaigns() {
   };
 
   const saveCampaign = async (sendNow: boolean) => {
+    if (saving) return;
+    setSaving(true);
     try {
-      const payload = {
+      const payload: Record<string, any> = {
         title: form.title,
-        description: form.description,
+        description: form.description || "",
         imageUrl: form.imageUrl || null,
-        messageText: form.messageText,
+        messageText: form.messageText || "",
         ctaType: form.ctaType,
         ctaValue: form.ctaValue || null,
         targetType: form.targetType,
         targetTags: form.targetTags,
         targetContactIds: form.targetContactIds,
-        status: sendNow ? "draft" : "draft",
+        status: "draft",
       };
       const res = await authFetch("/api/campaigns", {
         method: "POST",
@@ -137,7 +140,7 @@ export function Campaigns() {
             const result = await sendRes.json();
             toast({ title: "تم إرسال الحملة", description: `تم الإرسال إلى ${result.deliveredCount} من ${result.totalRecipients} جهة اتصال` });
           } else {
-            const err = await sendRes.json();
+            const err = await sendRes.json().catch(() => ({ message: "خطأ غير معروف" }));
             toast({ title: "خطأ في الإرسال", description: err.message, variant: "destructive" });
           }
           setSending(null);
@@ -147,12 +150,15 @@ export function Campaigns() {
         setShowWizard(false);
         fetchCampaigns();
       } else {
-        const err = await res.json();
-        toast({ title: "خطأ", description: err.message, variant: "destructive" });
+        const err = await res.json().catch(() => ({ message: "خطأ في الخادم" }));
+        toast({ title: "خطأ في حفظ الحملة", description: err.message || "تعذر حفظ الحملة", variant: "destructive" });
       }
     } catch (err) {
-      toast({ title: "خطأ في حفظ الحملة", variant: "destructive" });
+      console.error("Save campaign error:", err);
+      toast({ title: "خطأ في حفظ الحملة", description: "تحقق من اتصال الإنترنت وحاول مرة أخرى", variant: "destructive" });
       setSending(null);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -453,7 +459,7 @@ export function Campaigns() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-500">العنوان:</span>
-                  <span className="text-white">{form.title}</span>
+                  <span className="text-white" data-testid="review-title">{form.title}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">الجمهور:</span>
@@ -472,19 +478,19 @@ export function Campaigns() {
               </div>
             </div>
 
+            <div>
+              <Label className="text-gray-300 mb-1.5 block text-sm">نص الرسالة</Label>
+              <div className="p-3 rounded-lg bg-[#1a2235] border border-white/10 text-sm text-gray-300 whitespace-pre-wrap" data-testid="review-message">
+                {form.messageText || <span className="text-gray-500 italic">لم يتم إدخال نص</span>}
+              </div>
+            </div>
+
             {form.imageUrl && (
               <div>
                 <Label className="text-gray-300 mb-1.5 block text-sm">صورة الحملة</Label>
                 <img src={form.imageUrl} alt="Campaign" className="w-full max-w-xs rounded-lg border border-white/10" />
               </div>
             )}
-
-            <div>
-              <Label className="text-gray-300 mb-1.5 block text-sm">نص الرسالة</Label>
-              <div className="p-3 rounded-lg bg-[#1a2235] border border-white/10 text-sm text-gray-300 whitespace-pre-wrap">
-                {form.messageText}
-              </div>
-            </div>
           </div>
         );
     }
@@ -643,14 +649,16 @@ export function Campaigns() {
                     data-testid="button-save-draft"
                     variant="outline"
                     onClick={() => saveCampaign(false)}
+                    disabled={saving}
                     className="border-white/20 text-gray-300 hover:bg-white/5"
                   >
+                    {saving && !sending ? <Loader2 className="w-4 h-4 animate-spin ml-1" /> : null}
                     حفظ كمسودة
                   </Button>
                   <Button
                     data-testid="button-send-now"
                     onClick={() => saveCampaign(true)}
-                    disabled={!!sending}
+                    disabled={saving || !!sending}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white"
                   >
                     {sending ? <Loader2 className="w-4 h-4 animate-spin ml-1" /> : <Send className="w-4 h-4 ml-1" />}
