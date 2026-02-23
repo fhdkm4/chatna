@@ -666,6 +666,7 @@ class DatabaseStorage implements IStorage {
         status: member.status,
         maxConcurrentChats: member.maxConcurrentChats || 10,
         activeChats,
+        totalConversationsToday: metrics?.totalConversations || 0,
         resolvedToday: metrics?.resolvedConversations || 0,
         totalMessagesToday: metrics?.totalMessages || 0,
         avgResponseTimeSeconds: metrics?.avgResponseTimeSeconds || 0,

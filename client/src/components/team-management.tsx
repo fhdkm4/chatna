@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Users, Trash2, Shield, UserCircle, Loader2, Star } from "lucide-react";
+import { Plus, Users, Trash2, Shield, UserCircle, Loader2, Star, MessageSquare, Zap, SmilePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +31,15 @@ interface AgentRating {
   createdAt: string;
 }
 
+interface AgentMonitorData {
+  id: string;
+  totalConversationsToday: number;
+  resolvedToday: number;
+  totalMessagesToday: number;
+  avgResponseTimeSeconds: number;
+  activeChats: number;
+}
+
 interface TeamManagementProps {
   onlineAgents?: Set<string>;
 }
@@ -56,6 +65,13 @@ function renderStars(rating: number) {
   ));
 }
 
+function formatResponseTime(seconds: number) {
+  if (!seconds || seconds === 0) return "—";
+  if (seconds < 60) return `${Math.round(seconds)} ث`;
+  if (seconds < 3600) return `${Math.round(seconds / 60)} د`;
+  return `${(seconds / 3600).toFixed(1)} س`;
+}
+
 export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps) {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,6 +79,7 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [saving, setSaving] = useState(false);
   const [ratingStats, setRatingStats] = useState<Map<string, RatingStat>>(new Map());
+  const [monitorData, setMonitorData] = useState<Map<string, AgentMonitorData>>(new Map());
   const [ratingsDialogOpen, setRatingsDialogOpen] = useState(false);
   const [ratingsDialogAgent, setRatingsDialogAgent] = useState<TeamMember | null>(null);
   const [agentRatings, setAgentRatings] = useState<AgentRating[]>([]);
@@ -94,10 +111,25 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
     }
   }, []);
 
+  const fetchMonitoring = useCallback(async () => {
+    try {
+      const res = await authFetch("/api/team/monitoring");
+      if (res.ok) {
+        const data = await res.json();
+        const map = new Map<string, AgentMonitorData>();
+        (data.agents || []).forEach((a: AgentMonitorData) => map.set(a.id, a));
+        setMonitorData(map);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchTeam();
     fetchRatingStats();
-  }, [fetchTeam, fetchRatingStats]);
+    fetchMonitoring();
+  }, [fetchTeam, fetchRatingStats, fetchMonitoring]);
 
   const openRatingsDialog = async (member: TeamMember) => {
     setRatingsDialogAgent(member);
@@ -182,89 +214,108 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
           <div className="space-y-3 max-w-2xl">
             {members.map((member) => {
               const stat = ratingStats.get(member.id);
+              const monitor = monitorData.get(member.id);
               return (
                 <div
                   key={member.id}
                   data-testid={`team-member-${member.id}`}
-                  className="bg-[#111827]/50 border border-white/5 rounded-lg p-4 flex items-center justify-between group"
+                  className="bg-[#111827]/50 border border-white/5 rounded-lg p-4 group"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="relative">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white ${
-                        member.role === "admin" ? "bg-gradient-to-br from-amber-400 to-amber-600" : "bg-gradient-to-br from-blue-400 to-blue-600"
-                      }`}>
-                        {member.name.charAt(0)}
-                      </div>
-                      <div
-                        data-testid={`status-indicator-${member.id}`}
-                        className={`absolute -bottom-0.5 -left-0.5 w-3.5 h-3.5 rounded-full border-2 border-[#111827] transition-colors ${
-                          isOnline(member) ? "bg-emerald-500" : "bg-gray-500"
-                        }`}
-                      />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-white">{member.name}</span>
-                        <Badge
-                          variant="outline"
-                          className={`text-[9px] px-1.5 ${
-                            member.role === "admin"
-                              ? "border-amber-500/30 text-amber-400"
-                              : "border-blue-500/30 text-blue-400"
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white ${
+                          member.role === "admin" ? "bg-gradient-to-br from-amber-400 to-amber-600" : "bg-gradient-to-br from-blue-400 to-blue-600"
+                        }`}>
+                          {member.name.charAt(0)}
+                        </div>
+                        <div
+                          data-testid={`status-indicator-${member.id}`}
+                          className={`absolute -bottom-0.5 -left-0.5 w-3.5 h-3.5 rounded-full border-2 border-[#111827] transition-colors ${
+                            isOnline(member) ? "bg-emerald-500" : "bg-gray-500"
                           }`}
-                        >
-                          {member.role === "admin" ? (
-                            <><Shield className="w-2.5 h-2.5 ml-0.5" />مدير</>
-                          ) : (
-                            <><UserCircle className="w-2.5 h-2.5 ml-0.5" />موظف</>
-                          )}
-                        </Badge>
-                        <span className={`text-[9px] ${isOnline(member) ? "text-emerald-400" : "text-gray-500"}`}>
-                          {isOnline(member) ? "متصل" : "غير متصل"}
-                        </span>
-                        {stat ? (
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-white">{member.name}</span>
                           <Badge
                             variant="outline"
-                            data-testid={`rating-badge-${member.id}`}
-                            className={`text-[9px] px-1.5 ${getRatingColor(stat.avgRating)}`}
+                            className={`text-[9px] px-1.5 ${
+                              member.role === "admin"
+                                ? "border-amber-500/30 text-amber-400"
+                                : "border-blue-500/30 text-blue-400"
+                            }`}
                           >
-                            <span className="flex items-center gap-0.5">
-                              <Star className="w-2.5 h-2.5 fill-current" />
-                              {stat.avgRating.toFixed(1)}
-                              <span className="text-gray-400">({stat.totalRatings})</span>
-                            </span>
+                            {member.role === "admin" ? (
+                              <><Shield className="w-2.5 h-2.5 ml-0.5" />مدير</>
+                            ) : (
+                              <><UserCircle className="w-2.5 h-2.5 ml-0.5" />موظف</>
+                            )}
                           </Badge>
-                        ) : (
-                          <span data-testid={`no-ratings-${member.id}`} className="text-[9px] text-gray-500">
-                            لا تقييمات
+                          <span className={`text-[9px] ${isOnline(member) ? "text-emerald-400" : "text-gray-500"}`}>
+                            {isOnline(member) ? "متصل" : "غير متصل"}
                           </span>
-                        )}
+                        </div>
+                        <span className="text-xs text-gray-500">{member.email}</span>
                       </div>
-                      <span className="text-xs text-gray-500">{member.email}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        data-testid={`button-ratings-${member.id}`}
+                        onClick={() => openRatingsDialog(member)}
+                        className="text-xs text-gray-400"
+                      >
+                        <Star className="w-3 h-3 ml-1" />
+                        التقييمات
+                      </Button>
+                      {member.role !== "admin" && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          data-testid={`button-delete-agent-${member.id}`}
+                          onClick={() => handleDelete(member.id, member.name)}
+                          className="text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      data-testid={`button-ratings-${member.id}`}
-                      onClick={() => openRatingsDialog(member)}
-                      className="text-xs text-gray-400"
-                    >
-                      <Star className="w-3 h-3 ml-1" />
-                      التقييمات
-                    </Button>
-                    {member.role !== "admin" && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        data-testid={`button-delete-agent-${member.id}`}
-                        onClick={() => handleDelete(member.id, member.name)}
-                        className="text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    )}
+                  <div
+                    data-testid={`performance-bar-${member.id}`}
+                    className="mt-3 pt-3 border-t border-white/5 flex items-center gap-4 flex-wrap"
+                  >
+                    <div className="flex items-center gap-1.5" data-testid={`metric-conversations-${member.id}`}>
+                      <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
+                      <span className="text-xs text-gray-300">
+                        <span className="text-white font-semibold">{monitor?.totalConversationsToday || 0}</span> محادثة
+                      </span>
+                    </div>
+                    <span className="text-gray-600 text-xs">|</span>
+                    <div className="flex items-center gap-1.5" data-testid={`metric-response-time-${member.id}`}>
+                      <Zap className="w-3.5 h-3.5 text-amber-400" />
+                      <span className="text-xs text-gray-300">
+                        <span className="text-white font-semibold">{formatResponseTime(monitor?.avgResponseTimeSeconds || 0)}</span>
+                      </span>
+                    </div>
+                    <span className="text-gray-600 text-xs">|</span>
+                    <div className="flex items-center gap-1.5" data-testid={`metric-satisfaction-${member.id}`}>
+                      <SmilePlus className="w-3.5 h-3.5 text-emerald-400" />
+                      {stat ? (
+                        <span className="text-xs text-gray-300">
+                          <span className={`font-semibold ${
+                            stat.avgRating >= 4 ? "text-emerald-400" :
+                            stat.avgRating >= 3 ? "text-amber-400" : "text-red-400"
+                          }`}>{stat.avgRating.toFixed(1)}</span>
+                          <span className="text-gray-500">/5</span>
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-500">—</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

@@ -12,12 +12,10 @@ interface AgentMonitor {
   status: string;
   activeChats: number;
   maxConcurrentChats: number;
-  metrics: {
-    totalConversations: number;
-    resolvedConversations: number;
-    avgResponseTimeSeconds: number;
-    totalMessages: number;
-  } | null;
+  totalConversationsToday: number;
+  resolvedToday: number;
+  totalMessagesToday: number;
+  avgResponseTimeSeconds: number;
 }
 
 interface MonitoringStats {
@@ -29,7 +27,8 @@ interface MonitoringStats {
 
 interface MonitoringData {
   agents: AgentMonitor[];
-  stats: MonitoringStats;
+  stats?: MonitoringStats;
+  summary?: MonitoringStats;
 }
 
 interface ActivityLogEntry {
@@ -135,7 +134,7 @@ export function TeamMonitoring({ onlineAgents = new Set() }: TeamMonitoringProps
     );
   }
 
-  const stats = data?.stats;
+  const stats = data?.summary || data?.stats;
   const agents = data?.agents || [];
 
   const summaryCards = [
@@ -280,17 +279,17 @@ export function TeamMonitoring({ onlineAgents = new Set() }: TeamMonitoringProps
                         </td>
                         <td className="p-4">
                           <span className="text-white text-sm" data-testid={`total-conversations-${agent.id}`}>
-                            {agent.metrics?.totalConversations || 0}
+                            {agent.totalConversationsToday || 0}
                           </span>
                         </td>
                         <td className="p-4">
                           <span className="text-white text-sm" data-testid={`resolved-conversations-${agent.id}`}>
-                            {agent.metrics?.resolvedConversations || 0}
+                            {agent.resolvedToday || 0}
                           </span>
                         </td>
                         <td className="p-4">
                           <span className="text-white text-sm" data-testid={`avg-response-${agent.id}`}>
-                            {formatTime(agent.metrics?.avgResponseTimeSeconds || 0)}
+                            {formatTime(agent.avgResponseTimeSeconds || 0)}
                           </span>
                         </td>
                         <td className="p-4">
