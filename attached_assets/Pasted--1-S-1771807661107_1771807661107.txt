@@ -1,0 +1,87 @@
+أحتاج إضافة نظام تصميم كاتالوجات وحملات دعائية بالذكاء الاصطناعي. التفاصيل:
+1. مصمم الحملات الذكي (Smart Campaign Designer)
+	∙	صفحة جديدة /campaigns مع:
+	∙	زر “إنشاء حملة جديدة”
+	∙	قائمة الحملات السابقة مع حالتها (مسودة، مجدولة، مرسلة)
+	∙	خطوات إنشاء حملة:
+الخطوة 1: وصف العرض
+	∙	حقل نصي كبير: “اكتب وصف العرض أو المنتج”
+	∙	مثال: “خصم 30% على رحلات تركيا بمناسبة الصيف - تشمل فندق 5 نجوم وجولات سياحية”
+	∙	زر “توليد تصاميم بالذكاء الاصطناعي” ← يرسل لـ OpenAI DALL-E 3 API
+	∙	عرض 3 صور مولّدة يختار منها المستخدم
+	∙	إمكانية إعادة التوليد أو تعديل الوصف
+الخطوة 2: تعديل المحتوى
+	∙	معاينة الصورة المختارة
+	∙	حقل نص الرسالة (يتولّد تلقائياً بالذكاء الاصطناعي ويمكن تعديله)
+	∙	AI يقترح نص تسويقي بالعربي مناسب للواتساب (قصير، فيه إيموجي، فيه CTA)
+	∙	إمكانية إضافة زر CTA (رابط موقع، رقم هاتف)
+الخطوة 3: اختيار الجمهور
+	∙	الكل: كل جهات الاتصال
+	∙	حسب التصنيف (tags): اختيار tags معينة
+	∙	مخصص: اختيار جهات اتصال يدوياً
+	∙	عرض عدد المستلمين المتوقع
+الخطوة 4: المراجعة والإرسال
+	∙	معاينة نهائية للرسالة
+	∙	إرسال فوري أو جدولة (تاريخ ووقت)
+	∙	زر “إرسال تجريبي” لرقمي أنا أولاً
+2. الجداول المطلوبة
+campaigns:
+	∙	id: serial primary key
+	∙	tenantId: references tenants(id)
+	∙	createdBy: references users(id)
+	∙	title: varchar
+	∙	description: text
+	∙	imageUrl: text
+	∙	messageText: text
+	∙	ctaType: varchar (url, phone, none)
+	∙	ctaValue: text
+	∙	targetType: varchar (all, tags, custom)
+	∙	targetTags: text[]
+	∙	targetContactIds: uuid[]
+	∙	status: varchar (draft, scheduled, sending, sent, failed)
+	∙	scheduledAt: timestamp
+	∙	sentAt: timestamp
+	∙	totalRecipients: integer (default: 0)
+	∙	deliveredCount: integer (default: 0)
+	∙	readCount: integer (default: 0)
+	∙	createdAt, updatedAt: timestamp
+campaign_logs:
+	∙	id: serial primary key
+	∙	campaignId: references campaigns(id)
+	∙	contactId: references contacts(id)
+	∙	status: varchar (pending, sent, delivered, read, failed)
+	∙	error: text
+	∙	sentAt: timestamp
+3. إرسال الحملات
+	∙	عند الإرسال: إنشاء campaign_logs لكل مستلم بحالة pending
+	∙	إرسال الرسائل بالتسلسل مع تأخير 1 ثانية بين كل رسالة (لتجنب rate limiting)
+	∙	تحديث حالة كل log بعد الإرسال
+	∙	استقبال delivery و read webhooks من واتساب لتحديث deliveredCount و readCount
+	∙	لو الحملة مجدولة: استخدام setTimeout أو node-cron
+4. الكاتالوج التفاعلي (Catalog Builder)
+	∙	صفحة /catalog:
+	∙	إضافة منتجات يدوياً (اسم، وصف، سعر، صورة، رابط) أو رفع ملف Excel
+	∙	عرض المنتجات في grid مع صور
+	∙	إنشاء “كاتالوج” من منتجات مختارة
+	∙	إرسال الكاتالوج كرسالة واتساب (صورة + نص لكل منتج، أو carousel إذا مدعوم)
+	∙	جدول المنتجات:
+products:
+	∙	id: serial primary key
+	∙	tenantId: references tenants(id)
+	∙	name: varchar
+	∙	description: text
+	∙	price: decimal
+	∙	currency: varchar (default: ‘SAR’)
+	∙	imageUrl: text
+	∙	link: text
+	∙	category: varchar
+	∙	isActive: boolean (default: true)
+	∙	createdAt: timestamp
+5. واجهة المستخدم
+	∙	تصميم الحملة كـ wizard (خطوات) مع شريط تقدم
+	∙	معاينة الرسالة تظهر كشكل فقاعة واتساب
+	∙	جدول الحملات السابقة مع: العنوان، الحالة، عدد المستلمين، نسبة القراءة
+	∙	صفحة المنتجات مع grid وبحث وفلتر بالتصنيف
+	∙	كل شي dark theme + RTL + shadcn/ui
+Environment Variable المطلوب:
+	∙	OPENAI_API_KEY (لتوليد الصور بـ DALL-E 3 والنصوص التسويقية)
