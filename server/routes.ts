@@ -26,7 +26,7 @@ interface AuthRequest extends Express.Request {
   user?: { id: string; tenantId: string; role: string };
 }
 
-function authMiddleware(req: any, res: any, next: any) {
+async function authMiddleware(req: any, res: any, next: any) {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith("Bearer ")) {
     return res.status(401).json({ message: "غير مصرح" });
@@ -34,8 +34,14 @@ function authMiddleware(req: any, res: any, next: any) {
   try {
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, JWT_SECRET) as any;
-    req.user = decoded;
-    tenantStore.run(decoded.tenantId, () => next());
+
+    const currentUser = await storage.getUserById(decoded.id);
+    if (!currentUser || currentUser.isActive === false) {
+      return res.status(403).json({ message: "تم تعطيل حسابك. تواصل مع المدير" });
+    }
+
+    req.user = { id: currentUser.id, tenantId: currentUser.tenantId, role: currentUser.role };
+    tenantStore.run(currentUser.tenantId!, () => next());
   } catch (err) {
     return res.status(401).json({ message: "جلسة منتهية" });
   }
@@ -499,7 +505,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(404).json({ message: "الموظف غير موجود" });
       }
       const schema = z.object({
-        jobTitle: z.string().max(100).nullable().optional(),
+        jobTitle: z.string().max(120).nullable().optional(),
         avatarUrl: z.string().url().nullable().optional(),
         name: z.string().min(1).max(255).optional(),
         role: z.enum(["admin", "manager", "agent"]).optional(),
