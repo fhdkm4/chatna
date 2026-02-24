@@ -26,6 +26,25 @@ interface AuthRequest extends Express.Request {
   user?: { id: string; tenantId: string; role: string };
 }
 
+const userCache = new Map<string, { user: { id: string; tenantId: string; role: string; isActive: boolean }; ts: number }>();
+const USER_CACHE_TTL = 30_000;
+
+function invalidateUserCache(userId: string) {
+  userCache.delete(userId);
+}
+
+async function getAuthUser(userId: string) {
+  const cached = userCache.get(userId);
+  if (cached && Date.now() - cached.ts < USER_CACHE_TTL) {
+    return cached.user;
+  }
+  const dbUser = await storage.getUserById(userId);
+  if (!dbUser) return null;
+  const entry = { id: dbUser.id, tenantId: dbUser.tenantId!, role: dbUser.role, isActive: dbUser.isActive !== false };
+  userCache.set(userId, { user: entry, ts: Date.now() });
+  return entry;
+}
+
 async function authMiddleware(req: any, res: any, next: any) {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith("Bearer ")) {
@@ -35,13 +54,13 @@ async function authMiddleware(req: any, res: any, next: any) {
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, JWT_SECRET) as any;
 
-    const currentUser = await storage.getUserById(decoded.id);
-    if (!currentUser || currentUser.isActive === false) {
+    const currentUser = await getAuthUser(decoded.id);
+    if (!currentUser || !currentUser.isActive) {
       return res.status(403).json({ message: "تم تعطيل حسابك. تواصل مع المدير" });
     }
 
     req.user = { id: currentUser.id, tenantId: currentUser.tenantId, role: currentUser.role };
-    tenantStore.run(currentUser.tenantId!, () => next());
+    tenantStore.run(currentUser.tenantId, () => next());
   } catch (err) {
     return res.status(401).json({ message: "جلسة منتهية" });
   }
@@ -545,6 +564,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (maxConcurrentChats !== undefined) updateData.maxConcurrentChats = maxConcurrentChats;
       if (isActive !== undefined) updateData.isActive = isActive;
       const updated = await storage.updateUser(req.params.id, updateData, req.user.tenantId);
+      invalidateUserCache(req.params.id);
       res.json({
         id: updated!.id,
         email: updated!.email,
@@ -604,6 +624,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
       const updated = await storage.updateUser(req.params.id, { role: parsed.data.role }, req.user.tenantId);
+      invalidateUserCache(req.params.id);
       res.json({ id: updated!.id, name: updated!.name, role: updated!.role });
     } catch (err) {
       console.error("Update role error:", err);
@@ -633,6 +654,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
       const updated = await storage.updateUser(req.params.id, { isActive: !parsed.data.isDisabled }, req.user.tenantId);
+      invalidateUserCache(req.params.id);
       res.json({ id: updated!.id, name: updated!.name, isActive: updated!.isActive, isDisabled: !updated!.isActive });
     } catch (err) {
       console.error("Toggle disable error:", err);
@@ -744,6 +766,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
       await storage.deleteUser(req.params.id, req.user.tenantId);
+      invalidateUserCache(req.params.id);
       res.status(204).send();
     } catch (err) {
       console.error("Delete agent error:", err);
