@@ -166,7 +166,7 @@ class DatabaseStorage implements IStorage {
     const condition = tenantId
       ? and(eq(users.id, id), eq(users.tenantId, tenantId))
       : eq(users.id, id);
-    const [user] = await db.update(users).set(data).where(condition).returning();
+    const [user] = await db.update(users).set({ ...data, updatedAt: new Date() }).where(condition).returning();
     return user;
   }
 

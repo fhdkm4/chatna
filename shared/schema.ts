@@ -57,8 +57,9 @@ export const users = pgTable("users", {
   maxConcurrentChats: integer("max_concurrent_chats").default(10),
   lastAssignedAt: timestamp("last_assigned_at"),
   avatarUrl: text("avatar_url"),
-  jobTitle: varchar("job_title", { length: 100 }),
+  jobTitle: varchar("job_title", { length: 120 }),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const invitations = pgTable("invitations", {

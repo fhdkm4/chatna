@@ -49,7 +49,7 @@ Preferred communication style: Simple, everyday language.
 - **Schema** (`shared/schema.ts`): Defined with Drizzle's `pgTable` helpers. Uses `drizzle-zod` for validation schema generation
 - **Key Tables**:
   - `tenants` — Multi-tenant organizations with plan, AI settings, Twilio config, Meta Cloud API encrypted tokens, quality rating, assignmentMode (round_robin/least_busy/manual), maxOpenConversationsPerUser (default 5)
-  - `users` — Agents/admins/managers belonging to a tenant (email/password auth, roles: admin, manager, agent, maxConcurrentChats, isActive for enable/disable)
+  - `users` — Agents/admins/managers belonging to a tenant (email/password auth, roles: admin, manager, agent, maxConcurrentChats, isActive for enable/disable, jobTitle VARCHAR(120), avatarUrl TEXT, updatedAt TIMESTAMPTZ auto-updated)
   - `invitations` — Email-based team invitations with token, role, expiration
   - `contacts` — Customer contacts per tenant (unique by tenant+phone)
   - `conversations` — Chat sessions between contacts and tenants, with status tracking, agent assignment, assignmentStatus (ai_handling/waiting_human/assigned/closed), and aiFailedAttempts counter
