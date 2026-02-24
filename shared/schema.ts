@@ -260,6 +260,19 @@ export const internalMessages = pgTable("internal_messages", {
   index("internal_messages_receiver_idx").on(table.receiverId),
 ]);
 
+export const conversationAssignmentsLog = pgTable("conversation_assignments_log", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  conversationId: uuid("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
+  previousAssignee: uuid("previous_assignee").references(() => users.id),
+  newAssignee: uuid("new_assignee").references(() => users.id),
+  assignedBy: varchar("assigned_by", { length: 50 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("conv_assign_log_conversation_idx").on(table.conversationId),
+  index("conv_assign_log_tenant_idx").on(table.tenantId),
+]);
+
 export const insertInternalMessageSchema = createInsertSchema(internalMessages).omit({ id: true, createdAt: true });
 
 export const insertTenantSchema = createInsertSchema(tenants).omit({ id: true, createdAt: true, updatedAt: true });
@@ -277,6 +290,7 @@ export const insertActivityLogSchema = createInsertSchema(activityLog).omit({ id
 export const insertCampaignSchema = createInsertSchema(campaigns).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCampaignLogSchema = createInsertSchema(campaignLogs).omit({ id: true });
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true });
+export const insertConversationAssignmentsLogSchema = createInsertSchema(conversationAssignmentsLog).omit({ id: true, createdAt: true });
 
 export const registerSchema = z.object({
   companyName: z.string().min(2),
@@ -341,3 +355,5 @@ export type Product = typeof products.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type InternalMessage = typeof internalMessages.$inferSelect;
 export type InsertInternalMessage = z.infer<typeof insertInternalMessageSchema>;
+export type ConversationAssignmentLog = typeof conversationAssignmentsLog.$inferSelect;
+export type InsertConversationAssignmentLog = z.infer<typeof insertConversationAssignmentsLogSchema>;

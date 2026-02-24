@@ -1028,6 +1028,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     });
 
     if (conversation.aiPaused) return;
+    if (conversation.assignmentStatus === "assigned") return;
 
     if (isHandoverRequest(messageContent)) {
       await handleEscalation(conversation.id, tenantId, senderPhone, "طلب تحويل لموظف بشري");
@@ -1196,10 +1197,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         message: customerMessage,
       });
 
-      console.log("🤖 AI check - aiPaused:", conversation.aiPaused, "conversationId:", conversation.id);
+      console.log("🤖 AI check - aiPaused:", conversation.aiPaused, "assignmentStatus:", conversation.assignmentStatus, "conversationId:", conversation.id);
 
       if (conversation.aiPaused) {
         console.log("⏸️ AI paused for this conversation, skipping");
+        return;
+      }
+
+      if (conversation.assignmentStatus === "assigned") {
+        console.log("👤 Conversation assigned to human agent, skipping AI");
         return;
       }
 
@@ -1369,6 +1375,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const conversation = await storage.getConversationById(req.params.id, req.user.tenantId);
       if (!conversation) return res.status(404).json({ message: "المحادثة غير موجودة" });
 
+      if (req.user.role === "agent" && conversation.assignedTo !== req.user.id) {
+        return res.status(403).json({ message: "غير مصرح بالوصول لهذه المحادثة" });
+      }
+
       let twilioSid: string | null = null;
       if (!isInternal && conversation.contactId) {
         const contact = await storage.getContactById(conversation.contactId, req.user.tenantId);
@@ -1427,8 +1437,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  // Assign agent to conversation
-  app.patch("/api/conversations/:id/assign", authMiddleware, async (req: any, res) => {
+  // Assign agent to conversation (admin/manager only)
+  app.patch("/api/conversations/:id/assign", authMiddleware, managerOrAdmin, async (req: any, res) => {
     try {
       const { agentId } = req.body;
       const conversation = await storage.getConversationById(req.params.id, req.user.tenantId);
@@ -1443,7 +1453,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
 
-      const updated = await storage.updateConversation(req.params.id, req.user.tenantId, { assignedTo: agentId || null });
+      const previousAssignee = conversation.assignedTo;
+      const updated = await storage.updateConversation(req.params.id, req.user.tenantId, {
+        assignedTo: agentId || null,
+        assignmentStatus: agentId ? "assigned" : "ai_handling",
+      });
+
+      await storage.createAssignmentLog({
+        tenantId: req.user.tenantId,
+        conversationId: req.params.id,
+        previousAssignee: previousAssignee || null,
+        newAssignee: agentId || null,
+        assignedBy: req.user.id,
+      });
+
       res.json(updated);
     } catch (err) {
       console.error("Assign agent error:", err);
@@ -1455,6 +1478,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const existingConv = await storage.getConversationById(req.params.id, req.user.tenantId);
       if (!existingConv) return res.status(404).json({ message: "المحادثة غير موجودة" });
+
+      if (req.user.role === "agent") {
+        if (existingConv.assignedTo !== req.user.id) {
+          return res.status(403).json({ message: "غير مصرح بالوصول لهذه المحادثة" });
+        }
+        delete req.body.assignedTo;
+        delete req.body.assigned_to;
+        delete req.body.assignmentStatus;
+        delete req.body.assignment_status;
+      }
 
       const updateData = { ...req.body };
       if (updateData.status === "resolved") {
@@ -1631,8 +1664,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       const fromUser = await storage.getUserById(req.user.id);
       const fromName = fromUser?.name || "موظف";
+      const previousAssignee = conversation.assignedTo;
 
-      await storage.updateConversation(conversation.id, req.user.tenantId, { assignedTo: targetAgentId });
+      await storage.updateConversation(conversation.id, req.user.tenantId, {
+        assignedTo: targetAgentId,
+        assignmentStatus: "assigned",
+      });
+
+      await storage.createAssignmentLog({
+        tenantId: req.user.tenantId,
+        conversationId: conversation.id,
+        previousAssignee: previousAssignee || null,
+        newAssignee: targetAgentId,
+        assignedBy: req.user.id,
+      });
 
       const systemMsg = await storage.createMessage({
         conversationId: conversation.id,
@@ -1670,6 +1715,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err) {
       console.error("Transfer error:", err);
       res.status(500).json({ message: "خطأ في تحويل المحادثة" });
+    }
+  });
+
+  // Assignment logs for a conversation (admin/manager only)
+  app.get("/api/conversations/:id/assignments", authMiddleware, managerOrAdmin, async (req: any, res) => {
+    try {
+      const logs = await storage.getAssignmentLogsByConversation(req.params.id, req.user.tenantId);
+      res.json(logs);
+    } catch (err) {
+      console.error("Assignment logs error:", err);
+      res.status(500).json({ message: "خطأ في جلب سجل التحويلات" });
     }
   });
 

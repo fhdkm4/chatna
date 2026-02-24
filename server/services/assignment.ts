@@ -103,6 +103,9 @@ export async function assignConversationToAgent(tenantId: string, conversationId
     chosenAgent = eligibleAgents[0];
   }
 
+  const existingConv = await storage.getConversationById(conversationId, tenantId);
+  const previousAssignee = existingConv?.assignedTo || null;
+
   await storage.updateConversation(conversationId, tenantId, {
     assignedTo: chosenAgent.id,
     status: "active",
@@ -120,6 +123,14 @@ export async function assignConversationToAgent(tenantId: string, conversationId
     userId: chosenAgent.id,
     action: "auto_assigned",
     details: { conversationId },
+  });
+
+  await storage.createAssignmentLog({
+    tenantId,
+    conversationId,
+    previousAssignee,
+    newAssignee: chosenAgent.id,
+    assignedBy: "ai",
   });
 
   return { agentId: chosenAgent.id, agentName: chosenAgent.name, reason: "assigned" };

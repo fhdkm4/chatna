@@ -63,6 +63,7 @@ Preferred communication style: Simple, everyday language.
   - `campaigns` — Marketing campaigns with targeting (all/tags/specific contacts), AI-generated content, scheduling, and delivery tracking
   - `campaignLogs` — Per-contact delivery logs for each campaign (status, error, sentAt)
   - `products` — Product catalog entries with name, description, price, currency, category, image, and WhatsApp sharing
+  - `conversationAssignmentsLog` — Assignment change tracking log (conversationId, previousAssignee, newAssignee, assignedBy, createdAt)
 - **Schema push**: Use `npm run db:push` (runs `drizzle-kit push`) to sync schema to database
 - **Storage layer** (`server/storage.ts`): Repository pattern interface (`IStorage`) abstracting all database operations
 

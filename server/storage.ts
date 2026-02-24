@@ -21,6 +21,8 @@ import {
   type CampaignLog, type InsertCampaignLog,
   type Product, type InsertProduct,
   type InternalMessage, type InsertInternalMessage,
+  conversationAssignmentsLog,
+  type ConversationAssignmentLog, type InsertConversationAssignmentLog,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -118,6 +120,9 @@ export interface IStorage {
   createInternalMessage(data: InsertInternalMessage): Promise<InternalMessage>;
   getInternalMessages(tenantId: string, userId1: string, userId2: string, limit?: number): Promise<InternalMessage[]>;
   getInternalChatPartners(tenantId: string, userId: string): Promise<{ partnerId: string; lastMessage: string; lastMessageAt: Date | null }[]>;
+
+  createAssignmentLog(data: InsertConversationAssignmentLog): Promise<ConversationAssignmentLog>;
+  getAssignmentLogsByConversation(conversationId: string, tenantId: string): Promise<ConversationAssignmentLog[]>;
 }
 
 class DatabaseStorage implements IStorage {
@@ -912,6 +917,17 @@ class DatabaseStorage implements IStorage {
       lastMessage: r.last_message,
       lastMessageAt: r.last_message_at ? new Date(r.last_message_at) : null,
     }));
+  }
+
+  async createAssignmentLog(data: InsertConversationAssignmentLog): Promise<ConversationAssignmentLog> {
+    const [log] = await db.insert(conversationAssignmentsLog).values(data).returning();
+    return log;
+  }
+
+  async getAssignmentLogsByConversation(conversationId: string, tenantId: string): Promise<ConversationAssignmentLog[]> {
+    return db.select().from(conversationAssignmentsLog)
+      .where(and(eq(conversationAssignmentsLog.conversationId, conversationId), eq(conversationAssignmentsLog.tenantId, tenantId)))
+      .orderBy(desc(conversationAssignmentsLog.createdAt));
   }
 }
 
