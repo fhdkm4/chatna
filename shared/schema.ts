@@ -242,6 +242,21 @@ export const products = pgTable("products", {
   index("products_tenant_idx").on(table.tenantId),
 ]);
 
+export const internalMessages = pgTable("internal_messages", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  senderId: uuid("sender_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  receiverId: uuid("receiver_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  message: text("message").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("internal_messages_tenant_idx").on(table.tenantId),
+  index("internal_messages_sender_idx").on(table.senderId),
+  index("internal_messages_receiver_idx").on(table.receiverId),
+]);
+
+export const insertInternalMessageSchema = createInsertSchema(internalMessages).omit({ id: true, createdAt: true });
+
 export const insertTenantSchema = createInsertSchema(tenants).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertContactSchema = createInsertSchema(contacts).omit({ id: true, createdAt: true, updatedAt: true });
@@ -319,3 +334,5 @@ export type CampaignLog = typeof campaignLogs.$inferSelect;
 export type InsertCampaignLog = z.infer<typeof insertCampaignLogSchema>;
 export type Product = typeof products.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
+export type InternalMessage = typeof internalMessages.$inferSelect;
+export type InsertInternalMessage = z.infer<typeof insertInternalMessageSchema>;
