@@ -14,11 +14,12 @@ import { TeamManagement } from "@/components/team-management";
 import { TeamMonitoring } from "@/components/team-monitoring";
 import { Campaigns } from "@/components/campaigns";
 import { ProductCatalog } from "@/components/product-catalog";
+import { TeamChat } from "@/components/team-chat";
 import { io, Socket } from "socket.io-client";
 import type { Conversation, Message, Contact } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
-export type ActiveView = "chat" | "contacts" | "ai" | "ai-settings" | "company-identity" | "analytics" | "settings" | "team" | "monitoring" | "campaigns" | "catalog";
+export type ActiveView = "chat" | "contacts" | "ai" | "ai-settings" | "company-identity" | "analytics" | "settings" | "team" | "monitoring" | "campaigns" | "catalog" | "team-chat";
 export type ConversationFilter = "all" | "active" | "waiting" | "resolved";
 
 export interface ConversationWithDetails extends Conversation {
@@ -335,6 +336,8 @@ export default function Dashboard() {
         return <Campaigns />;
       case "catalog":
         return <ProductCatalog />;
+      case "team-chat":
+        return <TeamChat socket={socketRef.current} />;
       default:
         return (
           <div className="flex h-full">

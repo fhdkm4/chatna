@@ -1,4 +1,4 @@
-import { MessageSquare, Users, Brain, BarChart3, Settings, LogOut, UserCog, Activity, Megaphone, Package, Sparkles, Building2 } from "lucide-react";
+import { MessageSquare, Users, Brain, BarChart3, Settings, LogOut, UserCog, Activity, Megaphone, Package, Sparkles, Building2, MessagesSquare } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ActiveView } from "@/pages/dashboard";
@@ -15,6 +15,7 @@ const navItems: { id: ActiveView; icon: typeof MessageSquare; label: string; min
   { id: "contacts", icon: Users, label: "جهات الاتصال" },
   { id: "campaigns", icon: Megaphone, label: "الحملات التسويقية", minRole: "manager" },
   { id: "catalog", icon: Package, label: "كتالوج المنتجات" },
+  { id: "team-chat", icon: MessagesSquare, label: "محادثات الفريق" },
   { id: "ai", icon: Brain, label: "قاعدة المعرفة" },
   { id: "ai-settings", icon: Sparkles, label: "إعدادات الذكاء الاصطناعي", minRole: "admin" },
   { id: "company-identity", icon: Building2, label: "هوية الشركة", minRole: "admin" },

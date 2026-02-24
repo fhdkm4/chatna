@@ -2155,5 +2155,59 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ==================== Internal Messages (Team Chat) ====================
+
+  app.get("/api/team-members", authMiddleware, async (req: any, res) => {
+    try {
+      const members = await storage.getUsersByTenant(req.user.tenantId);
+      const filtered = members
+        .filter((m: any) => m.id !== req.user.id)
+        .map((m: any) => ({ id: m.id, name: m.name, email: m.email, role: m.role, status: m.status }));
+      res.json(filtered);
+    } catch (err) {
+      console.error("Team members error:", err);
+      res.status(500).json({ message: "خطأ في جلب أعضاء الفريق" });
+    }
+  });
+
+  app.get("/api/internal-messages/:userId", authMiddleware, async (req: any, res) => {
+    try {
+      const messages = await storage.getInternalMessages(req.user.tenantId, req.user.id, req.params.userId);
+      res.json(messages);
+    } catch (err) {
+      console.error("Internal messages error:", err);
+      res.status(500).json({ message: "خطأ في جلب الرسائل" });
+    }
+  });
+
+  app.post("/api/internal-messages", authMiddleware, async (req: any, res) => {
+    try {
+      const { receiverId, message } = req.body;
+      if (!receiverId || !message?.trim()) {
+        return res.status(400).json({ message: "المستلم والرسالة مطلوبان" });
+      }
+
+      const receiver = await storage.getUserById(receiverId);
+      if (!receiver || receiver.tenantId !== req.user.tenantId) {
+        return res.status(404).json({ message: "المستلم غير موجود" });
+      }
+
+      const msg = await storage.createInternalMessage({
+        tenantId: req.user.tenantId,
+        senderId: req.user.id,
+        receiverId,
+        message: message.trim().slice(0, 5000),
+      });
+
+      io.to(`user:${receiverId}`).emit("internal_message", msg);
+      io.to(`user:${req.user.id}`).emit("internal_message", msg);
+
+      res.json(msg);
+    } catch (err) {
+      console.error("Send internal message error:", err);
+      res.status(500).json({ message: "خطأ في إرسال الرسالة" });
+    }
+  });
+
   return httpServer;
 }

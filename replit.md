@@ -57,6 +57,7 @@ Preferred communication style: Simple, everyday language.
   - `autoReplies` — Rule-based automatic responses (keyword, exact, pattern triggers)
   - `aiKnowledge` — Knowledge base entries for AI context
   - `quickReplies` — Pre-written response templates for agents
+  - `internalMessages` — 1-to-1 private messages between team members within same tenant (completely separate from customer conversations)
   - `agentMetrics` — Daily agent performance metrics (totalConversations, resolvedConversations, avgResponseTimeSeconds, totalMessages)
   - `activityLog` — System activity audit trail (transfers, assignments, resolutions)
   - `campaigns` — Marketing campaigns with targeting (all/tags/specific contacts), AI-generated content, scheduling, and delivery tracking
