@@ -4,7 +4,7 @@ import {
   tenants, users, contacts, conversations, messages,
   autoReplies, aiKnowledge, quickReplies, invitations,
   ratings, agentMetrics, activityLog,
-  campaigns, campaignLogs, products,
+  campaigns, campaignLogs, products, internalMessages,
   type Tenant, type InsertTenant,
   type User, type InsertUser,
   type Contact, type InsertContact,
@@ -20,6 +20,7 @@ import {
   type Campaign, type InsertCampaign,
   type CampaignLog, type InsertCampaignLog,
   type Product, type InsertProduct,
+  type InternalMessage, type InsertInternalMessage,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -111,6 +112,10 @@ export interface IStorage {
   getProductsByTenant(tenantId: string, search?: string): Promise<Product[]>;
   updateProduct(id: string, tenantId: string, data: Partial<InsertProduct>): Promise<Product | undefined>;
   deleteProduct(id: string, tenantId: string): Promise<void>;
+
+  createInternalMessage(data: InsertInternalMessage): Promise<InternalMessage>;
+  getInternalMessages(tenantId: string, userId1: string, userId2: string, limit?: number): Promise<InternalMessage[]>;
+  getInternalChatPartners(tenantId: string, userId: string): Promise<{ partnerId: string; lastMessage: string; lastMessageAt: Date | null }[]>;
 }
 
 class DatabaseStorage implements IStorage {
@@ -860,6 +865,41 @@ class DatabaseStorage implements IStorage {
 
   async deleteProduct(id: string, tenantId: string): Promise<void> {
     await db.delete(products).where(and(eq(products.id, id), eq(products.tenantId, tenantId)));
+  }
+
+  async createInternalMessage(data: InsertInternalMessage): Promise<InternalMessage> {
+    const [msg] = await db.insert(internalMessages).values(data).returning();
+    return msg;
+  }
+
+  async getInternalMessages(tenantId: string, userId1: string, userId2: string, limit = 100): Promise<InternalMessage[]> {
+    return db.select().from(internalMessages)
+      .where(and(
+        eq(internalMessages.tenantId, tenantId),
+        or(
+          and(eq(internalMessages.senderId, userId1), eq(internalMessages.receiverId, userId2)),
+          and(eq(internalMessages.senderId, userId2), eq(internalMessages.receiverId, userId1))
+        )
+      ))
+      .orderBy(asc(internalMessages.createdAt))
+      .limit(limit);
+  }
+
+  async getInternalChatPartners(tenantId: string, userId: string): Promise<{ partnerId: string; lastMessage: string; lastMessageAt: Date | null }[]> {
+    const result = await db.execute(sql`
+      SELECT DISTINCT ON (partner_id) partner_id, message AS last_message, created_at AS last_message_at
+      FROM (
+        SELECT receiver_id AS partner_id, message, created_at FROM internal_messages WHERE tenant_id = ${tenantId} AND sender_id = ${userId}
+        UNION ALL
+        SELECT sender_id AS partner_id, message, created_at FROM internal_messages WHERE tenant_id = ${tenantId} AND receiver_id = ${userId}
+      ) sub
+      ORDER BY partner_id, created_at DESC
+    `);
+    return (result.rows || []).map((r: any) => ({
+      partnerId: r.partner_id,
+      lastMessage: r.last_message,
+      lastMessageAt: r.last_message_at ? new Date(r.last_message_at) : null,
+    }));
   }
 }
 
