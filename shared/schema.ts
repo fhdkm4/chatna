@@ -54,6 +54,8 @@ export const users = pgTable("users", {
   status: varchar("status", { length: 20 }).default("offline"),
   maxConcurrentChats: integer("max_concurrent_chats").default(10),
   lastAssignedAt: timestamp("last_assigned_at"),
+  avatarUrl: text("avatar_url"),
+  jobTitle: varchar("job_title", { length: 100 }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
