@@ -368,6 +368,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         name: u.name,
         role: u.role,
         status: u.status,
+        jobTitle: u.jobTitle || null,
+        avatarUrl: u.avatarUrl || null,
         createdAt: u.createdAt,
       })));
     } catch (err) {
@@ -411,6 +413,48 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err) {
       console.error("Create agent error:", err);
       res.status(500).json({ message: "خطأ في إنشاء الموظف" });
+    }
+  });
+
+  app.patch("/api/team/:id", authMiddleware, adminOnly, async (req: any, res) => {
+    try {
+      const user = await storage.getUserById(req.params.id);
+      if (!user || user.tenantId !== req.user.tenantId) {
+        return res.status(404).json({ message: "الموظف غير موجود" });
+      }
+      const schema = z.object({
+        jobTitle: z.string().max(100).nullable().optional(),
+        avatarUrl: z.string().url().nullable().optional(),
+        name: z.string().min(1).max(255).optional(),
+        role: z.enum(["admin", "manager", "agent"]).optional(),
+        maxConcurrentChats: z.number().int().min(1).max(100).optional(),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "بيانات غير صحيحة", errors: parsed.error.issues });
+      }
+      const { jobTitle, avatarUrl, name, role, maxConcurrentChats } = parsed.data;
+      const updateData: any = {};
+      if (jobTitle !== undefined) updateData.jobTitle = jobTitle;
+      if (avatarUrl !== undefined) updateData.avatarUrl = avatarUrl;
+      if (name !== undefined) updateData.name = name;
+      if (role !== undefined) updateData.role = role;
+      if (maxConcurrentChats !== undefined) updateData.maxConcurrentChats = maxConcurrentChats;
+      const updated = await storage.updateUser(req.params.id, updateData);
+      res.json({
+        id: updated!.id,
+        email: updated!.email,
+        name: updated!.name,
+        role: updated!.role,
+        status: updated!.status,
+        jobTitle: updated!.jobTitle || null,
+        avatarUrl: updated!.avatarUrl || null,
+        maxConcurrentChats: updated!.maxConcurrentChats,
+        createdAt: updated!.createdAt,
+      });
+    } catch (err) {
+      console.error("Update team member error:", err);
+      res.status(500).json({ message: "خطأ في تحديث بيانات الموظف" });
     }
   });
 

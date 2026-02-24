@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Users, Trash2, Shield, UserCircle, Loader2, Star, MessageSquare, Zap, SmilePlus } from "lucide-react";
+import { Plus, Users, Trash2, Shield, UserCircle, Loader2, Star, MessageSquare, Zap, SmilePlus, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,8 @@ interface TeamMember {
   name: string;
   role: string;
   status: string;
+  jobTitle: string | null;
+  avatarUrl: string | null;
   createdAt: string;
 }
 
@@ -84,6 +86,8 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
   const [ratingsDialogAgent, setRatingsDialogAgent] = useState<TeamMember | null>(null);
   const [agentRatings, setAgentRatings] = useState<AgentRating[]>([]);
   const [ratingsLoading, setRatingsLoading] = useState(false);
+  const [editingJobTitle, setEditingJobTitle] = useState<string | null>(null);
+  const [jobTitleInput, setJobTitleInput] = useState("");
   const { toast } = useToast();
 
   const fetchTeam = useCallback(async () => {
@@ -130,6 +134,27 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
     fetchRatingStats();
     fetchMonitoring();
   }, [fetchTeam, fetchRatingStats, fetchMonitoring]);
+
+  const startEditJobTitle = (member: TeamMember) => {
+    setEditingJobTitle(member.id);
+    setJobTitleInput(member.jobTitle || "");
+  };
+
+  const saveJobTitle = async (memberId: string) => {
+    try {
+      const res = await authFetch(`/api/team/${memberId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ jobTitle: jobTitleInput.trim() || null }),
+      });
+      if (res.ok) {
+        setMembers(prev => prev.map(m => m.id === memberId ? { ...m, jobTitle: jobTitleInput.trim() || null } : m));
+        toast({ title: "تم التحديث", description: "تم تحديث المسمى الوظيفي" });
+      }
+    } catch (err) {
+      toast({ title: "خطأ", description: "فشل في تحديث المسمى الوظيفي", variant: "destructive" });
+    }
+    setEditingJobTitle(null);
+  };
 
   const openRatingsDialog = async (member: TeamMember) => {
     setRatingsDialogAgent(member);
@@ -256,6 +281,42 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
                           <span className={`text-[9px] ${isOnline(member) ? "text-emerald-400" : "text-gray-500"}`}>
                             {isOnline(member) ? "متصل" : "غير متصل"}
                           </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {editingJobTitle === member.id ? (
+                            <div className="flex items-center gap-1">
+                              <Input
+                                data-testid={`input-job-title-${member.id}`}
+                                value={jobTitleInput}
+                                onChange={(e) => setJobTitleInput(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === "Enter") saveJobTitle(member.id); if (e.key === "Escape") setEditingJobTitle(null); }}
+                                placeholder="المسمى الوظيفي"
+                                className="text-xs bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 w-40"
+                                autoFocus
+                              />
+                              <Button size="icon" variant="ghost" data-testid={`button-save-job-title-${member.id}`} onClick={() => saveJobTitle(member.id)} className="text-emerald-400">
+                                <Check className="w-3 h-3" />
+                              </Button>
+                              <Button size="icon" variant="ghost" data-testid={`button-cancel-job-title-${member.id}`} onClick={() => setEditingJobTitle(null)} className="text-gray-400">
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 group/title">
+                              <span data-testid={`text-job-title-${member.id}`} className="text-xs text-gray-400">
+                                {member.jobTitle || "—"}
+                              </span>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                data-testid={`button-edit-job-title-${member.id}`}
+                                onClick={() => startEditJobTitle(member)}
+                                className="opacity-0 group-hover/title:opacity-100 transition-opacity text-gray-500"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          )}
                         </div>
                         <span className="text-xs text-gray-500">{member.email}</span>
                       </div>
