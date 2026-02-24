@@ -2172,6 +2172,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/api/internal-messages/:userId", authMiddleware, async (req: any, res) => {
     try {
+      const targetUser = await storage.getUserById(req.params.userId);
+      if (!targetUser || targetUser.tenantId !== req.user.tenantId) {
+        return res.status(404).json({ message: "المستخدم غير موجود" });
+      }
       const messages = await storage.getInternalMessages(req.user.tenantId, req.user.id, req.params.userId);
       res.json(messages);
     } catch (err) {

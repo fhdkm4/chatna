@@ -72,7 +72,7 @@ Preferred communication style: Simple, everyday language.
 - All storage methods (get/update/delete) enforce `and(eq(table.id, id), eq(table.tenantId, tenantId))` pattern
 - All route handlers pass `req.user.tenantId` to storage methods; PATCH endpoints verify tenant ownership before updates
 - Global Express middleware strips `tenantId`/`tenant_id` from POST/PATCH/PUT request bodies to prevent client injection
-- **Row-Level Security (RLS)**: Enabled with FORCE on all 15 tables (tenants + 14 data tables)
+- **Row-Level Security (RLS)**: Enabled with FORCE on all 16 tables (tenants + 15 data tables, including internal_messages)
   - `jawab_app` DB role (NOBYPASSRLS) is used via `SET ROLE` on each pool connection
   - Tenant policy: `tenant_id = current_setting('app.current_tenant')::uuid`
   - Bypass policy: `current_setting('app.rls_bypass') = 'true'` (for system processes/webhooks)

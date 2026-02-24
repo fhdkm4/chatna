@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Zap, PanelRightOpen, Bot, UserCircle, Check, CheckCheck, UserPlus, FileDown, Eye, EyeOff, ArrowLeftRight, X, Loader2 } from "lucide-react";
+import { Send, Zap, PanelRightOpen, Bot, UserCircle, Check, CheckCheck, UserPlus, FileDown, Eye, EyeOff, ArrowLeftRight, X, Loader2, Forward } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { QuickRepliesPopup } from "@/components/quick-replies-popup";
 import { AssignAgentPopup } from "@/components/assign-agent-popup";
 import { authFetch } from "@/lib/auth";
+import { apiRequest } from "@/lib/queryClient";
 import type { ConversationWithDetails } from "@/pages/dashboard";
 import type { Message, Conversation } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
@@ -157,12 +158,102 @@ function TransferPopup({ conversationId, currentAgentId, onTransfer, onClose }: 
   );
 }
 
+function SendToColleaguePopup({ conversationId, contactName, onClose }: {
+  conversationId: string;
+  contactName: string;
+  onClose: () => void;
+}) {
+  const [members, setMembers] = useState<{ id: string; name: string; role: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState<string | null>(null);
+  const [sent, setSent] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const fetchMembers = async () => {
+      try {
+        const res = await authFetch("/api/team-members");
+        if (res.ok) {
+          setMembers(await res.json());
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMembers();
+  }, []);
+
+  const handleSend = async (memberId: string) => {
+    setSending(memberId);
+    try {
+      const message = `راجع هذه المحادثة مع ${contactName}: /conversations/${conversationId}`;
+      await apiRequest("POST", "/api/internal-messages", { receiverId: memberId, message });
+      setSent((prev) => new Set(prev).add(memberId));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSending(null);
+    }
+  };
+
+  return (
+    <div className="absolute top-full left-0 mt-1 w-64 bg-[#111827] border border-white/10 rounded-lg shadow-xl z-50 overflow-hidden" data-testid="popup-send-to-colleague">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-white/5">
+        <span className="text-xs text-gray-400">إرسال لزميل</span>
+        <button onClick={onClose} className="text-gray-500 hover:text-gray-300" data-testid="button-close-send-colleague">
+          <X className="w-3 h-3" />
+        </button>
+      </div>
+      {loading ? (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
+        </div>
+      ) : members.length === 0 ? (
+        <div className="px-3 py-4 text-center text-xs text-gray-500">
+          لا يوجد أعضاء في الفريق
+        </div>
+      ) : (
+        <div className="max-h-48 overflow-y-auto">
+          {members.map((member) => (
+            <button
+              key={member.id}
+              data-testid={`button-send-to-${member.id}`}
+              onClick={() => handleSend(member.id)}
+              disabled={sending === member.id || sent.has(member.id)}
+              className="w-full px-3 py-2 flex items-center gap-2 text-right hover:bg-white/5 transition-colors disabled:opacity-50"
+            >
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                {member.name.charAt(0)}
+              </div>
+              <div className="flex-1 min-w-0 text-right">
+                <p className="text-xs text-white truncate">{member.name}</p>
+                <p className="text-[10px] text-gray-500 truncate">
+                  {member.role === "admin" ? "مسؤول" : member.role === "manager" ? "مدير" : "موظف"}
+                </p>
+              </div>
+              {sending === member.id ? (
+                <Loader2 className="w-3 h-3 text-emerald-400 animate-spin shrink-0" />
+              ) : sent.has(member.id) ? (
+                <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+              ) : (
+                <Forward className="w-3 h-3 text-gray-500 shrink-0" />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ChatArea({ conversation, messages, onSend, onToggleContact, onUpdateConversation, onAssignAgent, onTransfer, user }: ChatAreaProps) {
   const [input, setInput] = useState("");
   const [isInternalMode, setIsInternalMode] = useState(false);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
+  const [showSendColleague, setShowSendColleague] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -260,6 +351,25 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
                   setShowAssign(false);
                 }}
                 onClose={() => setShowAssign(false)}
+              />
+            )}
+          </div>
+          <div className="relative">
+            <Button
+              size="sm"
+              variant="ghost"
+              data-testid="button-send-to-colleague"
+              onClick={() => setShowSendColleague(!showSendColleague)}
+              className="text-xs text-gray-400 h-7"
+            >
+              <Forward className="w-3 h-3 ml-1" />
+              إرسال لزميل
+            </Button>
+            {showSendColleague && (
+              <SendToColleaguePopup
+                conversationId={conversation.id}
+                contactName={conversation.contact?.name || conversation.contact?.phone || "عميل"}
+                onClose={() => setShowSendColleague(false)}
               />
             )}
           </div>
