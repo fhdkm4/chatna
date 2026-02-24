@@ -289,7 +289,8 @@ class DatabaseStorage implements IStorage {
     const result = await db.select({ count: count() }).from(conversations)
       .where(and(
         eq(conversations.assignedTo, agentId),
-        or(eq(conversations.status, "active"), eq(conversations.status, "waiting"))
+        eq(conversations.assignmentStatus, "assigned"),
+        ne(conversations.status, "resolved"),
       ));
     return Number(result[0]?.count || 0);
   }

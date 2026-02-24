@@ -16,7 +16,7 @@ import { parseIncomingMessage, sendWhatsAppMessage } from "./services/twilio";
 import { sendMetaWhatsAppMessage, sendMetaWhatsAppInteractiveButtons, markMessageAsRead } from "./services/meta-whatsapp";
 import { checkAutoReply, generateAiResponse } from "./services/ai";
 import { simulateTypingDelay } from "./services/typing-delay";
-import { isHandoverRequest, assignConversationToAgent } from "./services/assignment";
+import { isHandoverRequest, assignConversationToAgent, isWithinWorkingHours } from "./services/assignment";
 import { count, sql as sqlHelper, and, inArray, not, desc } from "drizzle-orm";
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || "jawab-default-secret";
@@ -111,29 +111,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     customerPhone: string,
     reason: string,
   ) {
-    const handoverReply = "جاري تحويلك لموظف متخصص، الرجاء الانتظار ⏳";
-    await simulateTypingDelay(handoverReply);
-    const sid = await sendWhatsAppMessage(customerPhone, handoverReply);
-    const systemMsg = await storage.createMessage({
-      conversationId,
-      tenantId,
-      senderType: "system",
-      content: handoverReply,
-      twilioSid: sid,
-    });
     await storage.updateConversation(conversationId, tenantId, {
       status: "waiting",
       aiPaused: true,
       aiHandled: false,
       assignmentStatus: "waiting_human",
+      aiFailedAttempts: 0,
     });
-    io.to(`tenant:${tenantId}`).emit("new_message", {
-      conversationId,
-      message: systemMsg,
-    });
+
     io.to(`tenant:${tenantId}`).emit("escalation", {
       conversationId,
-      message: systemMsg,
       reason,
     });
 
@@ -142,6 +129,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       assignment = await assignConversationToAgent(tenantId, conversationId);
     } catch (assignErr) {
       console.error("Assignment error:", assignErr);
+      const fallbackMsg = "تم تحويل محادثتك لفريقنا، سيتم الرد عليك خلال 10-15 دقيقة";
+      await simulateTypingDelay(fallbackMsg);
+      const fallbackSid = await sendWhatsAppMessage(customerPhone, fallbackMsg);
+      const fallbackSystemMsg = await storage.createMessage({
+        conversationId,
+        tenantId,
+        senderType: "system",
+        content: fallbackMsg,
+        twilioSid: fallbackSid,
+      });
+      io.to(`tenant:${tenantId}`).emit("new_message", {
+        conversationId,
+        message: fallbackSystemMsg,
+      });
       io.to(`tenant:${tenantId}`).emit("conversation_updated", {
         conversationId,
         status: "waiting",
@@ -151,19 +152,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
 
     if (assignment.reason === "assigned" && assignment.agentId && assignment.agentName) {
-      const assignConfirm = `تم توصيلك مع ${assignment.agentName}، كيف أقدر أساعدك؟`;
-      await simulateTypingDelay(assignConfirm);
-      const confirmSid = await sendWhatsAppMessage(customerPhone, assignConfirm);
-      const confirmMsg = await storage.createMessage({
+      const assignMsg = "تم تحويل محادثتك إلى أحد أعضاء فريقنا المختصين، وسيتم الرد عليك خلال دقائق";
+      await simulateTypingDelay(assignMsg);
+      const assignSid = await sendWhatsAppMessage(customerPhone, assignMsg);
+      const assignSystemMsg = await storage.createMessage({
         conversationId,
         tenantId,
         senderType: "system",
-        content: assignConfirm,
-        twilioSid: confirmSid,
+        content: assignMsg,
+        twilioSid: assignSid,
       });
       io.to(`tenant:${tenantId}`).emit("new_message", {
         conversationId,
-        message: confirmMsg,
+        message: assignSystemMsg,
       });
 
       const conversation = await storage.getConversationById(conversationId, tenantId);
@@ -185,29 +186,30 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         assignedTo: assignment.agentId,
         assignmentStatus: "assigned",
       });
-    } else if (assignment.reason === "no_agents_available") {
-      const waitingCount = await storage.getWaitingConversationsCount(tenantId);
-      const estimatedMinutes = Math.max(5, waitingCount * 3);
-      const busyMsg = `جميع موظفينا مشغولون حالياً، الوقت التقريبي للرد: ${estimatedMinutes} دقيقة. شكراً لصبرك.`;
-      await simulateTypingDelay(busyMsg);
-      const busySid = await sendWhatsAppMessage(customerPhone, busyMsg);
-      const busySystemMsg = await storage.createMessage({
+    } else {
+      const tenant = await storage.getTenant(tenantId);
+      const withinHours = tenant ? isWithinWorkingHours(tenant) : true;
+
+      let noAgentMsg: string;
+      if (withinHours) {
+        noAgentMsg = "تم تحويل محادثتك لفريقنا، سيتم الرد عليك خلال 10-15 دقيقة";
+      } else {
+        noAgentMsg = "تم استلام رسالتك، سيتم الرد عليك مع بداية ساعات العمل القادمة";
+      }
+
+      await simulateTypingDelay(noAgentMsg);
+      const noAgentSid = await sendWhatsAppMessage(customerPhone, noAgentMsg);
+      const noAgentSystemMsg = await storage.createMessage({
         conversationId,
         tenantId,
         senderType: "system",
-        content: busyMsg,
-        twilioSid: busySid,
+        content: noAgentMsg,
+        twilioSid: noAgentSid,
       });
       io.to(`tenant:${tenantId}`).emit("new_message", {
         conversationId,
-        message: busySystemMsg,
+        message: noAgentSystemMsg,
       });
-      io.to(`tenant:${tenantId}`).emit("conversation_updated", {
-        conversationId,
-        status: "waiting",
-        assignmentStatus: "waiting_human",
-      });
-    } else {
       io.to(`tenant:${tenantId}`).emit("conversation_updated", {
         conversationId,
         status: "waiting",
@@ -589,6 +591,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         maxAgents: tenant.maxAgents,
         name: tenant.name,
         assignmentMode: tenant.assignmentMode || "round_robin",
+        maxOpenConversationsPerUser: tenant.maxOpenConversationsPerUser ?? 5,
         ratingEnabled: tenant.ratingEnabled ?? true,
         ratingMessage: tenant.ratingMessage || "شكراً لتواصلك معنا! 🙏\nكيف تقيّم الخدمة اللي حصلت عليها؟\n\n1️⃣ ممتاز 😊\n2️⃣ جيد 👍\n3️⃣ سيئ 😞",
         ratingDelayMinutes: tenant.ratingDelayMinutes ?? 2,
@@ -601,7 +604,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.patch("/api/settings", authMiddleware, adminOnly, async (req: any, res) => {
     try {
-      const { aiEnabled, aiSystemPrompt, setupCompleted, name, assignmentMode, ratingEnabled, ratingMessage, ratingDelayMinutes } = req.body;
+      const { aiEnabled, aiSystemPrompt, setupCompleted, name, assignmentMode, ratingEnabled, ratingMessage, ratingDelayMinutes, maxOpenConversationsPerUser } = req.body;
       const updates: any = {};
       if (typeof aiEnabled === "boolean") updates.aiEnabled = aiEnabled;
       if (typeof aiSystemPrompt === "string") updates.aiSystemPrompt = aiSystemPrompt;
@@ -613,6 +616,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (typeof ratingEnabled === "boolean") updates.ratingEnabled = ratingEnabled;
       if (typeof ratingMessage === "string") updates.ratingMessage = ratingMessage;
       if (typeof ratingDelayMinutes === "number" && ratingDelayMinutes >= 0) updates.ratingDelayMinutes = ratingDelayMinutes;
+      if (typeof maxOpenConversationsPerUser === "number" && maxOpenConversationsPerUser >= 1) updates.maxOpenConversationsPerUser = maxOpenConversationsPerUser;
 
       const tenant = await storage.updateTenant(req.user.tenantId, updates);
       res.json(tenant);
@@ -1062,6 +1066,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       tenant.aiSystemPrompt,
     );
 
+    const escalationContact = conversation.contactId ? await storage.getContactById(conversation.contactId, tenantId) : null;
+    const shouldEscalateSentiment = escalationContact?.sentiment === "negative" && aiResponse.confidence < 0.8;
+
+    if (shouldEscalateSentiment) {
+      await handleEscalation(conversation.id, tenantId, senderPhone, "sentiment سلبي + priority عالي");
+      return;
+    }
+
     if (aiResponse.confidence >= 0.6) {
       await simulateTypingDelay(aiResponse.content);
       await sendWhatsAppMessage(senderPhone, aiResponse.content);
@@ -1072,13 +1084,31 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         content: aiResponse.content,
         aiConfidence: aiResponse.confidence,
       });
-      await storage.updateConversation(conversation.id, tenantId, { aiHandled: true, delayAlerted: false });
+      await storage.updateConversation(conversation.id, tenantId, { aiHandled: true, delayAlerted: false, aiFailedAttempts: 0 });
       io.to(`tenant:${tenantId}`).emit("new_message", {
         conversationId: conversation.id,
         message: aiMsg,
       });
     } else {
-      await handleEscalation(conversation.id, tenantId, senderPhone, "ثقة AI منخفضة");
+      const currentFailures = (conversation.aiFailedAttempts || 0) + 1;
+      if (currentFailures >= 2) {
+        await handleEscalation(conversation.id, tenantId, senderPhone, "فشل AI بعد محاولتين");
+      } else {
+        await storage.updateConversation(conversation.id, tenantId, { aiFailedAttempts: currentFailures });
+        await simulateTypingDelay(aiResponse.content);
+        await sendWhatsAppMessage(senderPhone, aiResponse.content);
+        const aiMsg = await storage.createMessage({
+          conversationId: conversation.id,
+          tenantId,
+          senderType: "ai",
+          content: aiResponse.content,
+          aiConfidence: aiResponse.confidence,
+        });
+        io.to(`tenant:${tenantId}`).emit("new_message", {
+          conversationId: conversation.id,
+          message: aiMsg,
+        });
+      }
     }
   }
 
@@ -1226,7 +1256,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       );
       console.log("🧠 AI response:", aiResponse.content.substring(0, 100), "confidence:", aiResponse.confidence);
 
-      if (aiResponse.confidence >= 0.6) {
+      const contact2 = conversation.contactId ? await storage.getContactById(conversation.contactId, tenantId!) : null;
+      const shouldEscalateSentiment2 = contact2?.sentiment === "negative" && aiResponse.confidence < 0.8;
+
+      if (shouldEscalateSentiment2) {
+        console.log("⚠️ Negative sentiment + low confidence, escalating");
+        await handleEscalation(conversation.id, tenantId!, incoming.from, "sentiment سلبي + priority عالي");
+      } else if (aiResponse.confidence >= 0.6) {
         await simulateTypingDelay(aiResponse.content);
         const sid = await sendWhatsAppMessage(incoming.from, aiResponse.content);
         const aiMsg = await storage.createMessage({
@@ -1237,14 +1273,33 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           aiConfidence: aiResponse.confidence,
           twilioSid: sid,
         });
-        await storage.updateConversation(conversation.id, tenantId!, { aiHandled: true });
+        await storage.updateConversation(conversation.id, tenantId!, { aiHandled: true, aiFailedAttempts: 0 });
         io.to(`tenant:${tenantId}`).emit("new_message", {
           conversationId: conversation.id,
           message: aiMsg,
         });
       } else {
-        console.log("⚠️ Low AI confidence, escalating to human agent");
-        await handleEscalation(conversation.id, tenantId!, incoming.from, "ثقة AI منخفضة");
+        const currentFailures2 = (conversation.aiFailedAttempts || 0) + 1;
+        if (currentFailures2 >= 2) {
+          console.log("⚠️ AI failed twice, escalating to human agent");
+          await handleEscalation(conversation.id, tenantId!, incoming.from, "فشل AI بعد محاولتين");
+        } else {
+          await storage.updateConversation(conversation.id, tenantId!, { aiFailedAttempts: currentFailures2 });
+          await simulateTypingDelay(aiResponse.content);
+          const sid = await sendWhatsAppMessage(incoming.from, aiResponse.content);
+          const aiMsg = await storage.createMessage({
+            conversationId: conversation.id,
+            tenantId,
+            senderType: "ai",
+            content: aiResponse.content,
+            aiConfidence: aiResponse.confidence,
+            twilioSid: sid,
+          });
+          io.to(`tenant:${tenantId}`).emit("new_message", {
+            conversationId: conversation.id,
+            message: aiMsg,
+          });
+        }
       }
     } catch (err) {
       console.error("Webhook error:", err);

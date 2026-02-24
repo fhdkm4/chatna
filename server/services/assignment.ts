@@ -2,6 +2,32 @@ import { db } from "../db";
 import { users, conversations } from "@shared/schema";
 import { eq, and, or, asc, count } from "drizzle-orm";
 import { storage } from "../storage";
+import type { Tenant } from "@shared/schema";
+
+export function isWithinWorkingHours(tenant: Tenant): boolean {
+  const workingHours = tenant.workingHours as any;
+  if (!workingHours) return true;
+
+  const now = new Date();
+  const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+  const todayName = dayNames[now.getDay()];
+
+  const todayHours = workingHours[todayName] || workingHours.default;
+  if (!todayHours) return true;
+  if (todayHours.closed || todayHours.off) return false;
+
+  const startStr = todayHours.start || todayHours.from || "08:00";
+  const endStr = todayHours.end || todayHours.to || "17:00";
+
+  const [startH, startM] = startStr.split(":").map(Number);
+  const [endH, endM] = endStr.split(":").map(Number);
+
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const startMinutes = startH * 60 + (startM || 0);
+  const endMinutes = endH * 60 + (endM || 0);
+
+  return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+}
 
 export const HANDOVER_KEYWORDS = [
   "موظف", "بشري", "كلم موظف", "تحويل", "وكيل", "ممثل",
@@ -32,9 +58,12 @@ export async function assignConversationToAgent(tenantId: string, conversationId
     return { agentId: null, agentName: null, reason: "manual_mode" };
   }
 
+  const maxOpen = tenant.maxOpenConversationsPerUser || 5;
+
   const onlineAgents = await db.select().from(users)
     .where(and(
       eq(users.tenantId, tenantId),
+      eq(users.role, "agent"),
       eq(users.status, "online"),
     ));
 
@@ -45,8 +74,7 @@ export async function assignConversationToAgent(tenantId: string, conversationId
   const eligibleAgents: { id: string; name: string; activeChats: number; lastAssignedAt: Date | null }[] = [];
   for (const agent of onlineAgents) {
     const activeCount = await storage.getActiveConversationCountByAgent(agent.id);
-    const maxChats = agent.maxConcurrentChats || 10;
-    if (activeCount < maxChats) {
+    if (activeCount < maxOpen) {
       eligibleAgents.push({
         id: agent.id,
         name: agent.name,
