@@ -3,10 +3,13 @@ import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth, authFetch } from "@/lib/auth";
 import { queryClient } from "@/lib/queryClient";
-import { ArrowRight, Shield, UserCircle, MessageSquare, CheckCircle, Loader2, Send, Circle, Camera, Pencil, Check, X, Crown, Ban } from "lucide-react";
+import { ArrowRight, Shield, UserCircle, MessageSquare, CheckCircle, Loader2, Send, Circle, Camera, Pencil, Check, X, Crown, Ban, Power, Trash2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
 interface ProfileData {
@@ -40,6 +43,9 @@ export default function TeamProfile() {
   const [isUploading, setIsUploading] = useState(false);
   const [editingJobTitle, setEditingJobTitle] = useState(false);
   const [jobTitleValue, setJobTitleValue] = useState("");
+  const [selectedRole, setSelectedRole] = useState("");
+  const [confirmDialog, setConfirmDialog] = useState<"delete" | "toggle" | null>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   const { data: profile, isLoading, error } = useQuery<ProfileData>({
     queryKey: ["/api/team", params?.userId, "profile"],
@@ -90,6 +96,28 @@ export default function TeamProfile() {
     },
   });
 
+  const roleMutation = useMutation({
+    mutationFn: async (role: string) => {
+      const res = await authFetch(`/api/team/${params?.userId}/role`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/team", params?.userId, "profile"] });
+      toast({ title: "تم تغيير الصلاحية بنجاح" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "خطأ", description: err.message, variant: "destructive" });
+    },
+  });
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -126,6 +154,51 @@ export default function TeamProfile() {
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleToggleActive = async () => {
+    if (!profile) return;
+    setConfirmLoading(true);
+    try {
+      const res = await authFetch(`/api/team/${profile.id}/disable`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isDisabled: profile.isActive }),
+      });
+      if (res.ok) {
+        const action = profile.isActive ? "تعطيل" : "تفعيل";
+        toast({ title: `تم ${action} حساب ${profile.name}` });
+        queryClient.invalidateQueries({ queryKey: ["/api/team", params?.userId, "profile"] });
+      } else {
+        const err = await res.json();
+        toast({ title: "خطأ", description: err.message, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "خطأ", description: "فشل في تغيير حالة الحساب", variant: "destructive" });
+    } finally {
+      setConfirmLoading(false);
+      setConfirmDialog(null);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!profile) return;
+    setConfirmLoading(true);
+    try {
+      const res = await authFetch(`/api/team/${profile.id}`, { method: "DELETE" });
+      if (res.ok) {
+        toast({ title: "تم الحذف", description: `تم حذف ${profile.name}` });
+        navigate("/");
+      } else {
+        const err = await res.json();
+        toast({ title: "خطأ", description: err.message, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "خطأ", description: "فشل في الحذف", variant: "destructive" });
+    } finally {
+      setConfirmLoading(false);
+      setConfirmDialog(null);
     }
   };
 
@@ -228,7 +301,7 @@ export default function TeamProfile() {
                     data-testid="input-job-title"
                     value={jobTitleValue}
                     onChange={(e) => setJobTitleValue(e.target.value)}
-                    maxLength={100}
+                    maxLength={120}
                     className="h-8 w-48 text-sm text-center bg-[#0a0f1a] border-white/10 text-white"
                     placeholder="المسمى الوظيفي"
                     autoFocus
@@ -330,8 +403,8 @@ export default function TeamProfile() {
             </div>
           </div>
 
-          {!isSelf && (
-            <div className="mt-6">
+          <div className="mt-6 space-y-3">
+            {!isSelf && (
               <Button
                 data-testid="button-send-message"
                 onClick={() => navigate(`/?view=team-chat&chatWith=${profile.id}`)}
@@ -340,10 +413,106 @@ export default function TeamProfile() {
                 <Send className="w-4 h-4 ml-2" />
                 مراسلة داخلية
               </Button>
+            )}
+          </div>
+
+          {isAdmin && !isSelf && (
+            <div className="mt-6 pt-6 border-t border-white/5">
+              <h3 className="text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
+                <Shield className="w-4 h-4 text-amber-400" />
+                إجراءات المدير
+              </h3>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs text-gray-400">تغيير الصلاحية</Label>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={selectedRole || profile.role}
+                      onValueChange={(v) => setSelectedRole(v)}
+                    >
+                      <SelectTrigger className="flex-1 bg-[#0a0f1a] border-white/10 text-white text-sm h-9" data-testid="select-profile-role">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#111827] border-white/10">
+                        <SelectItem value="agent" className="text-white">موظف</SelectItem>
+                        <SelectItem value="manager" className="text-white">مشرف</SelectItem>
+                        <SelectItem value="admin" className="text-white">مدير</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      data-testid="button-save-role"
+                      disabled={(!selectedRole || selectedRole === profile.role) || roleMutation.isPending}
+                      onClick={() => { if (selectedRole && selectedRole !== profile.role) roleMutation.mutate(selectedRole); }}
+                      className="bg-emerald-600 text-xs"
+                    >
+                      {roleMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "حفظ"}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    data-testid="button-toggle-disable"
+                    onClick={() => setConfirmDialog("toggle")}
+                    variant="outline"
+                    className={`flex-1 text-xs ${
+                      profile.isActive === false
+                        ? "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                        : "border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                    }`}
+                  >
+                    <Power className="w-3.5 h-3.5 ml-1.5" />
+                    {profile.isActive === false ? "تفعيل الحساب" : "تعطيل الحساب"}
+                  </Button>
+                  <Button
+                    data-testid="button-delete-member"
+                    onClick={() => setConfirmDialog("delete")}
+                    variant="outline"
+                    className="flex-1 text-xs border-red-500/30 text-red-400 hover:bg-red-500/10"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 ml-1.5" />
+                    حذف العضو
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </div>
       </div>
+
+      <Dialog open={!!confirmDialog} onOpenChange={(open) => { if (!open) setConfirmDialog(null); }}>
+        <DialogContent className="bg-[#111827] border-white/10 text-white max-w-sm" data-testid="dialog-confirm-profile-action">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-400" />
+              {confirmDialog === "delete" ? "تأكيد الحذف" : profile.isActive === false ? "تأكيد التفعيل" : "تأكيد التعطيل"}
+            </DialogTitle>
+            <DialogDescription className="text-gray-400 pt-2">
+              {confirmDialog === "delete" ? (
+                <>هل أنت متأكد من حذف <span className="text-white font-medium">{profile.name}</span>؟ لا يمكن التراجع عن هذا الإجراء.</>
+              ) : profile.isActive === false ? (
+                <>هل تريد إعادة تفعيل حساب <span className="text-white font-medium">{profile.name}</span>؟</>
+              ) : (
+                <>هل تريد تعطيل حساب <span className="text-white font-medium">{profile.name}</span>؟ لن يتمكن من تسجيل الدخول.</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 justify-end mt-2">
+            <Button variant="ghost" onClick={() => setConfirmDialog(null)} className="text-gray-400" disabled={confirmLoading}>
+              إلغاء
+            </Button>
+            <Button
+              data-testid="button-confirm-profile-action"
+              onClick={confirmDialog === "delete" ? handleDelete : handleToggleActive}
+              disabled={confirmLoading}
+              className={confirmDialog === "delete" ? "bg-red-600 hover:bg-red-700" : profile.isActive === false ? "bg-emerald-600" : "bg-amber-600 hover:bg-amber-700"}
+            >
+              {confirmLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : confirmDialog === "delete" ? "حذف" : profile.isActive === false ? "تفعيل" : "تعطيل"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Plus, Users, Trash2, Shield, UserCircle, Loader2, Star, MessageSquare, Zap, SmilePlus, Pencil, Check, X, Search, Filter, ArrowUpDown, CheckCircle, Bot, Power, UserCog, AlertTriangle, Crown } from "lucide-react";
+import { Plus, Users, Trash2, Shield, UserCircle, Loader2, Star, MessageSquare, Zap, SmilePlus, Pencil, Check, X, Search, Filter, ArrowUpDown, CheckCircle, Bot, Power, UserCog, AlertTriangle, Crown, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { authFetch } from "@/lib/auth";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -523,42 +524,57 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
                         التقييمات
                       </Button>
                       {!isSelf(member.id) && (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          data-testid={`button-edit-member-${member.id}`}
-                          onClick={(e) => openEditDialog(e, member)}
-                          className="text-gray-500 hover:text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="تعديل"
-                        >
-                          <UserCog className="w-4 h-4" />
-                        </Button>
-                      )}
-                      {canToggleMember(member) && (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          data-testid={`button-toggle-active-${member.id}`}
-                          onClick={(e) => { e.stopPropagation(); setConfirmDialog({ type: "toggle", member }); }}
-                          className={`opacity-0 group-hover:opacity-100 transition-opacity ${
-                            member.isActive === false ? "text-emerald-500 hover:text-emerald-400" : "text-gray-500 hover:text-amber-400"
-                          }`}
-                          title={member.isActive === false ? "تفعيل" : "تعطيل"}
-                        >
-                          <Power className="w-4 h-4" />
-                        </Button>
-                      )}
-                      {canDeleteMember(member) && (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          data-testid={`button-delete-agent-${member.id}`}
-                          onClick={(e) => { e.stopPropagation(); setConfirmDialog({ type: "delete", member }); }}
-                          className="text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="حذف"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              data-testid={`button-member-menu-${member.id}`}
+                              className="text-gray-500 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-[#111827] border-white/10 text-white min-w-[160px]" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenuItem
+                              data-testid={`menu-edit-title-${member.id}`}
+                              onClick={(e) => { e.stopPropagation(); startEditJobTitle(e as any, member); }}
+                              className="text-gray-300 text-xs cursor-pointer focus:bg-white/5 focus:text-white"
+                            >
+                              <Pencil className="w-3.5 h-3.5 ml-2" />
+                              تعديل المسمى الوظيفي
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              data-testid={`menu-edit-member-${member.id}`}
+                              onClick={(e) => { e.stopPropagation(); openEditDialog(e as any, member); }}
+                              className="text-gray-300 text-xs cursor-pointer focus:bg-white/5 focus:text-white"
+                            >
+                              <UserCog className="w-3.5 h-3.5 ml-2" />
+                              تعديل البيانات والصلاحية
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator className="bg-white/5" />
+                            {canToggleMember(member) && (
+                              <DropdownMenuItem
+                                data-testid={`menu-toggle-${member.id}`}
+                                onClick={(e) => { e.stopPropagation(); setConfirmDialog({ type: "toggle", member }); }}
+                                className={`text-xs cursor-pointer focus:bg-white/5 ${member.isActive === false ? "text-emerald-400 focus:text-emerald-300" : "text-amber-400 focus:text-amber-300"}`}
+                              >
+                                <Power className="w-3.5 h-3.5 ml-2" />
+                                {member.isActive === false ? "تفعيل الحساب" : "تعطيل الحساب"}
+                              </DropdownMenuItem>
+                            )}
+                            {canDeleteMember(member) && (
+                              <DropdownMenuItem
+                                data-testid={`menu-delete-${member.id}`}
+                                onClick={(e) => { e.stopPropagation(); setConfirmDialog({ type: "delete", member }); }}
+                                className="text-red-400 text-xs cursor-pointer focus:bg-red-500/10 focus:text-red-300"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 ml-2" />
+                                حذف العضو
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       )}
                     </div>
                   </div>
