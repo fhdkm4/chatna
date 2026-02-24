@@ -1,9 +1,12 @@
+import { useRef, useState } from "react";
 import { useRoute, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth, authFetch } from "@/lib/auth";
-import { ArrowRight, Shield, UserCircle, MessageSquare, CheckCircle, Loader2, Send, Circle } from "lucide-react";
+import { queryClient } from "@/lib/queryClient";
+import { ArrowRight, Shield, UserCircle, MessageSquare, CheckCircle, Loader2, Send, Circle, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 
 interface ProfileData {
   id: string;
@@ -26,6 +29,9 @@ export default function TeamProfile() {
   const [, params] = useRoute("/team/:userId");
   const [, navigate] = useLocation();
   const { user } = useAuth();
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const { data: profile, isLoading, error } = useQuery<ProfileData>({
     queryKey: ["/api/team", params?.userId, "profile"],
@@ -36,6 +42,64 @@ export default function TeamProfile() {
     },
     enabled: !!params?.userId,
   });
+
+  const avatarMutation = useMutation({
+    mutationFn: async (avatarUrl: string) => {
+      const res = await authFetch("/api/profile/avatar", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ avatarUrl }),
+      });
+      if (!res.ok) throw new Error("failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/team", params?.userId, "profile"] });
+      toast({ title: "تم تحديث الصورة الشخصية بنجاح" });
+    },
+    onError: () => {
+      toast({ title: "خطأ في تحديث الصورة", variant: "destructive" });
+    },
+  });
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowedTypes.includes(file.type)) {
+      toast({ title: "يرجى اختيار صورة (JPG, PNG, WebP, GIF)", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "حجم الصورة يجب أن لا يتجاوز 5 ميغابايت", variant: "destructive" });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const urlRes = await authFetch("/api/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+      });
+      if (!urlRes.ok) throw new Error("url-fail");
+      const { uploadURL, objectPath } = await urlRes.json();
+
+      await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+
+      await avatarMutation.mutateAsync(objectPath);
+    } catch {
+      toast({ title: "خطأ في رفع الصورة", variant: "destructive" });
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   if (isLoading) {
     return (
@@ -75,7 +139,7 @@ export default function TeamProfile() {
 
         <div className="bg-[#111827]/80 border border-white/5 rounded-2xl p-8">
           <div className="flex flex-col items-center gap-4">
-            <div className="relative">
+            <div className="relative group">
               {profile.avatarUrl ? (
                 <img
                   src={profile.avatarUrl}
@@ -101,6 +165,30 @@ export default function TeamProfile() {
                   isOnline ? "bg-emerald-500" : "bg-gray-500"
                 }`}
               />
+              {isSelf && (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    data-testid="input-avatar-file"
+                    onChange={handleFileSelect}
+                  />
+                  <button
+                    data-testid="button-change-avatar"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer disabled:cursor-wait"
+                  >
+                    {isUploading ? (
+                      <Loader2 className="w-6 h-6 text-white animate-spin" />
+                    ) : (
+                      <Camera className="w-6 h-6 text-white" />
+                    )}
+                  </button>
+                </>
+              )}
             </div>
 
             <div className="text-center">

@@ -17,6 +17,7 @@ import { sendMetaWhatsAppMessage, sendMetaWhatsAppInteractiveButtons, markMessag
 import { checkAutoReply, generateAiResponse } from "./services/ai";
 import { simulateTypingDelay } from "./services/typing-delay";
 import { isHandoverRequest, assignConversationToAgent, isWithinWorkingHours } from "./services/assignment";
+import { ObjectStorageService } from "./replit_integrations/object_storage";
 import { count, sql as sqlHelper, and, inArray, not, desc } from "drizzle-orm";
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || "jawab-default-secret";
@@ -56,6 +57,8 @@ function managerOrAdmin(req: any, res: any, next: any) {
 
 const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads", "campaigns");
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
+const objectStorageService = new ObjectStorageService();
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   app.use("/uploads", express.static(path.join(process.cwd(), "public", "uploads")));
@@ -487,6 +490,60 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err) {
       console.error("Get team member profile error:", err);
       res.status(500).json({ message: "خطأ في جلب الملف الشخصي" });
+    }
+  });
+
+  app.post("/api/uploads/request-url", authMiddleware, async (req: any, res) => {
+    try {
+      const { name, size, contentType } = req.body;
+      if (!name) {
+        return res.status(400).json({ error: "Missing required field: name" });
+      }
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+      res.json({ uploadURL, objectPath, metadata: { name, size, contentType } });
+    } catch (error) {
+      console.error("Error generating upload URL:", error);
+      res.status(500).json({ error: "Failed to generate upload URL" });
+    }
+  });
+
+  app.get(/^\/objects\/(.+)$/, async (req: any, res) => {
+    try {
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      await objectStorageService.downloadObject(objectFile, res);
+    } catch (error: any) {
+      if (error?.name === "ObjectNotFoundError") {
+        return res.status(404).json({ error: "Object not found" });
+      }
+      return res.status(500).json({ error: "Failed to serve object" });
+    }
+  });
+
+  app.patch("/api/profile/avatar", authMiddleware, async (req: any, res) => {
+    try {
+      const schema = z.object({
+        avatarUrl: z.string().min(1).max(2000).refine(
+          (v) => v.startsWith("/objects/"),
+          { message: "رابط غير صحيح" }
+        ),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "رابط الصورة غير صحيح", errors: parsed.error.issues });
+      }
+      const updated = await storage.updateUser(req.user.id, { avatarUrl: parsed.data.avatarUrl });
+      if (!updated) {
+        return res.status(404).json({ message: "المستخدم غير موجود" });
+      }
+      res.json({
+        id: updated.id,
+        name: updated.name,
+        avatarUrl: updated.avatarUrl || null,
+      });
+    } catch (err) {
+      console.error("Update avatar error:", err);
+      res.status(500).json({ message: "خطأ في تحديث الصورة الشخصية" });
     }
   });
 
