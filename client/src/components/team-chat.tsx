@@ -21,19 +21,33 @@ interface TeamMember {
 
 interface TeamChatProps {
   socket: Socket | null;
+  initialMemberId?: string | null;
+  onMemberSelected?: () => void;
 }
 
-export function TeamChat({ socket }: TeamChatProps) {
+export function TeamChat({ socket, initialMemberId, onMemberSelected }: TeamChatProps) {
   const { user } = useAuth();
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [messageText, setMessageText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const initialMemberApplied = useRef(false);
 
   const { data: members = [], isLoading: membersLoading } = useQuery<TeamMember[]>({
     queryKey: ["/api/team-members"],
   });
+
+  useEffect(() => {
+    if (initialMemberId && members.length > 0 && !initialMemberApplied.current) {
+      const member = members.find((m) => m.id === initialMemberId);
+      if (member) {
+        setSelectedMember(member);
+        initialMemberApplied.current = true;
+        onMemberSelected?.();
+      }
+    }
+  }, [initialMemberId, members, onMemberSelected]);
 
   const { data: messages = [], isLoading: messagesLoading } = useQuery<InternalMessage[]>({
     queryKey: ["/api/internal-messages", selectedMember?.id],

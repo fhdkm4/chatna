@@ -97,8 +97,24 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [onlineAgents, setOnlineAgents] = useState<Set<string>>(new Set());
   const [delayedConversations, setDelayedConversations] = useState<Set<string>>(new Set());
+  const [chatWithMemberId, setChatWithMemberId] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const view = params.get("view") as ActiveView | null;
+    const chatWith = params.get("chatWith");
+    if (view && ["chat", "contacts", "ai", "ai-settings", "company-identity", "analytics", "settings", "team", "monitoring", "campaigns", "catalog", "team-chat"].includes(view)) {
+      setActiveView(view);
+    }
+    if (chatWith) {
+      setChatWithMemberId(chatWith);
+    }
+    if (view || chatWith) {
+      window.history.replaceState({}, "", "/");
+    }
+  }, []);
 
   useEffect(() => {
     if (!token) {
@@ -337,7 +353,7 @@ export default function Dashboard() {
       case "catalog":
         return <ProductCatalog />;
       case "team-chat":
-        return <TeamChat socket={socketRef.current} />;
+        return <TeamChat socket={socketRef.current} initialMemberId={chatWithMemberId} onMemberSelected={() => setChatWithMemberId(null)} />;
       default:
         return (
           <div className="flex h-full">

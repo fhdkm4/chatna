@@ -325,7 +325,7 @@ export default function TeamProfile() {
             <div className="mt-6">
               <Button
                 data-testid="button-send-message"
-                onClick={() => navigate("/")}
+                onClick={() => navigate(`/?view=team-chat&chatWith=${profile.id}`)}
                 className="w-full bg-emerald-600 text-white"
               >
                 <Send className="w-4 h-4 ml-2" />
