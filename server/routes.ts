@@ -365,16 +365,31 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/team", authMiddleware, adminOnly, async (req: any, res) => {
     try {
       const teamMembers = await storage.getUsersByTenant(req.user.tenantId);
-      res.json(teamMembers.map(u => ({
-        id: u.id,
-        email: u.email,
-        name: u.name,
-        role: u.role,
-        status: u.status,
-        jobTitle: u.jobTitle || null,
-        avatarUrl: u.avatarUrl || null,
-        createdAt: u.createdAt,
-      })));
+      const allMetrics = await storage.getAgentMetricsByTenant(req.user.tenantId);
+      const metricsMap = new Map<string, typeof allMetrics[0]>();
+      allMetrics.forEach(m => metricsMap.set(m.userId, m));
+      const memberStats = await storage.getTeamMemberStats(req.user.tenantId);
+      const result = teamMembers.map((u) => {
+        const metric = metricsMap.get(u.id);
+        const mStats = memberStats.get(u.id);
+        return {
+          id: u.id,
+          email: u.email,
+          name: u.name,
+          role: u.role,
+          status: u.status,
+          jobTitle: u.jobTitle || null,
+          avatarUrl: u.avatarUrl || null,
+          createdAt: u.createdAt,
+          stats: {
+            openConversations: mStats?.open || 0,
+            resolvedConversations: mStats?.resolved || 0,
+            aiTransferred: mStats?.aiTransferred || 0,
+            avgResponseTimeSeconds: metric?.avgResponseTimeSeconds || 0,
+          },
+        };
+      });
+      res.json(result);
     } catch (err) {
       console.error("Get team error:", err);
       res.status(500).json({ message: "خطأ في جلب الفريق" });
@@ -437,6 +452,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(400).json({ message: "بيانات غير صحيحة", errors: parsed.error.issues });
       }
       const { jobTitle, avatarUrl, name, role, maxConcurrentChats } = parsed.data;
+      if (role !== undefined && role !== user.role && user.role === "admin") {
+        const allMembers = await storage.getUsersByTenant(req.user.tenantId);
+        const adminCount = allMembers.filter(m => m.role === "admin").length;
+        if (adminCount <= 1) {
+          return res.status(400).json({ message: "لا يمكن تغيير دور آخر مدير في المنظمة" });
+        }
+      }
       const updateData: any = {};
       if (jobTitle !== undefined) updateData.jobTitle = jobTitle;
       if (avatarUrl !== undefined) updateData.avatarUrl = avatarUrl;
@@ -549,12 +571,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.delete("/api/team/:id", authMiddleware, adminOnly, async (req: any, res) => {
     try {
+      if (req.params.id === req.user.id) {
+        return res.status(400).json({ message: "لا يمكنك حذف حسابك الخاص" });
+      }
       const user = await storage.getUserById(req.params.id);
       if (!user || user.tenantId !== req.user.tenantId) {
         return res.status(404).json({ message: "الموظف غير موجود" });
       }
       if (user.role === "admin") {
-        return res.status(400).json({ message: "لا يمكن حذف حساب المدير" });
+        const allMembers = await storage.getUsersByTenant(req.user.tenantId);
+        const adminCount = allMembers.filter(m => m.role === "admin").length;
+        if (adminCount <= 1) {
+          return res.status(400).json({ message: "لا يمكن حذف آخر مدير في المنظمة" });
+        }
       }
       await storage.deleteUser(req.params.id, req.user.tenantId);
       res.status(204).send();

@@ -82,6 +82,8 @@ export interface IStorage {
   incrementAgentMetric(userId: string, tenantId: string, field: "totalConversations" | "resolvedConversations" | "totalMessages", increment?: number): Promise<void>;
   updateAgentAvgResponseTime(userId: string, tenantId: string, responseTimeSeconds: number): Promise<void>;
 
+  getTeamMemberStats(tenantId: string): Promise<Map<string, { open: number; resolved: number; aiTransferred: number }>>;
+
   createActivityLog(data: InsertActivityLog): Promise<ActivityLogEntry>;
   getActivityLogByTenant(tenantId: string, limit?: number): Promise<any[]>;
 
@@ -435,6 +437,33 @@ class DatabaseStorage implements IStorage {
     const targetDate = date || new Date().toISOString().split("T")[0];
     return db.select().from(agentMetrics)
       .where(and(eq(agentMetrics.tenantId, tenantId), eq(agentMetrics.date, targetDate)));
+  }
+
+  async getTeamMemberStats(tenantId: string): Promise<Map<string, { open: number; resolved: number; aiTransferred: number }>> {
+    const rows = await db.select({
+      assignedTo: conversations.assignedTo,
+      status: conversations.status,
+      assignmentStatus: conversations.assignmentStatus,
+    }).from(conversations)
+      .where(and(eq(conversations.tenantId, tenantId), sql`${conversations.assignedTo} IS NOT NULL`));
+
+    const map = new Map<string, { open: number; resolved: number; aiTransferred: number }>();
+    for (const row of rows) {
+      if (!row.assignedTo) continue;
+      if (!map.has(row.assignedTo)) {
+        map.set(row.assignedTo, { open: 0, resolved: 0, aiTransferred: 0 });
+      }
+      const entry = map.get(row.assignedTo)!;
+      if (row.status === "resolved") {
+        entry.resolved++;
+      } else {
+        entry.open++;
+      }
+      if (row.assignmentStatus === "assigned" || row.assignmentStatus === "closed") {
+        entry.aiTransferred++;
+      }
+    }
+    return map;
   }
 
   async incrementAgentMetric(userId: string, tenantId: string, field: "totalConversations" | "resolvedConversations" | "totalMessages", increment = 1): Promise<void> {

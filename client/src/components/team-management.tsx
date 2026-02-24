@@ -1,13 +1,21 @@
-import { useState, useEffect, useCallback } from "react";
-import { Plus, Users, Trash2, Shield, UserCircle, Loader2, Star, MessageSquare, Zap, SmilePlus, Pencil, Check, X } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Plus, Users, Trash2, Shield, UserCircle, Loader2, Star, MessageSquare, Zap, SmilePlus, Pencil, Check, X, Search, Filter, ArrowUpDown, CheckCircle, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { authFetch } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { Link } from "wouter";
+import { useLocation } from "wouter";
+
+interface MemberStats {
+  openConversations: number;
+  resolvedConversations: number;
+  aiTransferred: number;
+  avgResponseTimeSeconds: number;
+}
 
 interface TeamMember {
   id: string;
@@ -18,6 +26,7 @@ interface TeamMember {
   jobTitle: string | null;
   avatarUrl: string | null;
   createdAt: string;
+  stats?: MemberStats;
 }
 
 interface RatingStat {
@@ -34,15 +43,6 @@ interface AgentRating {
   createdAt: string;
 }
 
-interface AgentMonitorData {
-  id: string;
-  totalConversationsToday: number;
-  resolvedToday: number;
-  totalMessagesToday: number;
-  avgResponseTimeSeconds: number;
-  activeChats: number;
-}
-
 interface TeamManagementProps {
   onlineAgents?: Set<string>;
 }
@@ -51,12 +51,6 @@ function getRatingColor(avg: number) {
   if (avg >= 4) return "text-emerald-400 border-emerald-500/30";
   if (avg >= 3) return "text-amber-400 border-amber-500/30";
   return "text-red-400 border-red-500/30";
-}
-
-function getRatingBadgeBg(rating: number) {
-  if (rating >= 4) return "bg-emerald-500/20 text-emerald-400";
-  if (rating >= 3) return "bg-amber-500/20 text-amber-400";
-  return "bg-red-500/20 text-red-400";
 }
 
 function renderStars(rating: number) {
@@ -82,14 +76,17 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [saving, setSaving] = useState(false);
   const [ratingStats, setRatingStats] = useState<Map<string, RatingStat>>(new Map());
-  const [monitorData, setMonitorData] = useState<Map<string, AgentMonitorData>>(new Map());
   const [ratingsDialogOpen, setRatingsDialogOpen] = useState(false);
   const [ratingsDialogAgent, setRatingsDialogAgent] = useState<TeamMember | null>(null);
   const [agentRatings, setAgentRatings] = useState<AgentRating[]>([]);
   const [ratingsLoading, setRatingsLoading] = useState(false);
   const [editingJobTitle, setEditingJobTitle] = useState<string | null>(null);
   const [jobTitleInput, setJobTitleInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<"name" | "activity">("activity");
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const fetchTeam = useCallback(async () => {
     try {
@@ -116,32 +113,40 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
     }
   }, []);
 
-  const fetchMonitoring = useCallback(async () => {
-    try {
-      const res = await authFetch("/api/team/monitoring");
-      if (res.ok) {
-        const data = await res.json();
-        const map = new Map<string, AgentMonitorData>();
-        (data.agents || []).forEach((a: AgentMonitorData) => map.set(a.id, a));
-        setMonitorData(map);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  }, []);
-
   useEffect(() => {
     fetchTeam();
     fetchRatingStats();
-    fetchMonitoring();
-  }, [fetchTeam, fetchRatingStats, fetchMonitoring]);
+  }, [fetchTeam, fetchRatingStats]);
 
-  const startEditJobTitle = (member: TeamMember) => {
+  const filteredMembers = useMemo(() => {
+    let result = [...members];
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter(m => m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q));
+    }
+    if (roleFilter !== "all") {
+      result = result.filter(m => m.role === roleFilter);
+    }
+    if (sortBy === "activity") {
+      result.sort((a, b) => {
+        const aTotal = (a.stats?.openConversations || 0) + (a.stats?.resolvedConversations || 0);
+        const bTotal = (b.stats?.openConversations || 0) + (b.stats?.resolvedConversations || 0);
+        return bTotal - aTotal;
+      });
+    } else {
+      result.sort((a, b) => a.name.localeCompare(b.name, "ar"));
+    }
+    return result;
+  }, [members, searchQuery, roleFilter, sortBy]);
+
+  const startEditJobTitle = (e: React.MouseEvent, member: TeamMember) => {
+    e.stopPropagation();
     setEditingJobTitle(member.id);
     setJobTitleInput(member.jobTitle || "");
   };
 
-  const saveJobTitle = async (memberId: string) => {
+  const saveJobTitle = async (e: React.MouseEvent | null, memberId: string) => {
+    if (e) e.stopPropagation();
     try {
       const res = await authFetch(`/api/team/${memberId}`, {
         method: "PATCH",
@@ -157,7 +162,8 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
     setEditingJobTitle(null);
   };
 
-  const openRatingsDialog = async (member: TeamMember) => {
+  const openRatingsDialog = async (e: React.MouseEvent, member: TeamMember) => {
+    e.stopPropagation();
     setRatingsDialogAgent(member);
     setRatingsDialogOpen(true);
     setRatingsLoading(true);
@@ -198,7 +204,8 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
+  const handleDelete = async (e: React.MouseEvent, id: string, name: string) => {
+    e.stopPropagation();
     try {
       const res = await authFetch(`/api/team/${id}`, { method: "DELETE" });
       if (res.ok) {
@@ -221,7 +228,7 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
         <div className="flex items-center gap-2">
           <Users className="w-5 h-5 text-emerald-400" />
           <h2 className="text-base font-semibold text-white">إدارة الفريق</h2>
-          <Badge variant="secondary" className="text-[10px] bg-white/5 text-gray-300">
+          <Badge variant="secondary" className="text-[10px] bg-white/5 text-gray-300" data-testid="badge-member-count">
             {members.length} عضو
           </Badge>
         </div>
@@ -231,30 +238,80 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
         </Button>
       </div>
 
-      <div className="flex-1 p-6 overflow-y-auto">
+      <div className="px-6 pt-4 pb-2 space-y-3 shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-xs">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+            <Input
+              data-testid="input-search-team"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="بحث بالاسم أو البريد..."
+              className="pr-9 bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 text-sm h-9"
+            />
+          </div>
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger className="w-32 bg-[#0a0f1a] border-white/10 text-white text-sm h-9" data-testid="select-role-filter">
+              <Filter className="w-3.5 h-3.5 ml-1 text-gray-400" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-[#111827] border-white/10">
+              <SelectItem value="all" className="text-white">الكل</SelectItem>
+              <SelectItem value="admin" className="text-white">مدير</SelectItem>
+              <SelectItem value="agent" className="text-white">موظف</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as "name" | "activity")}>
+            <SelectTrigger className="w-36 bg-[#0a0f1a] border-white/10 text-white text-sm h-9" data-testid="select-sort-by">
+              <ArrowUpDown className="w-3.5 h-3.5 ml-1 text-gray-400" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-[#111827] border-white/10">
+              <SelectItem value="activity" className="text-white">حسب النشاط</SelectItem>
+              <SelectItem value="name" className="text-white">حسب الاسم</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="flex-1 p-6 pt-2 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <Loader2 className="w-6 h-6 text-emerald-400 animate-spin" />
           </div>
+        ) : filteredMembers.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+            <Users className="w-8 h-8 mb-2 opacity-30" />
+            <p className="text-sm">لا توجد نتائج</p>
+          </div>
         ) : (
           <div className="space-y-3 max-w-2xl">
-            {members.map((member) => {
+            {filteredMembers.map((member) => {
               const stat = ratingStats.get(member.id);
-              const monitor = monitorData.get(member.id);
+              const stats = member.stats;
               return (
                 <div
                   key={member.id}
                   data-testid={`team-member-${member.id}`}
-                  className="bg-[#111827]/50 border border-white/5 rounded-lg p-4 group"
+                  onClick={() => navigate(`/team/${member.id}`)}
+                  className="bg-[#111827]/50 border border-white/5 rounded-lg p-4 group cursor-pointer hover:border-white/10 transition-colors"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="relative">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white ${
-                          member.role === "admin" ? "bg-gradient-to-br from-amber-400 to-amber-600" : "bg-gradient-to-br from-blue-400 to-blue-600"
-                        }`}>
-                          {member.name.charAt(0)}
-                        </div>
+                        {member.avatarUrl ? (
+                          <img
+                            src={member.avatarUrl}
+                            alt={member.name}
+                            className="w-10 h-10 rounded-full object-cover border border-white/10"
+                          />
+                        ) : (
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white ${
+                            member.role === "admin" ? "bg-gradient-to-br from-amber-400 to-amber-600" : "bg-gradient-to-br from-blue-400 to-blue-600"
+                          }`}>
+                            {member.name.charAt(0)}
+                          </div>
+                        )}
                         <div
                           data-testid={`status-indicator-${member.id}`}
                           className={`absolute -bottom-0.5 -left-0.5 w-3.5 h-3.5 rounded-full border-2 border-[#111827] transition-colors ${
@@ -264,7 +321,7 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
                       </div>
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <Link href={`/team/${member.id}`} data-testid={`link-profile-${member.id}`} className="text-sm font-medium text-white hover:text-emerald-400 transition-colors">{member.name}</Link>
+                          <span data-testid={`text-member-name-${member.id}`} className="text-sm font-medium text-white">{member.name}</span>
                           <Badge
                             variant="outline"
                             className={`text-[9px] px-1.5 ${
@@ -285,20 +342,20 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
                         </div>
                         <div className="flex items-center gap-1.5 mt-0.5">
                           {editingJobTitle === member.id ? (
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                               <Input
                                 data-testid={`input-job-title-${member.id}`}
                                 value={jobTitleInput}
                                 onChange={(e) => setJobTitleInput(e.target.value)}
-                                onKeyDown={(e) => { if (e.key === "Enter") saveJobTitle(member.id); if (e.key === "Escape") setEditingJobTitle(null); }}
+                                onKeyDown={(e) => { if (e.key === "Enter") saveJobTitle(null, member.id); if (e.key === "Escape") setEditingJobTitle(null); }}
                                 placeholder="المسمى الوظيفي"
                                 className="text-xs bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 w-40"
                                 autoFocus
                               />
-                              <Button size="icon" variant="ghost" data-testid={`button-save-job-title-${member.id}`} onClick={() => saveJobTitle(member.id)} className="text-emerald-400">
+                              <Button size="icon" variant="ghost" data-testid={`button-save-job-title-${member.id}`} onClick={(e) => saveJobTitle(e, member.id)} className="text-emerald-400">
                                 <Check className="w-3 h-3" />
                               </Button>
-                              <Button size="icon" variant="ghost" data-testid={`button-cancel-job-title-${member.id}`} onClick={() => setEditingJobTitle(null)} className="text-gray-400">
+                              <Button size="icon" variant="ghost" data-testid={`button-cancel-job-title-${member.id}`} onClick={(e) => { e.stopPropagation(); setEditingJobTitle(null); }} className="text-gray-400">
                                 <X className="w-3 h-3" />
                               </Button>
                             </div>
@@ -311,8 +368,8 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
                                 size="icon"
                                 variant="ghost"
                                 data-testid={`button-edit-job-title-${member.id}`}
-                                onClick={() => startEditJobTitle(member)}
-                                className="opacity-0 group-hover/title:opacity-100 transition-opacity text-gray-500"
+                                onClick={(e) => startEditJobTitle(e, member)}
+                                className="opacity-0 group-hover/title:opacity-100 transition-opacity text-gray-500 h-5 w-5"
                               >
                                 <Pencil className="w-3 h-3" />
                               </Button>
@@ -327,7 +384,7 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
                         size="sm"
                         variant="ghost"
                         data-testid={`button-ratings-${member.id}`}
-                        onClick={() => openRatingsDialog(member)}
+                        onClick={(e) => openRatingsDialog(e, member)}
                         className="text-xs text-gray-400"
                       >
                         <Star className="w-3 h-3 ml-1" />
@@ -338,7 +395,7 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
                           size="icon"
                           variant="ghost"
                           data-testid={`button-delete-agent-${member.id}`}
-                          onClick={() => handleDelete(member.id, member.name)}
+                          onClick={(e) => handleDelete(e, member.id, member.name)}
                           className="text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -350,17 +407,31 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
                     data-testid={`performance-bar-${member.id}`}
                     className="mt-3 pt-3 border-t border-white/5 flex items-center gap-4 flex-wrap"
                   >
-                    <div className="flex items-center gap-1.5" data-testid={`metric-conversations-${member.id}`}>
+                    <div className="flex items-center gap-1.5" data-testid={`metric-open-${member.id}`}>
                       <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
                       <span className="text-xs text-gray-300">
-                        <span className="text-white font-semibold">{monitor?.totalConversationsToday || 0}</span> محادثة
+                        <span className="text-white font-semibold">{stats?.openConversations || 0}</span> مفتوحة
+                      </span>
+                    </div>
+                    <span className="text-gray-600 text-xs">|</span>
+                    <div className="flex items-center gap-1.5" data-testid={`metric-resolved-${member.id}`}>
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="text-xs text-gray-300">
+                        <span className="text-white font-semibold">{stats?.resolvedConversations || 0}</span> مغلقة
+                      </span>
+                    </div>
+                    <span className="text-gray-600 text-xs">|</span>
+                    <div className="flex items-center gap-1.5" data-testid={`metric-ai-transferred-${member.id}`}>
+                      <Bot className="w-3.5 h-3.5 text-purple-400" />
+                      <span className="text-xs text-gray-300">
+                        <span className="text-white font-semibold">{stats?.aiTransferred || 0}</span> من AI
                       </span>
                     </div>
                     <span className="text-gray-600 text-xs">|</span>
                     <div className="flex items-center gap-1.5" data-testid={`metric-response-time-${member.id}`}>
                       <Zap className="w-3.5 h-3.5 text-amber-400" />
                       <span className="text-xs text-gray-300">
-                        <span className="text-white font-semibold">{formatResponseTime(monitor?.avgResponseTimeSeconds || 0)}</span>
+                        <span className="text-white font-semibold">{formatResponseTime(stats?.avgResponseTimeSeconds || 0)}</span>
                       </span>
                     </div>
                     <span className="text-gray-600 text-xs">|</span>
