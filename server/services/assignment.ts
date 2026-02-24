@@ -78,6 +78,7 @@ export async function assignConversationToAgent(tenantId: string, conversationId
   await storage.updateConversation(conversationId, tenantId, {
     assignedTo: chosenAgent.id,
     status: "active",
+    assignmentStatus: "assigned",
   });
 
   await db.update(users)

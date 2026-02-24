@@ -125,6 +125,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       status: "waiting",
       aiPaused: true,
       aiHandled: false,
+      assignmentStatus: "waiting_human",
     });
     io.to(`tenant:${tenantId}`).emit("new_message", {
       conversationId,
@@ -144,12 +145,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       io.to(`tenant:${tenantId}`).emit("conversation_updated", {
         conversationId,
         status: "waiting",
+        assignmentStatus: "waiting_human",
       });
       return;
     }
 
     if (assignment.reason === "assigned" && assignment.agentId && assignment.agentName) {
-      const assignConfirm = `تم توصيلك مع ${assignment.agentName}، كيف أقدر أساعدك؟ 😊`;
+      const assignConfirm = `تم توصيلك مع ${assignment.agentName}، كيف أقدر أساعدك؟`;
       await simulateTypingDelay(assignConfirm);
       const confirmSid = await sendWhatsAppMessage(customerPhone, assignConfirm);
       const confirmMsg = await storage.createMessage({
@@ -181,9 +183,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         conversationId,
         status: "active",
         assignedTo: assignment.agentId,
+        assignmentStatus: "assigned",
       });
     } else if (assignment.reason === "no_agents_available") {
-      const busyMsg = "جميع موظفينا مشغولون حالياً، سيتم الرد عليك في أقرب وقت 🙏";
+      const waitingCount = await storage.getWaitingConversationsCount(tenantId);
+      const estimatedMinutes = Math.max(5, waitingCount * 3);
+      const busyMsg = `جميع موظفينا مشغولون حالياً، الوقت التقريبي للرد: ${estimatedMinutes} دقيقة. شكراً لصبرك.`;
       await simulateTypingDelay(busyMsg);
       const busySid = await sendWhatsAppMessage(customerPhone, busyMsg);
       const busySystemMsg = await storage.createMessage({
@@ -200,11 +205,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       io.to(`tenant:${tenantId}`).emit("conversation_updated", {
         conversationId,
         status: "waiting",
+        assignmentStatus: "waiting_human",
       });
     } else {
       io.to(`tenant:${tenantId}`).emit("conversation_updated", {
         conversationId,
         status: "waiting",
+        assignmentStatus: "waiting_human",
       });
     }
   }
@@ -966,7 +973,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     let conversation = await storage.getLatestConversation(tenantId, contact.id);
     if (conversation && conversation.status === "resolved") {
-      await storage.updateConversation(conversation.id, tenantId, { status: "active" } as any);
+      await storage.updateConversation(conversation.id, tenantId, { status: "active", assignmentStatus: "ai_handling" } as any);
       conversation = await storage.getConversationById(conversation.id, tenantId);
     }
     if (!conversation) {
@@ -1125,7 +1132,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       let conversation = await storage.getLatestConversation(tenantId, contact.id);
       if (conversation && conversation.status === "resolved") {
-        await storage.updateConversation(conversation.id, tenantId!, { status: "active" } as any);
+        await storage.updateConversation(conversation.id, tenantId!, { status: "active", assignmentStatus: "ai_handling" } as any);
         conversation = await storage.getConversationById(conversation.id, tenantId!);
       }
       if (!conversation) {
@@ -1394,7 +1401,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const existingConv = await storage.getConversationById(req.params.id, req.user.tenantId);
       if (!existingConv) return res.status(404).json({ message: "المحادثة غير موجودة" });
 
-      const conv = await storage.updateConversation(req.params.id, req.user.tenantId, req.body);
+      const updateData = { ...req.body };
+      if (updateData.status === "resolved") {
+        updateData.assignmentStatus = "closed";
+        updateData.resolvedAt = new Date();
+      }
+      const conv = await storage.updateConversation(req.params.id, req.user.tenantId, updateData);
       if (!conv) return res.status(404).json({ message: "المحادثة غير موجودة" });
 
       if (req.body.status === "resolved" && conv.assignedTo) {
@@ -1852,7 +1864,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
           let conversation = await storage.getLatestConversation(req.user.tenantId, contact.id);
           if (conversation && conversation.status === "resolved") {
-            await storage.updateConversation(conversation.id, req.user.tenantId, { status: "active" } as any);
+            await storage.updateConversation(conversation.id, req.user.tenantId, { status: "active", assignmentStatus: "ai_handling" } as any);
             conversation = await storage.getConversationById(conversation.id, req.user.tenantId);
           }
           if (!conversation) {
@@ -2114,7 +2126,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       let conversation = await storage.getLatestConversation(req.user.tenantId, contact.id);
       if (conversation && conversation.status === "resolved") {
-        await storage.updateConversation(conversation.id, req.user.tenantId, { status: "active" } as any);
+        await storage.updateConversation(conversation.id, req.user.tenantId, { status: "active", assignmentStatus: "ai_handling" } as any);
         conversation = await storage.getConversationById(conversation.id, req.user.tenantId);
       }
       if (!conversation) {

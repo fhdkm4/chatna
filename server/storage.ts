@@ -113,6 +113,8 @@ export interface IStorage {
   updateProduct(id: string, tenantId: string, data: Partial<InsertProduct>): Promise<Product | undefined>;
   deleteProduct(id: string, tenantId: string): Promise<void>;
 
+  getWaitingConversationsCount(tenantId: string): Promise<number>;
+
   createInternalMessage(data: InsertInternalMessage): Promise<InternalMessage>;
   getInternalMessages(tenantId: string, userId1: string, userId2: string, limit?: number): Promise<InternalMessage[]>;
   getInternalChatPartners(tenantId: string, userId: string): Promise<{ partnerId: string; lastMessage: string; lastMessageAt: Date | null }[]>;
@@ -865,6 +867,15 @@ class DatabaseStorage implements IStorage {
 
   async deleteProduct(id: string, tenantId: string): Promise<void> {
     await db.delete(products).where(and(eq(products.id, id), eq(products.tenantId, tenantId)));
+  }
+
+  async getWaitingConversationsCount(tenantId: string): Promise<number> {
+    const result = await db.select({ count: count() }).from(conversations)
+      .where(and(
+        eq(conversations.tenantId, tenantId),
+        eq(conversations.assignmentStatus, "waiting_human")
+      ));
+    return result[0]?.count || 0;
   }
 
   async createInternalMessage(data: InsertInternalMessage): Promise<InternalMessage> {

@@ -91,6 +91,7 @@ export const conversations = pgTable("conversations", {
   tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
   contactId: uuid("contact_id").references(() => contacts.id, { onDelete: "cascade" }),
   assignedTo: uuid("assigned_to").references(() => users.id),
+  assignmentStatus: varchar("assignment_status", { length: 20 }).default("ai_handling"),
   status: varchar("status", { length: 20 }).default("active"),
   channel: varchar("channel", { length: 20 }).default("whatsapp"),
   aiHandled: boolean("ai_handled").default(false),

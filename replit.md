@@ -52,7 +52,7 @@ Preferred communication style: Simple, everyday language.
   - `users` — Agents/admins/managers belonging to a tenant (email/password auth, roles: admin, manager, agent, maxConcurrentChats)
   - `invitations` — Email-based team invitations with token, role, expiration
   - `contacts` — Customer contacts per tenant (unique by tenant+phone)
-  - `conversations` — Chat sessions between contacts and tenants, with status tracking and agent assignment
+  - `conversations` — Chat sessions between contacts and tenants, with status tracking, agent assignment, and assignmentStatus (ai_handling/waiting_human/assigned/closed)
   - `messages` — Individual messages in conversations (supports sender types: customer, agent, ai, system)
   - `autoReplies` — Rule-based automatic responses (keyword, exact, pattern triggers)
   - `aiKnowledge` — Knowledge base entries for AI context
