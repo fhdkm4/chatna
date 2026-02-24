@@ -443,7 +443,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (name !== undefined) updateData.name = name;
       if (role !== undefined) updateData.role = role;
       if (maxConcurrentChats !== undefined) updateData.maxConcurrentChats = maxConcurrentChats;
-      const updated = await storage.updateUser(req.params.id, updateData);
+      const updated = await storage.updateUser(req.params.id, updateData, req.user.tenantId);
       res.json({
         id: updated!.id,
         email: updated!.email,
@@ -532,7 +532,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!parsed.success) {
         return res.status(400).json({ message: "رابط الصورة غير صحيح", errors: parsed.error.issues });
       }
-      const updated = await storage.updateUser(req.user.id, { avatarUrl: parsed.data.avatarUrl });
+      const updated = await storage.updateUser(req.user.id, { avatarUrl: parsed.data.avatarUrl }, req.user.tenantId);
       if (!updated) {
         return res.status(404).json({ message: "المستخدم غير موجود" });
       }

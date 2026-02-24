@@ -3,9 +3,10 @@ import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth, authFetch } from "@/lib/auth";
 import { queryClient } from "@/lib/queryClient";
-import { ArrowRight, Shield, UserCircle, MessageSquare, CheckCircle, Loader2, Send, Circle, Camera } from "lucide-react";
+import { ArrowRight, Shield, UserCircle, MessageSquare, CheckCircle, Loader2, Send, Circle, Camera, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 
 interface ProfileData {
@@ -32,6 +33,8 @@ export default function TeamProfile() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [editingJobTitle, setEditingJobTitle] = useState(false);
+  const [jobTitleValue, setJobTitleValue] = useState("");
 
   const { data: profile, isLoading, error } = useQuery<ProfileData>({
     queryKey: ["/api/team", params?.userId, "profile"],
@@ -59,6 +62,26 @@ export default function TeamProfile() {
     },
     onError: () => {
       toast({ title: "خطأ في تحديث الصورة", variant: "destructive" });
+    },
+  });
+
+  const jobTitleMutation = useMutation({
+    mutationFn: async (jobTitle: string | null) => {
+      const res = await authFetch(`/api/team/${params?.userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobTitle }),
+      });
+      if (!res.ok) throw new Error("failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/team", params?.userId, "profile"] });
+      setEditingJobTitle(false);
+      toast({ title: "تم تحديث المسمى الوظيفي بنجاح" });
+    },
+    onError: () => {
+      toast({ title: "خطأ في تحديث المسمى الوظيفي", variant: "destructive" });
     },
   });
 
@@ -123,6 +146,7 @@ export default function TeamProfile() {
 
   const isOnline = profile.status === "online";
   const isSelf = user?.id === profile.id;
+  const isAdmin = user?.role === "admin";
 
   return (
     <div className="min-h-screen bg-[#0a0f1a] text-white" dir="rtl">
@@ -195,9 +219,56 @@ export default function TeamProfile() {
               <h1 data-testid="text-profile-name" className="text-xl font-bold text-white">
                 {profile.name}
               </h1>
-              <p data-testid="text-profile-job-title" className="text-sm text-gray-400 mt-1">
-                {profile.jobTitle || "\u2014"}
-              </p>
+              {editingJobTitle ? (
+                <div className="flex items-center gap-2 mt-1 justify-center">
+                  <Input
+                    data-testid="input-job-title"
+                    value={jobTitleValue}
+                    onChange={(e) => setJobTitleValue(e.target.value)}
+                    maxLength={100}
+                    className="h-8 w-48 text-sm text-center bg-[#0a0f1a] border-white/10 text-white"
+                    placeholder="المسمى الوظيفي"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") jobTitleMutation.mutate(jobTitleValue.trim() || null);
+                      if (e.key === "Escape") setEditingJobTitle(false);
+                    }}
+                  />
+                  <button
+                    data-testid="button-save-job-title"
+                    onClick={() => jobTitleMutation.mutate(jobTitleValue.trim() || null)}
+                    disabled={jobTitleMutation.isPending}
+                    className="p-1 text-emerald-400 hover:text-emerald-300 transition-colors"
+                  >
+                    {jobTitleMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  </button>
+                  <button
+                    data-testid="button-cancel-job-title"
+                    onClick={() => setEditingJobTitle(false)}
+                    className="p-1 text-gray-400 hover:text-gray-300 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 mt-1 justify-center group/jt">
+                  <p data-testid="text-profile-job-title" className="text-sm text-gray-400">
+                    {profile.jobTitle || "\u2014"}
+                  </p>
+                  {isAdmin && !isSelf && (
+                    <button
+                      data-testid="button-edit-job-title"
+                      onClick={() => {
+                        setJobTitleValue(profile.jobTitle || "");
+                        setEditingJobTitle(true);
+                      }}
+                      className="p-1 text-gray-500 hover:text-emerald-400 opacity-0 group-hover/jt:opacity-100 transition-all"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              )}
               <div className="flex items-center justify-center gap-2 mt-2">
                 <Badge
                   variant="outline"
