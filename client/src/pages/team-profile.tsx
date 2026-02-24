@@ -3,7 +3,7 @@ import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth, authFetch } from "@/lib/auth";
 import { queryClient } from "@/lib/queryClient";
-import { ArrowRight, Shield, UserCircle, MessageSquare, CheckCircle, Loader2, Send, Circle, Camera, Pencil, Check, X } from "lucide-react";
+import { ArrowRight, Shield, UserCircle, MessageSquare, CheckCircle, Loader2, Send, Circle, Camera, Pencil, Check, X, Crown, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ interface ProfileData {
   email: string;
   role: string;
   status: string;
+  isActive: boolean;
   jobTitle: string | null;
   avatarUrl: string | null;
   maxConcurrentChats: number;
@@ -25,6 +26,10 @@ interface ProfileData {
     activeChats: number;
   };
 }
+
+const ROLE_LABELS: Record<string, string> = { admin: "مدير", manager: "مشرف", agent: "موظف" };
+const ROLE_COLORS: Record<string, string> = { admin: "border-amber-500/30 text-amber-400", manager: "border-purple-500/30 text-purple-400", agent: "border-blue-500/30 text-blue-400" };
+const ROLE_AVATAR_COLORS: Record<string, string> = { admin: "bg-gradient-to-br from-amber-400 to-amber-600", manager: "bg-gradient-to-br from-purple-400 to-purple-600", agent: "bg-gradient-to-br from-blue-400 to-blue-600" };
 
 export default function TeamProfile() {
   const [, params] = useRoute("/team/:userId");
@@ -169,15 +174,13 @@ export default function TeamProfile() {
                   src={profile.avatarUrl}
                   alt={profile.name}
                   data-testid="img-avatar"
-                  className="w-24 h-24 rounded-full object-cover border-2 border-white/10"
+                  className={`w-24 h-24 rounded-full object-cover border-2 border-white/10 ${profile.isActive === false ? "grayscale" : ""}`}
                 />
               ) : (
                 <div
                   data-testid="img-avatar-placeholder"
                   className={`w-24 h-24 rounded-full flex items-center justify-center text-3xl font-bold text-white ${
-                    profile.role === "admin"
-                      ? "bg-gradient-to-br from-amber-400 to-amber-600"
-                      : "bg-gradient-to-br from-blue-400 to-blue-600"
+                    profile.isActive === false ? "bg-gray-600" : (ROLE_AVATAR_COLORS[profile.role] || ROLE_AVATAR_COLORS.agent)
                   }`}
                 >
                   {profile.name.charAt(0)}
@@ -186,7 +189,7 @@ export default function TeamProfile() {
               <div
                 data-testid="status-indicator"
                 className={`absolute bottom-1 left-1 w-4 h-4 rounded-full border-2 border-[#111827] ${
-                  isOnline ? "bg-emerald-500" : "bg-gray-500"
+                  profile.isActive === false ? "bg-red-500" : isOnline ? "bg-emerald-500" : "bg-gray-500"
                 }`}
               />
               {isSelf && (
@@ -269,34 +272,40 @@ export default function TeamProfile() {
                   )}
                 </div>
               )}
-              <div className="flex items-center justify-center gap-2 mt-2">
+              <div className="flex items-center justify-center gap-2 mt-2 flex-wrap">
                 <Badge
                   variant="outline"
                   data-testid="badge-role"
-                  className={`text-xs ${
-                    profile.role === "admin"
-                      ? "border-amber-500/30 text-amber-400"
-                      : "border-blue-500/30 text-blue-400"
-                  }`}
+                  className={`text-xs ${ROLE_COLORS[profile.role] || ROLE_COLORS.agent}`}
                 >
-                  {profile.role === "admin" ? (
-                    <><Shield className="w-3 h-3 ml-1" />مدير</>
-                  ) : (
-                    <><UserCircle className="w-3 h-3 ml-1" />موظف</>
-                  )}
+                  {profile.role === "admin" ? <Shield className="w-3 h-3 ml-1" /> :
+                   profile.role === "manager" ? <Crown className="w-3 h-3 ml-1" /> :
+                   <UserCircle className="w-3 h-3 ml-1" />}
+                  {ROLE_LABELS[profile.role] || profile.role}
                 </Badge>
-                <Badge
-                  variant="outline"
-                  data-testid="badge-status"
-                  className={`text-xs ${
-                    isOnline
-                      ? "border-emerald-500/30 text-emerald-400"
-                      : "border-gray-500/30 text-gray-400"
-                  }`}
-                >
-                  <Circle className={`w-2 h-2 ml-1 ${isOnline ? "fill-emerald-400" : "fill-gray-500"}`} />
-                  {isOnline ? "متصل" : "غير متصل"}
-                </Badge>
+                {profile.isActive === false ? (
+                  <Badge
+                    variant="outline"
+                    data-testid="badge-status"
+                    className="text-xs border-red-500/30 text-red-400"
+                  >
+                    <Ban className="w-2 h-2 ml-1" />
+                    حساب معطّل
+                  </Badge>
+                ) : (
+                  <Badge
+                    variant="outline"
+                    data-testid="badge-status"
+                    className={`text-xs ${
+                      isOnline
+                        ? "border-emerald-500/30 text-emerald-400"
+                        : "border-gray-500/30 text-gray-400"
+                    }`}
+                  >
+                    <Circle className={`w-2 h-2 ml-1 ${isOnline ? "fill-emerald-400" : "fill-gray-500"}`} />
+                    {isOnline ? "متصل" : "غير متصل"}
+                  </Badge>
+                )}
               </div>
               <p className="text-xs text-gray-500 mt-2" dir="ltr" data-testid="text-profile-email">{profile.email}</p>
             </div>

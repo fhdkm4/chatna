@@ -53,6 +53,7 @@ export const users = pgTable("users", {
   name: varchar("name", { length: 255 }).notNull(),
   role: varchar("role", { length: 20 }).default("agent"),
   status: varchar("status", { length: 20 }).default("offline"),
+  isActive: boolean("is_active").default(true).notNull(),
   maxConcurrentChats: integer("max_concurrent_chats").default(10),
   lastAssignedAt: timestamp("last_assigned_at"),
   avatarUrl: text("avatar_url"),
@@ -309,7 +310,7 @@ export const createAgentSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   name: z.string().min(2),
-  role: z.enum(["agent", "manager"]).default("agent"),
+  role: z.enum(["admin", "manager", "agent"]).default("agent"),
 });
 
 export const inviteAgentSchema = z.object({

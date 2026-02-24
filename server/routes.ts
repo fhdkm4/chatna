@@ -336,6 +336,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(401).json({ message: "بريد إلكتروني أو كلمة مرور خاطئة" });
       }
 
+      if (user.isActive === false) {
+        return res.status(403).json({ message: "تم تعطيل حسابك. تواصل مع المدير" });
+      }
+
       const tenant = user.tenantId ? await storage.getTenant(user.tenantId) : null;
 
       const token = jwt.sign(
@@ -378,6 +382,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           name: u.name,
           role: u.role,
           status: u.status,
+          isActive: u.isActive,
           jobTitle: u.jobTitle || null,
           avatarUrl: u.avatarUrl || null,
           createdAt: u.createdAt,
@@ -403,7 +408,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(400).json({ message: "بيانات غير صحيحة", errors: parsed.error.issues });
       }
 
-      const { email, password, name } = parsed.data;
+      const { email, password, name, role } = parsed.data;
 
       const existing = await storage.getUserByEmail(email);
       if (existing) {
@@ -416,7 +421,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         email,
         passwordHash,
         name,
-        role: "agent",
+        role: role || "agent",
         status: "offline",
       });
 
@@ -446,17 +451,31 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         name: z.string().min(1).max(255).optional(),
         role: z.enum(["admin", "manager", "agent"]).optional(),
         maxConcurrentChats: z.number().int().min(1).max(100).optional(),
+        isActive: z.boolean().optional(),
       });
       const parsed = schema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ message: "بيانات غير صحيحة", errors: parsed.error.issues });
       }
-      const { jobTitle, avatarUrl, name, role, maxConcurrentChats } = parsed.data;
+      const { jobTitle, avatarUrl, name, role, maxConcurrentChats, isActive } = parsed.data;
+      if (req.params.id === req.user.id && isActive === false) {
+        return res.status(400).json({ message: "لا يمكنك تعطيل حسابك الخاص" });
+      }
+      if (req.params.id === req.user.id && role !== undefined && role !== user.role) {
+        return res.status(400).json({ message: "لا يمكنك تغيير دورك بنفسك" });
+      }
       if (role !== undefined && role !== user.role && user.role === "admin") {
         const allMembers = await storage.getUsersByTenant(req.user.tenantId);
         const adminCount = allMembers.filter(m => m.role === "admin").length;
         if (adminCount <= 1) {
           return res.status(400).json({ message: "لا يمكن تغيير دور آخر مدير في المنظمة" });
+        }
+      }
+      if (isActive === false && user.role === "admin") {
+        const allMembers = await storage.getUsersByTenant(req.user.tenantId);
+        const activeAdminCount = allMembers.filter(m => m.role === "admin" && m.isActive !== false && m.id !== user.id).length;
+        if (activeAdminCount < 1) {
+          return res.status(400).json({ message: "لا يمكن تعطيل آخر مدير نشط في المنظمة" });
         }
       }
       const updateData: any = {};
@@ -465,6 +484,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (name !== undefined) updateData.name = name;
       if (role !== undefined) updateData.role = role;
       if (maxConcurrentChats !== undefined) updateData.maxConcurrentChats = maxConcurrentChats;
+      if (isActive !== undefined) updateData.isActive = isActive;
       const updated = await storage.updateUser(req.params.id, updateData, req.user.tenantId);
       res.json({
         id: updated!.id,
@@ -474,6 +494,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         status: updated!.status,
         jobTitle: updated!.jobTitle || null,
         avatarUrl: updated!.avatarUrl || null,
+        isActive: updated!.isActive,
         maxConcurrentChats: updated!.maxConcurrentChats,
         createdAt: updated!.createdAt,
       });
@@ -499,6 +520,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         email: user.email,
         role: user.role,
         status: user.status,
+        isActive: user.isActive,
         jobTitle: user.jobTitle || null,
         avatarUrl: user.avatarUrl || null,
         maxConcurrentChats: user.maxConcurrentChats,

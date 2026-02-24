@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Plus, Users, Trash2, Shield, UserCircle, Loader2, Star, MessageSquare, Zap, SmilePlus, Pencil, Check, X, Search, Filter, ArrowUpDown, CheckCircle, Bot } from "lucide-react";
+import { Plus, Users, Trash2, Shield, UserCircle, Loader2, Star, MessageSquare, Zap, SmilePlus, Pencil, Check, X, Search, Filter, ArrowUpDown, CheckCircle, Bot, Power, UserCog, AlertTriangle, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { authFetch } from "@/lib/auth";
+import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 
@@ -23,6 +24,7 @@ interface TeamMember {
   name: string;
   role: string;
   status: string;
+  isActive: boolean;
   jobTitle: string | null;
   avatarUrl: string | null;
   createdAt: string;
@@ -69,11 +71,30 @@ function formatResponseTime(seconds: number) {
   return `${(seconds / 3600).toFixed(1)} س`;
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  admin: "مدير",
+  manager: "مشرف",
+  agent: "موظف",
+};
+
+const ROLE_COLORS: Record<string, string> = {
+  admin: "border-amber-500/30 text-amber-400",
+  manager: "border-purple-500/30 text-purple-400",
+  agent: "border-blue-500/30 text-blue-400",
+};
+
+const ROLE_ICONS: Record<string, typeof Shield> = {
+  admin: Shield,
+  manager: Crown,
+  agent: UserCircle,
+};
+
 export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps) {
+  const { user: currentUser } = useAuth();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "agent" });
   const [saving, setSaving] = useState(false);
   const [ratingStats, setRatingStats] = useState<Map<string, RatingStat>>(new Map());
   const [ratingsDialogOpen, setRatingsDialogOpen] = useState(false);
@@ -85,8 +106,16 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [sortBy, setSortBy] = useState<"name" | "activity">("activity");
+  const [editMember, setEditMember] = useState<TeamMember | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", role: "", maxConcurrentChats: 10 });
+  const [editSaving, setEditSaving] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{ type: "delete" | "toggle"; member: TeamMember } | null>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
   const { toast } = useToast();
   const [, navigate] = useLocation();
+
+  const isSelf = (memberId: string) => currentUser?.id === memberId;
+  const adminCount = useMemo(() => members.filter(m => m.role === "admin" && m.isActive !== false).length, [members]);
 
   const fetchTeam = useCallback(async () => {
     try {
@@ -191,7 +220,7 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
       if (res.ok) {
         toast({ title: "تم بنجاح", description: "تم إنشاء حساب الموظف" });
         setShowDialog(false);
-        setForm({ name: "", email: "", password: "" });
+        setForm({ name: "", email: "", password: "", role: "agent" });
         fetchTeam();
       } else {
         const err = await res.json();
@@ -204,12 +233,14 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
     }
   };
 
-  const handleDelete = async (e: React.MouseEvent, id: string, name: string) => {
-    e.stopPropagation();
+  const handleDelete = async () => {
+    if (!confirmDialog || confirmDialog.type !== "delete") return;
+    const { member } = confirmDialog;
+    setConfirmLoading(true);
     try {
-      const res = await authFetch(`/api/team/${id}`, { method: "DELETE" });
+      const res = await authFetch(`/api/team/${member.id}`, { method: "DELETE" });
       if (res.ok) {
-        toast({ title: "تم الحذف", description: `تم حذف ${name}` });
+        toast({ title: "تم الحذف", description: `تم حذف ${member.name}` });
         fetchTeam();
       } else {
         const err = await res.json();
@@ -217,10 +248,99 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
       }
     } catch (err) {
       toast({ title: "خطأ", description: "فشل في الحذف", variant: "destructive" });
+    } finally {
+      setConfirmLoading(false);
+      setConfirmDialog(null);
+    }
+  };
+
+  const handleToggleActive = async () => {
+    if (!confirmDialog || confirmDialog.type !== "toggle") return;
+    const { member } = confirmDialog;
+    setConfirmLoading(true);
+    try {
+      const res = await authFetch(`/api/team/${member.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isActive: !member.isActive }),
+      });
+      if (res.ok) {
+        const action = member.isActive ? "تعطيل" : "تفعيل";
+        toast({ title: "تم بنجاح", description: `تم ${action} حساب ${member.name}` });
+        fetchTeam();
+      } else {
+        const err = await res.json();
+        toast({ title: "خطأ", description: err.message, variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "خطأ", description: "فشل في تغيير حالة الحساب", variant: "destructive" });
+    } finally {
+      setConfirmLoading(false);
+      setConfirmDialog(null);
+    }
+  };
+
+  const openEditDialog = (e: React.MouseEvent, member: TeamMember) => {
+    e.stopPropagation();
+    setEditMember(member);
+    setEditForm({
+      name: member.name,
+      role: member.role,
+      maxConcurrentChats: 10,
+    });
+  };
+
+  const handleEditSave = async () => {
+    if (!editMember) return;
+    setEditSaving(true);
+    try {
+      const updates: any = {};
+      if (editForm.name.trim() && editForm.name.trim() !== editMember.name) {
+        updates.name = editForm.name.trim();
+      }
+      if (editForm.role !== editMember.role) {
+        updates.role = editForm.role;
+      }
+      if (Object.keys(updates).length === 0) {
+        setEditMember(null);
+        return;
+      }
+      const res = await authFetch(`/api/team/${editMember.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(updates),
+      });
+      if (res.ok) {
+        toast({ title: "تم التحديث", description: `تم تحديث بيانات ${editMember.name}` });
+        fetchTeam();
+        setEditMember(null);
+      } else {
+        const err = await res.json();
+        toast({ title: "خطأ", description: err.message, variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "خطأ", description: "فشل في التحديث", variant: "destructive" });
+    } finally {
+      setEditSaving(false);
     }
   };
 
   const isOnline = (member: TeamMember) => onlineAgents.has(member.id) || member.status === "online";
+
+  const canDeleteMember = (member: TeamMember) => {
+    if (isSelf(member.id)) return false;
+    if (member.role === "admin" && adminCount <= 1) return false;
+    return true;
+  };
+
+  const canToggleMember = (member: TeamMember) => {
+    if (isSelf(member.id)) return false;
+    if (member.role === "admin" && member.isActive && adminCount <= 1) return false;
+    return true;
+  };
+
+  const canChangeRole = (member: TeamMember) => {
+    if (isSelf(member.id)) return false;
+    return true;
+  };
 
   return (
     <div className="flex-1 flex flex-col h-full">
@@ -258,6 +378,7 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
             <SelectContent className="bg-[#111827] border-white/10">
               <SelectItem value="all" className="text-white">الكل</SelectItem>
               <SelectItem value="admin" className="text-white">مدير</SelectItem>
+              <SelectItem value="manager" className="text-white">مشرف</SelectItem>
               <SelectItem value="agent" className="text-white">موظف</SelectItem>
             </SelectContent>
           </Select>
@@ -289,12 +410,15 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
             {filteredMembers.map((member) => {
               const stat = ratingStats.get(member.id);
               const stats = member.stats;
+              const RoleIcon = ROLE_ICONS[member.role] || UserCircle;
               return (
                 <div
                   key={member.id}
                   data-testid={`team-member-${member.id}`}
                   onClick={() => navigate(`/team/${member.id}`)}
-                  className="bg-[#111827]/50 border border-white/5 rounded-lg p-4 group cursor-pointer hover:border-white/10 transition-colors"
+                  className={`bg-[#111827]/50 border rounded-lg p-4 group cursor-pointer hover:border-white/10 transition-colors ${
+                    member.isActive === false ? "border-red-500/20 opacity-60" : "border-white/5"
+                  }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -303,11 +427,14 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
                           <img
                             src={member.avatarUrl}
                             alt={member.name}
-                            className="w-10 h-10 rounded-full object-cover border border-white/10"
+                            className={`w-10 h-10 rounded-full object-cover border border-white/10 ${member.isActive === false ? "grayscale" : ""}`}
                           />
                         ) : (
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white ${
-                            member.role === "admin" ? "bg-gradient-to-br from-amber-400 to-amber-600" : "bg-gradient-to-br from-blue-400 to-blue-600"
+                            member.isActive === false ? "bg-gray-600" :
+                            member.role === "admin" ? "bg-gradient-to-br from-amber-400 to-amber-600" :
+                            member.role === "manager" ? "bg-gradient-to-br from-purple-400 to-purple-600" :
+                            "bg-gradient-to-br from-blue-400 to-blue-600"
                           }`}>
                             {member.name.charAt(0)}
                           </div>
@@ -315,6 +442,7 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
                         <div
                           data-testid={`status-indicator-${member.id}`}
                           className={`absolute -bottom-0.5 -left-0.5 w-3.5 h-3.5 rounded-full border-2 border-[#111827] transition-colors ${
+                            member.isActive === false ? "bg-red-500" :
                             isOnline(member) ? "bg-emerald-500" : "bg-gray-500"
                           }`}
                         />
@@ -324,21 +452,23 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
                           <span data-testid={`text-member-name-${member.id}`} className="text-sm font-medium text-white">{member.name}</span>
                           <Badge
                             variant="outline"
-                            className={`text-[9px] px-1.5 ${
-                              member.role === "admin"
-                                ? "border-amber-500/30 text-amber-400"
-                                : "border-blue-500/30 text-blue-400"
-                            }`}
+                            className={`text-[9px] px-1.5 ${ROLE_COLORS[member.role] || ROLE_COLORS.agent}`}
                           >
-                            {member.role === "admin" ? (
-                              <><Shield className="w-2.5 h-2.5 ml-0.5" />مدير</>
-                            ) : (
-                              <><UserCircle className="w-2.5 h-2.5 ml-0.5" />موظف</>
-                            )}
+                            <RoleIcon className="w-2.5 h-2.5 ml-0.5" />
+                            {ROLE_LABELS[member.role] || member.role}
                           </Badge>
-                          <span className={`text-[9px] ${isOnline(member) ? "text-emerald-400" : "text-gray-500"}`}>
-                            {isOnline(member) ? "متصل" : "غير متصل"}
-                          </span>
+                          {member.isActive === false ? (
+                            <Badge variant="outline" className="text-[9px] px-1.5 border-red-500/30 text-red-400">
+                              معطّل
+                            </Badge>
+                          ) : (
+                            <span className={`text-[9px] ${isOnline(member) ? "text-emerald-400" : "text-gray-500"}`}>
+                              {isOnline(member) ? "متصل" : "غير متصل"}
+                            </span>
+                          )}
+                          {isSelf(member.id) && (
+                            <span className="text-[9px] text-emerald-400/60">(أنت)</span>
+                          )}
                         </div>
                         <div className="flex items-center gap-1.5 mt-0.5">
                           {editingJobTitle === member.id ? (
@@ -364,15 +494,17 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
                               <span data-testid={`text-job-title-${member.id}`} className="text-xs text-gray-400">
                                 {member.jobTitle || "—"}
                               </span>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                data-testid={`button-edit-job-title-${member.id}`}
-                                onClick={(e) => startEditJobTitle(e, member)}
-                                className="opacity-0 group-hover/title:opacity-100 transition-opacity text-gray-500 h-5 w-5"
-                              >
-                                <Pencil className="w-3 h-3" />
-                              </Button>
+                              {!isSelf(member.id) && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  data-testid={`button-edit-job-title-${member.id}`}
+                                  onClick={(e) => startEditJobTitle(e, member)}
+                                  className="opacity-0 group-hover/title:opacity-100 transition-opacity text-gray-500 h-5 w-5"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </Button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -390,13 +522,40 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
                         <Star className="w-3 h-3 ml-1" />
                         التقييمات
                       </Button>
-                      {member.role !== "admin" && (
+                      {!isSelf(member.id) && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          data-testid={`button-edit-member-${member.id}`}
+                          onClick={(e) => openEditDialog(e, member)}
+                          className="text-gray-500 hover:text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="تعديل"
+                        >
+                          <UserCog className="w-4 h-4" />
+                        </Button>
+                      )}
+                      {canToggleMember(member) && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          data-testid={`button-toggle-active-${member.id}`}
+                          onClick={(e) => { e.stopPropagation(); setConfirmDialog({ type: "toggle", member }); }}
+                          className={`opacity-0 group-hover:opacity-100 transition-opacity ${
+                            member.isActive === false ? "text-emerald-500 hover:text-emerald-400" : "text-gray-500 hover:text-amber-400"
+                          }`}
+                          title={member.isActive === false ? "تفعيل" : "تعطيل"}
+                        >
+                          <Power className="w-4 h-4" />
+                        </Button>
+                      )}
+                      {canDeleteMember(member) && (
                         <Button
                           size="icon"
                           variant="ghost"
                           data-testid={`button-delete-agent-${member.id}`}
-                          onClick={(e) => handleDelete(e, member.id, member.name)}
+                          onClick={(e) => { e.stopPropagation(); setConfirmDialog({ type: "delete", member }); }}
                           className="text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="حذف"
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -497,6 +656,19 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
                 className="bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500"
               />
             </div>
+            <div className="space-y-2">
+              <Label className="text-gray-300 text-xs">الصلاحية</Label>
+              <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
+                <SelectTrigger className="bg-[#0a0f1a] border-white/10 text-white" data-testid="select-new-member-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#111827] border-white/10">
+                  <SelectItem value="agent" className="text-white">موظف</SelectItem>
+                  <SelectItem value="manager" className="text-white">مشرف</SelectItem>
+                  <SelectItem value="admin" className="text-white">مدير</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex gap-2 justify-end">
               <Button variant="ghost" onClick={() => setShowDialog(false)} className="text-gray-400">
                 إلغاء
@@ -505,6 +677,100 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "إنشاء"}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editMember} onOpenChange={(open) => { if (!open) setEditMember(null); }}>
+        <DialogContent className="bg-[#111827] border-white/10 text-white max-w-md" data-testid="dialog-edit-member">
+          <DialogHeader>
+            <DialogTitle className="text-white">تعديل بيانات {editMember?.name}</DialogTitle>
+          </DialogHeader>
+          {editMember && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-gray-300 text-xs">الاسم</Label>
+                <Input
+                  data-testid="input-edit-name"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  placeholder="اسم الموظف"
+                  className="bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-gray-300 text-xs">الصلاحية</Label>
+                {canChangeRole(editMember) ? (
+                  <Select value={editForm.role} onValueChange={(v) => setEditForm({ ...editForm, role: v })}>
+                    <SelectTrigger className="bg-[#0a0f1a] border-white/10 text-white" data-testid="select-edit-role">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#111827] border-white/10">
+                      <SelectItem value="agent" className="text-white">موظف</SelectItem>
+                      <SelectItem value="manager" className="text-white">مشرف</SelectItem>
+                      <SelectItem value="admin" className="text-white">مدير</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="text-sm text-gray-400 bg-[#0a0f1a] border border-white/10 rounded-md px-3 py-2">
+                    {ROLE_LABELS[editMember.role] || editMember.role}
+                    <span className="text-[10px] text-gray-500 mr-2">(لا يمكنك تغيير دورك)</span>
+                  </div>
+                )}
+                {editForm.role !== editMember.role && editMember.role === "admin" && adminCount <= 1 && (
+                  <p className="text-xs text-red-400 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    لا يمكن تغيير دور آخر مدير في المنظمة
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="ghost" onClick={() => setEditMember(null)} className="text-gray-400">
+                  إلغاء
+                </Button>
+                <Button
+                  data-testid="button-save-edit"
+                  onClick={handleEditSave}
+                  disabled={editSaving || (editForm.role !== editMember.role && editMember.role === "admin" && adminCount <= 1)}
+                  className="bg-emerald-600"
+                >
+                  {editSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : "حفظ"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!confirmDialog} onOpenChange={(open) => { if (!open) setConfirmDialog(null); }}>
+        <DialogContent className="bg-[#111827] border-white/10 text-white max-w-sm" data-testid="dialog-confirm-action">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-400" />
+              {confirmDialog?.type === "delete" ? "تأكيد الحذف" : confirmDialog?.member?.isActive === false ? "تأكيد التفعيل" : "تأكيد التعطيل"}
+            </DialogTitle>
+            <DialogDescription className="text-gray-400 pt-2">
+              {confirmDialog?.type === "delete" ? (
+                <>هل أنت متأكد من حذف <span className="text-white font-medium">{confirmDialog?.member?.name}</span>؟ لا يمكن التراجع عن هذا الإجراء.</>
+              ) : confirmDialog?.member?.isActive === false ? (
+                <>هل تريد إعادة تفعيل حساب <span className="text-white font-medium">{confirmDialog?.member?.name}</span>؟ سيتمكن من تسجيل الدخول مجدداً.</>
+              ) : (
+                <>هل تريد تعطيل حساب <span className="text-white font-medium">{confirmDialog?.member?.name}</span>؟ لن يتمكن من تسجيل الدخول حتى يتم تفعيله مجدداً.</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 justify-end mt-2">
+            <Button variant="ghost" onClick={() => setConfirmDialog(null)} className="text-gray-400" disabled={confirmLoading}>
+              إلغاء
+            </Button>
+            <Button
+              data-testid="button-confirm-action"
+              onClick={confirmDialog?.type === "delete" ? handleDelete : handleToggleActive}
+              disabled={confirmLoading}
+              className={confirmDialog?.type === "delete" ? "bg-red-600 hover:bg-red-700" : confirmDialog?.member?.isActive === false ? "bg-emerald-600" : "bg-amber-600 hover:bg-amber-700"}
+            >
+              {confirmLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : confirmDialog?.type === "delete" ? "حذف" : confirmDialog?.member?.isActive === false ? "تفعيل" : "تعطيل"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
