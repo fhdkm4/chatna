@@ -365,6 +365,59 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // Current user profile
+  app.get("/api/team/me", authMiddleware, async (req: any, res) => {
+    try {
+      const user = await storage.getUserById(req.user.id);
+      if (!user || user.tenantId !== req.user.tenantId) {
+        return res.status(404).json({ message: "المستخدم غير موجود" });
+      }
+      res.json({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        jobTitle: user.jobTitle || null,
+        avatarUrl: user.avatarUrl || null,
+        isActive: user.isActive,
+        status: user.status,
+        maxConcurrentChats: user.maxConcurrentChats,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      });
+    } catch (err) {
+      console.error("Get my profile error:", err);
+      res.status(500).json({ message: "خطأ في جلب الملف الشخصي" });
+    }
+  });
+
+  app.patch("/api/team/me/avatar", authMiddleware, async (req: any, res) => {
+    try {
+      const schema = z.object({
+        avatarUrl: z.string().min(1).max(2000).refine(
+          (v) => v.startsWith("/objects/"),
+          { message: "رابط غير صحيح" }
+        ),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "رابط الصورة غير صحيح", errors: parsed.error.issues });
+      }
+      const updated = await storage.updateUser(req.user.id, { avatarUrl: parsed.data.avatarUrl }, req.user.tenantId);
+      if (!updated) {
+        return res.status(404).json({ message: "المستخدم غير موجود" });
+      }
+      res.json({
+        id: updated.id,
+        name: updated.name,
+        avatarUrl: updated.avatarUrl || null,
+      });
+    } catch (err) {
+      console.error("Update my avatar error:", err);
+      res.status(500).json({ message: "خطأ في تحديث الصورة الشخصية" });
+    }
+  });
+
   // Team management routes
   app.get("/api/team", authMiddleware, adminOnly, async (req: any, res) => {
     try {
@@ -501,6 +554,83 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err) {
       console.error("Update team member error:", err);
       res.status(500).json({ message: "خطأ في تحديث بيانات الموظف" });
+    }
+  });
+
+  app.patch("/api/team/:id/job-title", authMiddleware, adminOnly, async (req: any, res) => {
+    try {
+      const user = await storage.getUserById(req.params.id);
+      if (!user || user.tenantId !== req.user.tenantId) {
+        return res.status(404).json({ message: "الموظف غير موجود" });
+      }
+      const schema = z.object({ jobTitle: z.string().max(120).nullable() });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "بيانات غير صحيحة", errors: parsed.error.issues });
+      }
+      const updated = await storage.updateUser(req.params.id, { jobTitle: parsed.data.jobTitle }, req.user.tenantId);
+      res.json({ id: updated!.id, name: updated!.name, jobTitle: updated!.jobTitle || null });
+    } catch (err) {
+      console.error("Update job title error:", err);
+      res.status(500).json({ message: "خطأ في تحديث المسمى الوظيفي" });
+    }
+  });
+
+  app.patch("/api/team/:id/role", authMiddleware, adminOnly, async (req: any, res) => {
+    try {
+      const user = await storage.getUserById(req.params.id);
+      if (!user || user.tenantId !== req.user.tenantId) {
+        return res.status(404).json({ message: "الموظف غير موجود" });
+      }
+      if (req.params.id === req.user.id) {
+        return res.status(400).json({ message: "لا يمكنك تغيير دورك بنفسك" });
+      }
+      const schema = z.object({ role: z.enum(["admin", "manager", "agent"]) });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "بيانات غير صحيحة", errors: parsed.error.issues });
+      }
+      if (parsed.data.role !== user.role && user.role === "admin") {
+        const allMembers = await storage.getUsersByTenant(req.user.tenantId);
+        const adminCount = allMembers.filter(m => m.role === "admin").length;
+        if (adminCount <= 1) {
+          return res.status(400).json({ message: "لا يمكن تغيير دور آخر مدير في المنظمة" });
+        }
+      }
+      const updated = await storage.updateUser(req.params.id, { role: parsed.data.role }, req.user.tenantId);
+      res.json({ id: updated!.id, name: updated!.name, role: updated!.role });
+    } catch (err) {
+      console.error("Update role error:", err);
+      res.status(500).json({ message: "خطأ في تحديث الصلاحية" });
+    }
+  });
+
+  app.patch("/api/team/:id/disable", authMiddleware, adminOnly, async (req: any, res) => {
+    try {
+      const user = await storage.getUserById(req.params.id);
+      if (!user || user.tenantId !== req.user.tenantId) {
+        return res.status(404).json({ message: "الموظف غير موجود" });
+      }
+      const schema = z.object({ isDisabled: z.boolean() });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "بيانات غير صحيحة", errors: parsed.error.issues });
+      }
+      if (req.params.id === req.user.id && parsed.data.isDisabled) {
+        return res.status(400).json({ message: "لا يمكنك تعطيل حسابك الخاص" });
+      }
+      if (parsed.data.isDisabled && user.role === "admin") {
+        const allMembers = await storage.getUsersByTenant(req.user.tenantId);
+        const activeAdminCount = allMembers.filter(m => m.role === "admin" && m.isActive !== false && m.id !== user.id).length;
+        if (activeAdminCount < 1) {
+          return res.status(400).json({ message: "لا يمكن تعطيل آخر مدير نشط في المنظمة" });
+        }
+      }
+      const updated = await storage.updateUser(req.params.id, { isActive: !parsed.data.isDisabled }, req.user.tenantId);
+      res.json({ id: updated!.id, name: updated!.name, isActive: updated!.isActive, isDisabled: !updated!.isActive });
+    } catch (err) {
+      console.error("Toggle disable error:", err);
+      res.status(500).json({ message: "خطأ في تغيير حالة الحساب" });
     }
   });
 
