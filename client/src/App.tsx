@@ -8,6 +8,7 @@ import AuthPage from "@/pages/auth";
 import Dashboard from "@/pages/dashboard";
 import AcceptInvitation from "@/pages/accept-invitation";
 import SetupWizard from "@/pages/setup-wizard";
+import TeamProfile from "@/pages/team-profile";
 import { useAuth } from "@/lib/auth";
 
 function ProtectedRoute({ component: Component }: { component: () => JSX.Element | null }) {
@@ -23,6 +24,9 @@ function Router() {
       <Route path="/accept-invitation" component={AcceptInvitation} />
       <Route path="/wizard">
         <ProtectedRoute component={SetupWizard} />
+      </Route>
+      <Route path="/team/:userId">
+        <ProtectedRoute component={TeamProfile} />
       </Route>
       <Route path="/">
         <ProtectedRoute component={Dashboard} />

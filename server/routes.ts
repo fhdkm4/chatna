@@ -458,6 +458,38 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.get("/api/team/:id/profile", authMiddleware, async (req: any, res) => {
+    try {
+      const user = await storage.getUserById(req.params.id);
+      if (!user || user.tenantId !== req.user.tenantId) {
+        return res.status(404).json({ message: "الموظف غير موجود" });
+      }
+      const activeChats = await storage.getActiveConversationCountByAgent(user.id);
+      const allConvs = await storage.getConversationsByTenant(req.user.tenantId, undefined, user.id, "agent");
+      const resolvedCount = allConvs.filter((c: any) => c.status === "resolved").length;
+      const openCount = allConvs.filter((c: any) => c.status !== "resolved").length;
+      res.json({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+        jobTitle: user.jobTitle || null,
+        avatarUrl: user.avatarUrl || null,
+        maxConcurrentChats: user.maxConcurrentChats,
+        createdAt: user.createdAt,
+        stats: {
+          openConversations: openCount,
+          resolvedConversations: resolvedCount,
+          activeChats,
+        },
+      });
+    } catch (err) {
+      console.error("Get team member profile error:", err);
+      res.status(500).json({ message: "خطأ في جلب الملف الشخصي" });
+    }
+  });
+
   app.delete("/api/team/:id", authMiddleware, adminOnly, async (req: any, res) => {
     try {
       const user = await storage.getUserById(req.params.id);

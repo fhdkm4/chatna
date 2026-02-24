@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { authFetch } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
 
 interface TeamMember {
   id: string;
@@ -263,7 +264,7 @@ export function TeamManagement({ onlineAgents = new Set() }: TeamManagementProps
                       </div>
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-medium text-white">{member.name}</span>
+                          <Link href={`/team/${member.id}`} data-testid={`link-profile-${member.id}`} className="text-sm font-medium text-white hover:text-emerald-400 transition-colors">{member.name}</Link>
                           <Badge
                             variant="outline"
                             className={`text-[9px] px-1.5 ${
