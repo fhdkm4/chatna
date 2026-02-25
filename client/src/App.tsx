@@ -9,17 +9,27 @@ import Dashboard from "@/pages/dashboard";
 import AcceptInvitation from "@/pages/accept-invitation";
 import SetupWizard from "@/pages/setup-wizard";
 import TeamProfile from "@/pages/team-profile";
+import LandingPage from "@/pages/landing";
 import { useAuth } from "@/lib/auth";
 
 function ProtectedRoute({ component: Component }: { component: () => JSX.Element | null }) {
   const { token } = useAuth();
-  if (!token) return <Redirect to="/login" />;
+  if (!token) return <Redirect to="/landing" />;
+  return <Component />;
+}
+
+function PublicOnly({ component: Component }: { component: () => JSX.Element | null }) {
+  const { token } = useAuth();
+  if (token) return <Redirect to="/" />;
   return <Component />;
 }
 
 function Router() {
   return (
     <Switch>
+      <Route path="/landing">
+        <PublicOnly component={LandingPage} />
+      </Route>
       <Route path="/login" component={AuthPage} />
       <Route path="/accept-invitation" component={AcceptInvitation} />
       <Route path="/wizard">

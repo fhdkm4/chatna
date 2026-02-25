@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>جواب - منصة خدمة العملاء الذكية عبر واتساب</title>
+    <!-- Tailwind CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- تخصيص بسيط للخطوط والألوان -->
+    <style>
+        body {
+            font-family: 'Tajawal', sans-serif;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
+        /* تأثير التوهج للبطاقة المميزة */
+        .glow-green {
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.5);
+            border: 2px solid #22c55e;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+
+    <!-- شريط التنقل -->
+    <nav class="bg-white shadow-md py-4">
+        <div class="container mx-auto px-6 flex justify-between items-center">
+            <div class="text-2xl font-bold text-blue-600">جواب</div>
+            <div class="hidden md:flex space-x-8 space-x-reverse">
+                <a href="#" class="text-gray-700 hover:text-blue-600">الرئيسية</a>
+                <a href="#" class="text-gray-700 hover:text-blue-600">المميزات</a>
+                <a href="#" class="text-gray-700 hover:text-blue-600">الأسعار</a>
+                <a href="#" class="text-gray-700 hover:text-blue-600">تواصل معنا</a>
+            </div>
+            <div class="flex space-x-2 space-x-reverse">
+                <button class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">تسجيل الدخول</button>
+                <button class="border border-blue-600 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50">إنشاء حساب</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- القسم الرئيسي (Hero) -->
+    <section class="bg-gradient-to-b from-blue-50 to-white py-20">
+        <div class="container mx-auto px-6 text-center">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-800 mb-4">منصة خدمة العملاء الذكية عبر واتساب</h1>
+            <p class="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">اجمع كل محادثات واتساب في مكان واحد، ورد بذكاء مع فريقك، وحسن تجربة عملائك.</p>
+            <div class="bg-green-100 text-green-800 py-3 px-6 rounded-full inline-block mb-8">
+                🎯 جرّب مجاناً 14 يوم - بدون بطاقة ائتمانية
+            </div>
+            <div class="flex justify-center gap-4">
+                <button class="bg-green-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-green-700 transition">ابدأ مجاناً</button>
+                <button class="border border-blue-600 text-blue-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-blue-50 transition">عرض المميزات</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- قسم المميزات (اختصاري) -->
+    <section class="py-16 bg-white">
+        <div class="container mx-auto px-6">
+            <h2 class="text-3xl font-bold text-center text-gray-800 mb-12">كل ما تحتاجه لإدارة واتساب باحترافية</h2>
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="text-center p-6 border rounded-2xl shadow-sm">
+                    <div class="text-blue-600 text-4xl mb-4">🤖</div>
+                    <h3 class="text-xl font-semibold mb-2">ردود ذكية بالذكاء الاصطناعي</h3>
+                    <p class="text-gray-600">وفر وقت فريقك مع ردود آلية دقيقة من Claude AI.</p>
+                </div>
+                <div class="text-center p-6 border rounded-2xl shadow-sm">
+                    <div class="text-blue-600 text-4xl mb-4">👥</div>
+                    <h3 class="text-xl font-semibold mb-2">فريق متكامل</h3>
+                    <p class="text-gray-600">أضف موظفين بصلاحيات مختلفة وتعاون معهم بسهولة.</p>
+                </div>
+                <div class="text-center p-6 border rounded-2xl shadow-sm">
+                    <div class="text-blue-600 text-4xl mb-4">📊</div>
+                    <h3 class="text-xl font-semibold mb-2">تقارير وتحليلات</h3>
+                    <p class="text-gray-600">تابع أداء فريقك ورضا العملاء عبر إحصائيات مفصلة.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- قسم الأسعار (Pricing) - حسب الطلب -->
+    <section class="py-20 bg-gray-50" id="pricing">
+        <div class="container mx-auto px-6">
+            <div class="text-center mb-12">
+                <span class="bg-green-100 text-green-800 py-2 px-4 rounded-full text-lg font-medium inline-block mb-4">
+                    🎯 جرّب مجاناً 14 يوم - بدون بطاقة ائتمانية
+                </span>
+                <h2 class="text-3xl font-bold text-gray-800">خطط أسعار تناسب جميع الأعمال</h2>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                <!-- الخطة الأساسية -->
+                <div class="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-200 hover:shadow-xl transition">
+                    <div class="p-8">
+                        <h3 class="text-2xl font-bold text-gray-800 mb-2">الأساسية</h3>
+                        <div class="text-4xl font-bold text-blue-600 mb-4">79 <span class="text-lg font-normal text-gray-500">ر.س/شهرياً</span></div>
+                        <ul class="space-y-3 mb-8">
+                            <li class="flex items-center"><span class="text-green-500 ml-2">✓</span> 2 موظفين</li>
+                            <li class="flex items-center"><span class="text-green-500 ml-2">✓</span> 500 رسالة ذكاء اصطناعي (شهرياً)</li>
+                            <li class="flex items-center"><span class="text-green-500 ml-2">✓</span> ردود تلقائية</li>
+                            <li class="flex items-center"><span class="text-green-500 ml-2">✓</span> قاعدة معرفة</li>
+                        </ul>
+                        <button class="w-full bg-gray-800 text-white py-3 rounded-lg font-semibold hover:bg-gray-900 transition">ابدأ مجاناً</button>
+                        <p class="text-xs text-gray-500 text-center mt-2">14 يوم تجربة</p>
+                    </div>
+                </div>
+
+                <!-- الخطة الاحترافية (الأكثر طلباً) -->
+                <div class="bg-white rounded-2xl shadow-xl overflow-hidden border-2 border-green-500 glow-green relative transform scale-105 z-10">
+                    <!-- شارة الأكثر طلباً -->
+                    <div class="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-yellow-400 to-yellow-500 text-white text-sm font-bold py-1 px-4 rounded-full shadow-lg">
+                        🔥 الأكثر طلباً
+                    </div>
+                    <div class="p-8">
+                        <h3 class="text-2xl font-bold text-gray-800 mb-2">الاحترافية</h3>
+                        <div class="text-4xl font-bold text-blue-600 mb-4">149 <span class="text-lg font-normal text-gray-500">ر.س/شهرياً</span></div>
+                        <ul class="space-y-3 mb-8">
+                            <li class="flex items-center"><span class="text-green-500 ml-2">✓</span> 5 موظفين</li>
+                            <li class="flex items-center"><span class="text-green-500 ml-2">✓</span> 2,000 رسالة ذكاء اصطناعي (شهرياً)</li>
+                            <li class="flex items-center"><span class="text-green-500 ml-2">✓</span> كل مميزات الأساسية</li>
+                            <li class="flex items-center"><span class="text-green-500 ml-2">✓</span> حملات تسويقية</li>
+                            <li class="flex items-center"><span class="text-green-500 ml-2">✓</span> تقارير متقدمة</li>
+                            <li class="flex items-center"><span class="text-green-500 ml-2">✓</span> كتالوج منتجات</li>
+                        </ul>
+                        <button class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition shadow-lg">ابدأ مجاناً</button>
+                        <p class="text-xs text-gray-500 text-center mt-2">14 يوم تجربة</p>
+                    </div>
+                </div>
+
+                <!-- خطة المؤسسات -->
+                <div class="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-200 hover:shadow-xl transition">
+                    <div class="p-8">
+                        <h3 class="text-2xl font-bold text-gray-800 mb-2">المؤسسات</h3>
+                        <div class="text-4xl font-bold text-blue-600 mb-4">299 <span class="text-lg font-normal text-gray-500">ر.س/شهرياً</span></div>
+                        <ul class="space-y-3 mb-8">
+                            <li class="flex items-center"><span class="text-green-500 ml-2">✓</span> 15 موظف</li>
+                            <li class="flex items-center"><span class="text-green-500 ml-2">✓</span> 10,000 رسالة ذكاء اصطناعي (شهرياً)</li>
+                            <li class="flex items-center"><span class="text-green-500 ml-2">✓</span> كل المميزات</li>
+                            <li class="flex items-center"><span class="text-green-500 ml-2">✓</span> API مخصص</li>
+                            <li class="flex items-center"><span class="text-green-500 ml-2">✓</span> أولوية في الدعم الفني</li>
+                        </ul>
+                        <button class="w-full bg-gray-800 text-white py-3 rounded-lg font-semibold hover:bg-gray-900 transition">ابدأ مجاناً</button>
+                        <p class="text-xs text-gray-500 text-center mt-2">14 يوم تجربة</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- تذييل بسيط -->
+    <footer class="bg-white border-t py-8">
+        <div class="container mx-auto px-6 text-center text-gray-600">
+            <p>© 2026 جواب - جميع الحقوق محفوظة</p>
+        </div>
+    </footer>
+
+</body>
+</html>
