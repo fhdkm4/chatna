@@ -81,14 +81,14 @@ export default function AcceptInvitation() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0a0f1a] relative overflow-hidden" dir="rtl">
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 right-1/4 w-96 h-96 rounded-full blur-3xl" style={{ backgroundColor: "rgba(87,171,55,0.05)" }} />
-        <div className="absolute bottom-1/4 left-1/4 w-96 h-96 rounded-full blur-3xl" style={{ backgroundColor: "rgba(87,171,55,0.05)" }} />
+        <div className="absolute top-1/4 right-1/4 w-96 h-96 rounded-full blur-3xl" style={{ backgroundColor: "rgba(110,192,71,0.05)" }} />
+        <div className="absolute bottom-1/4 left-1/4 w-96 h-96 rounded-full blur-3xl" style={{ backgroundColor: "rgba(110,192,71,0.05)" }} />
       </div>
 
       <div className="relative z-10 w-full max-w-md mx-4">
         <div className="text-center mb-8">
           <div className="inline-flex items-center mb-4">
-            <ChatnaLogo height={42} />
+            <ChatnaLogo height={36} />
           </div>
           <p className="text-gray-400 text-sm">قبول دعوة الانضمام للفريق</p>
         </div>
@@ -96,7 +96,7 @@ export default function AcceptInvitation() {
         <div className="bg-[#111827]/80 backdrop-blur-xl border border-white/5 rounded-2xl p-8">
           {checking ? (
             <div className="flex flex-col items-center gap-3 py-8">
-              <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#57AB37" }} />
+              <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#6EC047" }} />
               <p className="text-gray-400 text-sm">جاري التحقق من الدعوة...</p>
             </div>
           ) : error ? (
@@ -109,10 +109,10 @@ export default function AcceptInvitation() {
             </div>
           ) : invitation ? (
             <>
-              <div className="mb-6 p-4 rounded-lg border" style={{ backgroundColor: "rgba(87,171,55,0.05)", borderColor: "rgba(87,171,55,0.1)" }}>
+              <div className="mb-6 p-4 rounded-lg border" style={{ backgroundColor: "rgba(110,192,71,0.05)", borderColor: "rgba(110,192,71,0.1)" }}>
                 <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle className="w-5 h-5" style={{ color: "#57AB37" }} />
-                  <span className="font-medium text-sm" style={{ color: "#57AB37" }}>دعوة صالحة</span>
+                  <CheckCircle className="w-5 h-5" style={{ color: "#6EC047" }} />
+                  <span className="font-medium text-sm" style={{ color: "#6EC047" }}>دعوة صالحة</span>
                 </div>
                 <p className="text-gray-400 text-xs">
                   تمت دعوتك للانضمام كـ <span className="text-white font-medium">{roleLabels[invitation.role] || invitation.role}</span>
@@ -158,7 +158,7 @@ export default function AcceptInvitation() {
                   />
                   {errors.confirmPassword && <p className="text-red-400 text-xs">{errors.confirmPassword}</p>}
                 </div>
-                <Button type="submit" disabled={loading} data-testid="button-accept-invitation" className="w-full text-white font-medium py-2.5 mt-2" style={{ backgroundColor: "#57AB37" }}>
+                <Button type="submit" disabled={loading} data-testid="button-accept-invitation" className="w-full text-white font-medium py-2.5 mt-2" style={{ backgroundColor: "#6EC047" }}>
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "قبول الدعوة والانضمام"}
                 </Button>
               </form>

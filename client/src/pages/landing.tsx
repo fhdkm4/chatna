@@ -35,8 +35,8 @@ export default function LandingPage() {
           --bg:#050509;--bg2:#0a0a12;--bg3:#12121e;
           --surface:rgba(255,255,255,0.03);--surface2:rgba(255,255,255,0.06);
           --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.1);
-          --g1:#57AB37;--g2:#6DBF4D;--g3:#4A9230;
-          --accent:rgba(87,171,55,0.12);
+          --g1:#6EC047;--g2:#85D060;--g3:#5BAA38;
+          --accent:rgba(110,192,71,0.12);
           --text:#eef2f6;--text2:#b0b8c8;--text3:#8892a4;
           font-family:'IBM Plex Sans Arabic',sans-serif;
           background:var(--bg);color:var(--text);overflow-x:hidden;-webkit-font-smoothing:antialiased;
@@ -49,18 +49,18 @@ export default function LandingPage() {
         .nav-in{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between}
         .l-logo{font-size:1.5rem;font-weight:900;color:var(--text);text-decoration:none;letter-spacing:-0.5px}
         .l-logo span{color:var(--g1)}
-        .l-logo img,.l-logo .logo{height:56px;width:auto;object-fit:contain;background:transparent;mix-blend-mode:lighten;filter:brightness(1.1) drop-shadow(0 0 10px rgba(87,171,55,0.35))}
+        .l-logo img,.l-logo .logo{height:36px;width:auto;object-fit:contain;background:transparent;mix-blend-mode:lighten;filter:brightness(1.15) drop-shadow(0 0 6px rgba(110,192,71,0.25))}
         .nav-r{display:flex;gap:12px;align-items:center}
         .nav-lnk{color:var(--text2);text-decoration:none;font-size:.85rem;font-weight:500;padding:8px 16px;border-radius:8px;transition:all .3s;cursor:pointer;background:none;border:none;font-family:inherit}
         .nav-lnk:hover{color:var(--text)}
         .l-btn{padding:10px 24px;border-radius:10px;font-family:inherit;font-size:.85rem;font-weight:700;cursor:pointer;transition:all .3s;border:none}
         .l-btn-o{background:transparent;border:1px solid var(--border2);color:var(--text)}
         .l-btn-o:hover{border-color:var(--g1);color:var(--g1)}
-        .l-btn-f{background:var(--g1);color:#050509;box-shadow:0 0 30px rgba(87,171,55,0.2)}
-        .l-btn-f:hover{transform:translateY(-2px);box-shadow:0 0 50px rgba(87,171,55,0.3)}
+        .l-btn-f{background:var(--g1);color:#050509;box-shadow:0 0 30px rgba(110,192,71,0.2)}
+        .l-btn-f:hover{transform:translateY(-2px);box-shadow:0 0 50px rgba(110,192,71,0.3)}
 
-        .glow-top{position:absolute;top:-300px;right:50%;transform:translateX(50%);width:800px;height:600px;background:radial-gradient(ellipse,rgba(87,171,55,0.07),transparent 70%);pointer-events:none}
-        .glow-side{position:absolute;top:50%;left:-200px;width:400px;height:800px;background:radial-gradient(ellipse,rgba(87,171,55,0.04),transparent 70%);pointer-events:none}
+        .glow-top{position:absolute;top:-300px;right:50%;transform:translateX(50%);width:800px;height:600px;background:radial-gradient(ellipse,rgba(110,192,71,0.07),transparent 70%);pointer-events:none}
+        .glow-side{position:absolute;top:50%;left:-200px;width:400px;height:800px;background:radial-gradient(ellipse,rgba(110,192,71,0.04),transparent 70%);pointer-events:none}
 
         .hero{min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:140px 24px 80px;position:relative;overflow:hidden}
         .hero-in{max-width:820px;position:relative;z-index:1}
@@ -72,8 +72,8 @@ export default function LandingPage() {
         .hero p{font-size:1.15rem;color:var(--text2);line-height:1.9;margin-bottom:40px;max-width:600px;margin-left:auto;margin-right:auto}
         .hero-btns{display:flex;gap:14px;justify-content:center;margin-bottom:56px}
         .btn-hero{padding:15px 36px;border-radius:12px;font-size:1rem;font-weight:700;font-family:inherit;cursor:pointer;transition:all .3s;border:none}
-        .btn-hero-g{background:var(--g1);color:#050509;box-shadow:0 4px 30px rgba(87,171,55,0.25)}
-        .btn-hero-g:hover{transform:translateY(-3px);box-shadow:0 8px 50px rgba(87,171,55,0.35)}
+        .btn-hero-g{background:var(--g1);color:#050509;box-shadow:0 4px 30px rgba(110,192,71,0.25)}
+        .btn-hero-g:hover{transform:translateY(-3px);box-shadow:0 8px 50px rgba(110,192,71,0.35)}
         .btn-hero-o{background:var(--surface2);color:var(--text);border:1px solid var(--border2)}
         .btn-hero-o:hover{border-color:rgba(255,255,255,0.2)}
         .metrics{display:flex;gap:1px;justify-content:center;background:var(--border);border-radius:16px;overflow:hidden;border:1px solid var(--border)}
@@ -89,7 +89,7 @@ export default function LandingPage() {
         .mk-sidebar{width:300px;border-left:1px solid var(--border);padding:16px;overflow:hidden}
         .mk-item{display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:10px;margin-bottom:4px;transition:background .2s}
         .mk-item:hover,.mk-item.on{background:var(--surface2)}
-        .mk-item.on{border:1px solid rgba(87,171,55,0.1)}
+        .mk-item.on{border:1px solid rgba(110,192,71,0.1)}
         .mk-av{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem;flex-shrink:0}
         .mk-av-g{background:linear-gradient(135deg,var(--g1),var(--g3))}
         .mk-av-b{background:linear-gradient(135deg,#3b82f6,#1d4ed8)}
@@ -104,7 +104,7 @@ export default function LandingPage() {
         .mk-main{flex:1;display:flex;flex-direction:column;padding:20px;gap:10px;justify-content:flex-end}
         .bub{max-width:72%;padding:12px 16px;border-radius:14px;font-size:.82rem;line-height:1.7}
         .bub-c{background:var(--surface2);align-self:flex-start;border-bottom-right-radius:3px}
-        .bub-a{background:linear-gradient(135deg,rgba(87,171,55,0.08),rgba(87,171,55,0.03));border:1px solid rgba(87,171,55,0.1);align-self:flex-end;border-bottom-left-radius:3px}
+        .bub-a{background:linear-gradient(135deg,rgba(110,192,71,0.08),rgba(110,192,71,0.03));border:1px solid rgba(110,192,71,0.1);align-self:flex-end;border-bottom-left-radius:3px}
         .bub-tag{font-size:.6rem;color:var(--g1);font-weight:700;margin-bottom:5px;display:flex;align-items:center;gap:5px}
         .bub-tag::before{content:'';width:5px;height:5px;background:var(--g1);border-radius:50%;display:inline-block}
 
@@ -127,7 +127,7 @@ export default function LandingPage() {
         .sol{padding:28px;background:var(--surface);border:1px solid var(--border);border-radius:14px;transition:all .4s;position:relative;overflow:hidden}
         .sol::after{content:'';position:absolute;top:0;right:0;width:3px;height:0;background:var(--g1);transition:height .4s}
         .sol:hover::after{height:100%}
-        .sol:hover{border-color:rgba(87,171,55,0.12);transform:translateY(-4px);box-shadow:0 20px 40px rgba(0,0,0,.2)}
+        .sol:hover{border-color:rgba(110,192,71,0.12);transform:translateY(-4px);box-shadow:0 20px 40px rgba(0,0,0,.2)}
         .sol-icon{width:40px;height:40px;border-radius:10px;background:var(--accent);display:flex;align-items:center;justify-content:center;margin-bottom:16px}
         .sol-icon svg{width:20px;height:20px;stroke:var(--g1);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
         .sol h3{font-size:.95rem;font-weight:700;margin-bottom:8px}
@@ -135,8 +135,8 @@ export default function LandingPage() {
 
         .steps{display:flex;gap:20px}
         .step{flex:1;padding:36px 28px;background:var(--surface);border:1px solid var(--border);border-radius:16px;text-align:center;transition:all .4s;position:relative}
-        .step:hover{border-color:rgba(87,171,55,0.15);transform:translateY(-5px)}
-        .step-n{width:48px;height:48px;border-radius:50%;background:var(--g1);color:#050509;display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:900;margin:0 auto 20px;box-shadow:0 0 30px rgba(87,171,55,0.2)}
+        .step:hover{border-color:rgba(110,192,71,0.15);transform:translateY(-5px)}
+        .step-n{width:48px;height:48px;border-radius:50%;background:var(--g1);color:#050509;display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:900;margin:0 auto 20px;box-shadow:0 0 30px rgba(110,192,71,0.2)}
         .step h3{font-size:1rem;font-weight:700;margin-bottom:8px}
         .step p{font-size:.9rem;color:var(--text2);line-height:1.8}
         .step-line{width:40px;height:1px;background:var(--border2);align-self:center;flex-shrink:0}
@@ -144,7 +144,7 @@ export default function LandingPage() {
         .price-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;max-width:960px;margin:0 auto}
         .price{padding:36px 28px;background:var(--surface);border:1px solid var(--border);border-radius:18px;transition:all .4s;position:relative;text-align:center}
         .price:hover{transform:translateY(-5px)}
-        .price.pop{border:1.5px solid var(--g1);background:linear-gradient(180deg,rgba(87,171,55,0.04),transparent);box-shadow:0 0 60px rgba(87,171,55,0.06);transform:scale(1.04)}
+        .price.pop{border:1.5px solid var(--g1);background:linear-gradient(180deg,rgba(110,192,71,0.04),transparent);box-shadow:0 0 60px rgba(110,192,71,0.06);transform:scale(1.04)}
         .price.pop:hover{transform:scale(1.04) translateY(-5px)}
         .pop-tag{position:absolute;top:-13px;left:50%;transform:translateX(-50%);padding:5px 18px;background:var(--g1);border-radius:100px;font-size:.72rem;font-weight:700;color:#050509;white-space:nowrap}
         .price-name{font-size:1rem;font-weight:600;color:var(--text2);margin-bottom:20px}
@@ -159,8 +159,8 @@ export default function LandingPage() {
         .btn-price{width:100%;padding:13px;border-radius:10px;font-family:inherit;font-size:.9rem;font-weight:700;cursor:pointer;transition:all .3s}
         .btn-price-d{background:var(--surface2);border:1px solid var(--border2);color:var(--text)}
         .btn-price-d:hover{border-color:var(--g1)}
-        .btn-price-g{background:var(--g1);border:none;color:#050509;box-shadow:0 0 25px rgba(87,171,55,0.2)}
-        .btn-price-g:hover{box-shadow:0 0 45px rgba(87,171,55,0.3)}
+        .btn-price-g{background:var(--g1);border:none;color:#050509;box-shadow:0 0 25px rgba(110,192,71,0.2)}
+        .btn-price-g:hover{box-shadow:0 0 45px rgba(110,192,71,0.3)}
         .price-note{font-size:.72rem;color:var(--text3);margin-top:10px}
 
         .rev-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
@@ -175,7 +175,7 @@ export default function LandingPage() {
 
         .l-cta{text-align:center;padding:120px 24px}
         .cta-box{max-width:660px;margin:0 auto;padding:56px 48px;border:1px solid var(--border2);border-radius:24px;background:var(--surface);position:relative;overflow:hidden}
-        .cta-box::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle,rgba(87,171,55,0.06),transparent 60%);pointer-events:none}
+        .cta-box::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle,rgba(110,192,71,0.06),transparent 60%);pointer-events:none}
         .cta-box>*{position:relative;z-index:1}
         .cta-box h2{font-size:2rem;font-weight:900;margin-bottom:14px;letter-spacing:-.5px}
         .cta-box p{color:var(--text2);margin-bottom:32px;font-size:1rem}
@@ -213,7 +213,7 @@ export default function LandingPage() {
 
       <nav ref={navRef} className="l-nav" data-testid="landing-nav">
         <div className="nav-in">
-          <a href="/landing" className="l-logo" data-testid="text-brand-logo" style={{ display: "flex", alignItems: "center" }}><ChatnaLogo height={56} /></a>
+          <a href="/landing" className="l-logo" data-testid="text-brand-logo" style={{ display: "flex", alignItems: "center" }}><ChatnaLogo height={36} /></a>
           <div className="nav-r">
             <button className="nav-lnk" onClick={() => scrollTo("features")} data-testid="link-features">المميزات</button>
             <button className="nav-lnk" onClick={() => scrollTo("how")} data-testid="link-how">كيف يعمل</button>

@@ -40,13 +40,13 @@ export function NavSidebar({ activeView, onViewChange, user, onLogout }: NavSide
           src="/chatna-logo.png"
           alt="Chatna"
           style={{
-            height: "42px",
+            height: "34px",
             width: "auto",
             objectFit: "contain",
-            maxWidth: "56px",
+            maxWidth: "52px",
             background: "transparent",
             mixBlendMode: "lighten" as const,
-            filter: "brightness(1.1) drop-shadow(0 0 8px rgba(87,171,55,0.3))",
+            filter: "brightness(1.15)",
           }}
           decoding="sync"
           data-testid="sidebar-logo"
@@ -62,7 +62,7 @@ export function NavSidebar({ activeView, onViewChange, user, onLogout }: NavSide
                 onClick={() => onViewChange(item.id)}
                 className="w-10 h-10 rounded-lg flex items-center justify-center transition-all"
                 style={activeView === item.id
-                  ? { backgroundColor: "rgba(87, 171, 55, 0.2)", color: "#57AB37" }
+                  ? { backgroundColor: "rgba(110, 192, 71, 0.2)", color: "#6EC047" }
                   : { color: "#6b7280" }
                 }
                 onMouseEnter={(e) => { if (activeView !== item.id) { e.currentTarget.style.color = "#d1d5db"; e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}}

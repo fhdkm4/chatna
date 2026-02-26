@@ -113,15 +113,15 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0a0f1a] relative overflow-hidden">
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 right-1/4 w-96 h-96 rounded-full blur-3xl" style={{ backgroundColor: "rgba(87,171,55,0.05)" }} />
-        <div className="absolute bottom-1/4 left-1/4 w-96 h-96 rounded-full blur-3xl" style={{ backgroundColor: "rgba(87,171,55,0.05)" }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full blur-[100px]" style={{ backgroundColor: "rgba(87,171,55,0.03)" }} />
+        <div className="absolute top-1/4 right-1/4 w-96 h-96 rounded-full blur-3xl" style={{ backgroundColor: "rgba(110,192,71,0.05)" }} />
+        <div className="absolute bottom-1/4 left-1/4 w-96 h-96 rounded-full blur-3xl" style={{ backgroundColor: "rgba(110,192,71,0.05)" }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full blur-[100px]" style={{ backgroundColor: "rgba(110,192,71,0.03)" }} />
       </div>
 
       <div className="relative z-10 w-full max-w-md mx-4">
         <div className="text-center mb-8">
           <div className="inline-flex items-center mb-4">
-            <ChatnaLogo height={42} />
+            <ChatnaLogo height={36} />
           </div>
           <p className="text-gray-400 text-sm">
             منصة خدمة العملاء الذكية عبر واتساب
@@ -277,7 +277,7 @@ export default function AuthPage() {
           </form>
 
           {!isLogin && (
-            <div className="mt-5 flex items-start gap-2 p-3 rounded-lg border" style={{ backgroundColor: "rgba(87,171,55,0.05)", borderColor: "rgba(87,171,55,0.1)" }}>
+            <div className="mt-5 flex items-start gap-2 p-3 rounded-lg border" style={{ backgroundColor: "rgba(110,192,71,0.05)", borderColor: "rgba(110,192,71,0.1)" }}>
               <ShieldCheck className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "var(--primary-green)" }} />
               <p className="text-xs text-gray-400 leading-relaxed" data-testid="text-whatsapp-api-notice">
                 نحن نستخدم WhatsApp Business API الرسمي لضمان أمان رقمك وعدم تعرضه للحظر.

@@ -74,7 +74,7 @@ export default function SetupWizard() {
       <div className="max-w-3xl mx-auto px-4 py-12">
         <div className="text-center mb-10">
           <div className="inline-flex items-center mb-4">
-            <ChatnaLogo height={42} />
+            <ChatnaLogo height={36} />
           </div>
           <p className="text-gray-400 text-sm">أكمل الخطوات التالية لبدء استخدام منصتك</p>
         </div>
@@ -83,12 +83,12 @@ export default function SetupWizard() {
           {steps.map((step, i) => (
             <div key={step.id} className="flex items-center">
               <div className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors" style={
-                currentStep === step.id ? { backgroundColor: "rgba(87,171,55,0.2)", color: "#57AB37" } :
-                currentStep > step.id ? { backgroundColor: "rgba(87,171,55,0.1)", color: "#57AB37" } : { backgroundColor: "rgba(255,255,255,0.05)", color: "#6b7280" }
+                currentStep === step.id ? { backgroundColor: "rgba(110,192,71,0.2)", color: "#6EC047" } :
+                currentStep > step.id ? { backgroundColor: "rgba(110,192,71,0.1)", color: "#6EC047" } : { backgroundColor: "rgba(255,255,255,0.05)", color: "#6b7280" }
               }>
                 <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold" style={
-                  currentStep > step.id ? { backgroundColor: "#57AB37", color: "white" } :
-                  currentStep === step.id ? { backgroundColor: "rgba(87,171,55,0.3)", color: "#57AB37" } : { backgroundColor: "rgba(255,255,255,0.1)", color: "#6b7280" }
+                  currentStep > step.id ? { backgroundColor: "#6EC047", color: "white" } :
+                  currentStep === step.id ? { backgroundColor: "rgba(110,192,71,0.3)", color: "#6EC047" } : { backgroundColor: "rgba(255,255,255,0.1)", color: "#6b7280" }
                 }>
                   {currentStep > step.id ? <Check className="w-4 h-4" /> : step.id}
                 </div>
@@ -103,7 +103,7 @@ export default function SetupWizard() {
           {currentStep === 1 && (
             <div className="space-y-6">
               <div className="text-center mb-6">
-                <MessageSquare className="w-12 h-12 text-[#57AB37] mx-auto mb-3" />
+                <MessageSquare className="w-12 h-12 text-[#6EC047] mx-auto mb-3" />
                 <h2 className="text-xl font-semibold mb-2">ربط WhatsApp Business API</h2>
                 <p className="text-gray-400 text-sm">قم بربط حسابك في Meta لبدء استقبال رسائل واتساب</p>
               </div>
@@ -134,7 +134,7 @@ export default function SetupWizard() {
           {currentStep === 2 && (
             <div className="space-y-6">
               <div className="text-center mb-6">
-                <Bot className="w-12 h-12 text-[#57AB37] mx-auto mb-3" />
+                <Bot className="w-12 h-12 text-[#6EC047] mx-auto mb-3" />
                 <h2 className="text-xl font-semibold mb-2">إعداد الذكاء الاصطناعي</h2>
                 <p className="text-gray-400 text-sm">خصص تعليمات مساعد الذكاء الاصطناعي</p>
               </div>
@@ -157,7 +157,7 @@ export default function SetupWizard() {
                   <ChevronRight className="w-4 h-4 ml-1" />
                   السابق
                 </Button>
-                <Button className="bg-[#57AB37] text-white" onClick={handleSaveAi} disabled={loading}>
+                <Button className="bg-[#6EC047] text-white" onClick={handleSaveAi} disabled={loading}>
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "حفظ والمتابعة"}
                 </Button>
               </div>
@@ -167,7 +167,7 @@ export default function SetupWizard() {
           {currentStep === 3 && (
             <div className="space-y-6">
               <div className="text-center mb-6">
-                <Users className="w-12 h-12 text-[#57AB37] mx-auto mb-3" />
+                <Users className="w-12 h-12 text-[#6EC047] mx-auto mb-3" />
                 <h2 className="text-xl font-semibold mb-2">دعوة أعضاء الفريق</h2>
                 <p className="text-gray-400 text-sm">أرسل دعوات لأعضاء فريقك للانضمام</p>
               </div>
@@ -190,7 +190,7 @@ export default function SetupWizard() {
                   <option value="agent">موظف</option>
                   <option value="manager">مشرف</option>
                 </select>
-                <Button data-testid="button-wizard-send-invite" className="bg-[#57AB37] text-white" onClick={handleInvite} disabled={loading || !inviteEmail}>
+                <Button data-testid="button-wizard-send-invite" className="bg-[#6EC047] text-white" onClick={handleInvite} disabled={loading || !inviteEmail}>
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "دعوة"}
                 </Button>
               </div>
@@ -201,7 +201,7 @@ export default function SetupWizard() {
                   {invitations.map((inv, i) => (
                     <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5">
                       <span className="text-sm text-gray-300" dir="ltr">{inv.email}</span>
-                      <span className="text-xs px-2 py-1 rounded" style={{ color: "#57AB37", backgroundColor: "rgba(87,171,55,0.1)" }}>{roleLabels[inv.role]}</span>
+                      <span className="text-xs px-2 py-1 rounded" style={{ color: "#6EC047", backgroundColor: "rgba(110,192,71,0.1)" }}>{roleLabels[inv.role]}</span>
                     </div>
                   ))}
                 </div>
@@ -212,7 +212,7 @@ export default function SetupWizard() {
                   <ChevronRight className="w-4 h-4 ml-1" />
                   السابق
                 </Button>
-                <Button className="bg-[#57AB37] text-white" onClick={handleFinish} disabled={loading}>
+                <Button className="bg-[#6EC047] text-white" onClick={handleFinish} disabled={loading}>
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "إنهاء الإعداد والبدء"}
                 </Button>
               </div>
