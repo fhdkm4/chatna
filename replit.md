@@ -5,9 +5,11 @@
 Chatna is a multi-tenant WhatsApp AI customer service SaaS platform (rebranded from Jawab). It enables businesses to manage WhatsApp customer conversations through a web dashboard, with AI-powered auto-responses using Anthropic Claude, agent assignment, knowledge base management, quick replies, and analytics. The platform is designed with Arabic (RTL) as the primary language and uses a dark-themed UI.
 
 ### Logo
-- SVG logo component at `client/src/components/chatna-logo.tsx` — speech bubble icon with "CHATNA" text
-- Used across: landing page, auth page, setup wizard, accept invitation page
-- Supports `color`, `height`, `iconOnly`, and `className` props
+- PNG logo at `client/public/chatna-logo.png` — transparent background, green speech bubble + "CHATNA" text
+- Wrapper component at `client/src/components/chatna-logo.tsx` renders the PNG
+- Used across: landing page navbar, auth page, setup wizard, accept invitation, sidebar
+- Extracted logo green: `#57AB37` → CSS variables `--primary-green` and `--primary-green-dark` (`#4A9230`)
+- All theme `--primary` HSL values updated to `102 52% 44%` to match logo color
 
 The app follows a monorepo structure with a React frontend (`client/`), Express backend (`server/`), and shared schema definitions (`shared/`). The frontend communicates with the backend via REST APIs and Socket.io for real-time messaging.
 

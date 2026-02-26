@@ -35,8 +35,8 @@ export default function LandingPage() {
           --bg:#050509;--bg2:#0a0a12;--bg3:#12121e;
           --surface:rgba(255,255,255,0.03);--surface2:rgba(255,255,255,0.06);
           --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.1);
-          --g1:#00dc82;--g2:#36e4a0;--g3:#00b368;
-          --accent:rgba(0,220,130,0.12);
+          --g1:#57AB37;--g2:#6DBF4D;--g3:#4A9230;
+          --accent:rgba(87,171,55,0.12);
           --text:#eef2f6;--text2:#b0b8c8;--text3:#8892a4;
           font-family:'IBM Plex Sans Arabic',sans-serif;
           background:var(--bg);color:var(--text);overflow-x:hidden;-webkit-font-smoothing:antialiased;
@@ -212,7 +212,7 @@ export default function LandingPage() {
 
       <nav ref={navRef} className="l-nav" data-testid="landing-nav">
         <div className="nav-in">
-          <a href="/landing" className="l-logo" data-testid="text-brand-logo"><ChatnaLogo color="#00dc82" height={28} /></a>
+          <a href="/landing" className="l-logo" data-testid="text-brand-logo" style={{ display: "flex", alignItems: "center" }}><ChatnaLogo height={42} /></a>
           <div className="nav-r">
             <button className="nav-lnk" onClick={() => scrollTo("features")} data-testid="link-features">المميزات</button>
             <button className="nav-lnk" onClick={() => scrollTo("how")} data-testid="link-how">كيف يعمل</button>

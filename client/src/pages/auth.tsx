@@ -113,15 +113,15 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0a0f1a] relative overflow-hidden">
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 left-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-500/3 rounded-full blur-[100px]" />
+        <div className="absolute top-1/4 right-1/4 w-96 h-96 rounded-full blur-3xl" style={{ backgroundColor: "rgba(87,171,55,0.05)" }} />
+        <div className="absolute bottom-1/4 left-1/4 w-96 h-96 rounded-full blur-3xl" style={{ backgroundColor: "rgba(87,171,55,0.05)" }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full blur-[100px]" style={{ backgroundColor: "rgba(87,171,55,0.03)" }} />
       </div>
 
       <div className="relative z-10 w-full max-w-md mx-4">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-3 mb-4">
-            <ChatnaLogo color="#00dc82" height={40} />
+          <div className="inline-flex items-center mb-4">
+            <ChatnaLogo height={42} />
           </div>
           <p className="text-gray-400 text-sm">
             منصة خدمة العملاء الذكية عبر واتساب
@@ -136,7 +136,7 @@ export default function AuthPage() {
               data-testid="tab-login"
               className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
                 isLogin
-                  ? "bg-emerald-500/20 text-emerald-400"
+                  ? "bg-primary/20 text-primary"
                   : "text-gray-400"
               }`}
             >
@@ -148,7 +148,7 @@ export default function AuthPage() {
               data-testid="tab-register"
               className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
                 !isLogin
-                  ? "bg-emerald-500/20 text-emerald-400"
+                  ? "bg-primary/20 text-primary"
                   : "text-gray-400"
               }`}
             >
@@ -189,7 +189,7 @@ export default function AuthPage() {
                       setErrors((prev) => ({ ...prev, companyName: "" }));
                     }}
                     placeholder="مثال: شركة التقنية"
-                    className={`bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 focus:border-emerald-500/50 focus:ring-emerald-500/20 ${errors.companyName ? "border-red-500/50" : ""}`}
+                    className={`bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20 ${errors.companyName ? "border-red-500/50" : ""}`}
                   />
                   {errors.companyName && <p className="text-red-400 text-xs" data-testid="error-company-name">{errors.companyName}</p>}
                 </div>
@@ -203,7 +203,7 @@ export default function AuthPage() {
                       setErrors((prev) => ({ ...prev, name: "" }));
                     }}
                     placeholder="مثال: أحمد محمد"
-                    className={`bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 focus:border-emerald-500/50 focus:ring-emerald-500/20 ${errors.name ? "border-red-500/50" : ""}`}
+                    className={`bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20 ${errors.name ? "border-red-500/50" : ""}`}
                   />
                   {errors.name && <p className="text-red-400 text-xs" data-testid="error-name">{errors.name}</p>}
                 </div>
@@ -221,7 +221,7 @@ export default function AuthPage() {
                 }}
                 placeholder="email@example.com"
                 dir="ltr"
-                className={`bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 focus:border-emerald-500/50 focus:ring-emerald-500/20 text-left ${errors.email ? "border-red-500/50" : ""}`}
+                className={`bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20 text-left ${errors.email ? "border-red-500/50" : ""}`}
               />
               {errors.email && <p className="text-red-400 text-xs" data-testid="error-email">{errors.email}</p>}
             </div>
@@ -237,7 +237,7 @@ export default function AuthPage() {
                 }}
                 placeholder="••••••••"
                 dir="ltr"
-                className={`bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 focus:border-emerald-500/50 focus:ring-emerald-500/20 text-left ${errors.password ? "border-red-500/50" : ""}`}
+                className={`bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20 text-left ${errors.password ? "border-red-500/50" : ""}`}
               />
               {errors.password && <p className="text-red-400 text-xs" data-testid="error-password">{errors.password}</p>}
             </div>
@@ -254,7 +254,7 @@ export default function AuthPage() {
                   onChange={(e) => setForm({ ...form, discountCode: e.target.value })}
                   placeholder="أدخل كود الخصم إن وجد"
                   dir="ltr"
-                  className="bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 focus:border-emerald-500/50 focus:ring-emerald-500/20 text-left"
+                  className="bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20 text-left"
                 />
               </div>
             )}
@@ -263,7 +263,8 @@ export default function AuthPage() {
               type="submit"
               disabled={loading}
               data-testid="button-submit-auth"
-              className="w-full bg-emerald-600 text-white font-medium py-2.5 mt-2"
+              className="w-full text-white font-medium py-2.5 mt-2"
+              style={{ backgroundColor: "var(--primary-green)" }}
             >
               {loading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -276,8 +277,8 @@ export default function AuthPage() {
           </form>
 
           {!isLogin && (
-            <div className="mt-5 flex items-start gap-2 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
-              <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+            <div className="mt-5 flex items-start gap-2 p-3 rounded-lg border" style={{ backgroundColor: "rgba(87,171,55,0.05)", borderColor: "rgba(87,171,55,0.1)" }}>
+              <ShieldCheck className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "var(--primary-green)" }} />
               <p className="text-xs text-gray-400 leading-relaxed" data-testid="text-whatsapp-api-notice">
                 نحن نستخدم WhatsApp Business API الرسمي لضمان أمان رقمك وعدم تعرضه للحظر.
               </p>

@@ -1,5 +1,4 @@
 import { MessageSquare, Users, Brain, BarChart3, Settings, LogOut, UserCog, Activity, Megaphone, Package, Sparkles, Building2, MessagesSquare } from "lucide-react";
-import { SiWhatsapp } from "react-icons/si";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ActiveView } from "@/pages/dashboard";
 
@@ -36,8 +35,15 @@ export function NavSidebar({ activeView, onViewChange, user, onLogout }: NavSide
 
   return (
     <div className="w-16 bg-[#0d1321] border-l border-white/5 flex flex-col items-center py-4 shrink-0">
-      <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center mb-8">
-        <SiWhatsapp className="w-5 h-5 text-emerald-400" />
+      <div className="mb-8 flex items-center justify-center">
+        <img
+          src="/chatna-logo.png"
+          alt="Chatna"
+          style={{ height: "42px", width: "auto", objectFit: "contain", maxWidth: "56px" }}
+         
+          decoding="sync"
+          data-testid="sidebar-logo"
+        />
       </div>
 
       <nav className="flex-1 flex flex-col items-center gap-1">
@@ -47,11 +53,13 @@ export function NavSidebar({ activeView, onViewChange, user, onLogout }: NavSide
               <button
                 data-testid={`nav-${item.id}`}
                 onClick={() => onViewChange(item.id)}
-                className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-                  activeView === item.id
-                    ? "bg-emerald-500/20 text-emerald-400"
-                    : "text-gray-500 hover:text-gray-300 hover:bg-white/5"
-                }`}
+                className="w-10 h-10 rounded-lg flex items-center justify-center transition-all"
+                style={activeView === item.id
+                  ? { backgroundColor: "rgba(87, 171, 55, 0.2)", color: "#57AB37" }
+                  : { color: "#6b7280" }
+                }
+                onMouseEnter={(e) => { if (activeView !== item.id) { e.currentTarget.style.color = "#d1d5db"; e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}}
+                onMouseLeave={(e) => { if (activeView !== item.id) { e.currentTarget.style.color = "#6b7280"; e.currentTarget.style.backgroundColor = "transparent"; }}}
               >
                 <item.icon className="w-5 h-5" />
               </button>
@@ -66,7 +74,7 @@ export function NavSidebar({ activeView, onViewChange, user, onLogout }: NavSide
       <div className="flex flex-col items-center gap-2">
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-xs font-bold text-white">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: "linear-gradient(to bottom right, var(--primary-green), var(--primary-green-dark))" }}>
               {user.name.charAt(0)}
             </div>
           </TooltipTrigger>
