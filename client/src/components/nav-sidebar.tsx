@@ -39,8 +39,15 @@ export function NavSidebar({ activeView, onViewChange, user, onLogout }: NavSide
         <img
           src="/chatna-logo.png"
           alt="Chatna"
-          style={{ height: "42px", width: "auto", objectFit: "contain", maxWidth: "56px" }}
-         
+          style={{
+            height: "42px",
+            width: "auto",
+            objectFit: "contain",
+            maxWidth: "56px",
+            background: "transparent",
+            mixBlendMode: "lighten" as const,
+            filter: "brightness(1.1) drop-shadow(0 0 8px rgba(87,171,55,0.3))",
+          }}
           decoding="sync"
           data-testid="sidebar-logo"
         />
