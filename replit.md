@@ -1,8 +1,13 @@
-# Jawab (جواب) - WhatsApp AI Customer Service SaaS
+# Chatna - WhatsApp AI Customer Service SaaS
 
 ## Overview
 
-Jawab is a multi-tenant WhatsApp AI customer service SaaS platform. It enables businesses to manage WhatsApp customer conversations through a web dashboard, with AI-powered auto-responses using Anthropic Claude, agent assignment, knowledge base management, quick replies, and analytics. The platform is designed with Arabic (RTL) as the primary language and uses a dark-themed UI.
+Chatna is a multi-tenant WhatsApp AI customer service SaaS platform (rebranded from Jawab). It enables businesses to manage WhatsApp customer conversations through a web dashboard, with AI-powered auto-responses using Anthropic Claude, agent assignment, knowledge base management, quick replies, and analytics. The platform is designed with Arabic (RTL) as the primary language and uses a dark-themed UI.
+
+### Logo
+- SVG logo component at `client/src/components/chatna-logo.tsx` — speech bubble icon with "CHATNA" text
+- Used across: landing page, auth page, setup wizard, accept invitation page
+- Supports `color`, `height`, `iconOnly`, and `className` props
 
 The app follows a monorepo structure with a React frontend (`client/`), Express backend (`server/`), and shared schema definitions (`shared/`). The frontend communicates with the backend via REST APIs and Socket.io for real-time messaging.
 

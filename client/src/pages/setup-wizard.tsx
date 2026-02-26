@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ChatnaLogo } from "@/components/chatna-logo";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
@@ -73,10 +74,7 @@ export default function SetupWizard() {
       <div className="max-w-3xl mx-auto px-4 py-12">
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
-              <SiWhatsapp className="w-6 h-6 text-emerald-400" />
-            </div>
-            <h1 className="text-2xl font-bold">إعداد جواب</h1>
+            <ChatnaLogo color="#00dc82" height={36} />
           </div>
           <p className="text-gray-400 text-sm">أكمل الخطوات التالية لبدء استخدام منصتك</p>
         </div>

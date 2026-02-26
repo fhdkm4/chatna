@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useLocation } from "wouter";
+import { ChatnaLogo } from "@/components/chatna-logo";
 
 export default function LandingPage() {
   const [, navigate] = useLocation();
@@ -211,7 +212,7 @@ export default function LandingPage() {
 
       <nav ref={navRef} className="l-nav" data-testid="landing-nav">
         <div className="nav-in">
-          <a href="/landing" className="l-logo" data-testid="text-brand-logo">جواب<span>.</span></a>
+          <a href="/landing" className="l-logo" data-testid="text-brand-logo"><ChatnaLogo color="#00dc82" height={28} /></a>
           <div className="nav-r">
             <button className="nav-lnk" onClick={() => scrollTo("features")} data-testid="link-features">المميزات</button>
             <button className="nav-lnk" onClick={() => scrollTo("how")} data-testid="link-how">كيف يعمل</button>
@@ -233,7 +234,7 @@ export default function LandingPage() {
             <button className="btn-hero btn-hero-o" onClick={() => scrollTo("features")} data-testid="button-hero-features">اكتشف المميزات</button>
           </div>
           <div className="metrics" data-testid="metrics-bar">
-            <div className="metric"><div className="metric-n">+500</div><div className="metric-l">شركة تستخدم جواب</div></div>
+            <div className="metric"><div className="metric-n">+500</div><div className="metric-l">شركة تستخدم Chatna</div></div>
             <div className="metric"><div className="metric-n">2M+</div><div className="metric-l">رسالة تمت معالجتها</div></div>
             <div className="metric"><div className="metric-n">4.9</div><div className="metric-l">متوسط تقييم العملاء</div></div>
           </div>
@@ -300,7 +301,7 @@ export default function LandingPage() {
         <div className="sec-in" style={{ position: "relative" }}>
           <div className="glow-side" />
           <div className="sec-tag">الحل</div>
-          <h2 className="sec-h" data-testid="text-solutions-title">جواب يعطيك كل شي تحتاجه</h2>
+          <h2 className="sec-h" data-testid="text-solutions-title">Chatna يعطيك كل شي تحتاجه</h2>
           <p className="sec-p">منصة واحدة تحوّل واتساب شركتك لنظام خدمة عملاء محترف</p>
           <div className="sol-grid">
             <div className="sol">
@@ -409,7 +410,7 @@ export default function LandingPage() {
       <section className="l-section rv" style={{ textAlign: "center" }}>
         <div className="sec-in">
           <div className="sec-tag">آراء العملاء</div>
-          <h2 className="sec-h" data-testid="text-reviews-title">شركات سعودية تثق بجواب</h2>
+          <h2 className="sec-h" data-testid="text-reviews-title">شركات سعودية تثق بـ Chatna</h2>
           <p className="sec-p" style={{ margin: "0 auto 60px" }}>نتائج حقيقية من شركات حقيقية</p>
           <div className="rev-grid">
             <div className="rev" data-testid="card-review-1">
@@ -419,7 +420,7 @@ export default function LandingPage() {
             </div>
             <div className="rev" data-testid="card-review-2">
               <div className="rev-stars">★ ★ ★ ★ ★</div>
-              <div className="rev-txt">قبل جواب كنا نخسر عملاء الليل. الحين الرد فوري 24/7 والمبيعات زادت 40% من أول شهر. ما أتخيل نرجع للطريقة القديمة.</div>
+              <div className="rev-txt">قبل Chatna كنا نخسر عملاء الليل. الحين الرد فوري 24/7 والمبيعات زادت 40% من أول شهر. ما أتخيل نرجع للطريقة القديمة.</div>
               <div className="rev-who"><div className="rev-av mk-av-a">سق</div><div><div className="rev-name">سارة القحطاني</div><div className="rev-role">صاحبة مطعم</div></div></div>
             </div>
             <div className="rev" data-testid="card-review-3">
@@ -445,7 +446,7 @@ export default function LandingPage() {
             <button onClick={() => scrollTo("features")}>المميزات</button>
             <button onClick={() => scrollTo("pricing")}>الأسعار</button>
           </div>
-          <div className="ft-copy" data-testid="text-footer">© 2026 جواب — جميع الحقوق محفوظة</div>
+          <div className="ft-copy" data-testid="text-footer">© 2026 Chatna — جميع الحقوق محفوظة</div>
         </div>
       </footer>
     </div>

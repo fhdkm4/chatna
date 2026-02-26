@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ChatnaLogo } from "@/components/chatna-logo";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { SiWhatsapp, SiFacebook } from "react-icons/si";
@@ -120,10 +121,7 @@ export default function AuthPage() {
       <div className="relative z-10 w-full max-w-md mx-4">
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
-              <SiWhatsapp className="w-7 h-7 text-emerald-400" />
-            </div>
-            <h1 className="text-3xl font-bold text-white">جواب</h1>
+            <ChatnaLogo color="#00dc82" height={40} />
           </div>
           <p className="text-gray-400 text-sm">
             منصة خدمة العملاء الذكية عبر واتساب
@@ -288,7 +286,7 @@ export default function AuthPage() {
         </div>
 
         <p className="text-center text-gray-500 text-xs mt-6">
-          Jawab &copy; 2026 - جميع الحقوق محفوظة
+          Chatna &copy; 2026 - جميع الحقوق محفوظة
         </p>
       </div>
     </div>

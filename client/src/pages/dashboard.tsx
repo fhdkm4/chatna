@@ -135,7 +135,7 @@ export default function Dashboard() {
       if (data.message.senderType === "customer") {
         playNotificationSound("message");
         showBrowserNotification(
-          "رسالة جديدة - جواب",
+          "رسالة جديدة - Chatna",
           data.message.content?.substring(0, 80) || "رسالة جديدة"
         );
       }
@@ -150,7 +150,7 @@ export default function Dashboard() {
         description: data.reason || "ثقة الذكاء الاصطناعي منخفضة",
         variant: "destructive",
       });
-      showBrowserNotification("تنبيه - جواب", "محادثة تحتاج تدخل بشري");
+      showBrowserNotification("تنبيه - Chatna", "محادثة تحتاج تدخل بشري");
       fetchConversations();
     });
 
@@ -163,7 +163,7 @@ export default function Dashboard() {
         duration: 10000,
       });
       showBrowserNotification(
-        "محادثة جديدة - جواب",
+        "محادثة جديدة - Chatna",
         `تم تعيين محادثة ${data.contactName} لك`
       );
       fetchConversations();
@@ -192,7 +192,7 @@ export default function Dashboard() {
         description: "مرّت 10 دقائق على رسالة عميل بدون رد!",
         variant: "destructive",
       });
-      showBrowserNotification("تنبيه تأخير - جواب", "محادثة لم يتم الرد عليها منذ أكثر من 10 دقائق");
+      showBrowserNotification("تنبيه تأخير - Chatna", "محادثة لم يتم الرد عليها منذ أكثر من 10 دقائق");
       fetchConversations();
     });
 
