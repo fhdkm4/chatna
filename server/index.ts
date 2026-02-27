@@ -93,6 +93,13 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
+    const { runMigrations } = await import("./migrate");
+    await runMigrations();
+  } catch (err: any) {
+    console.error("Migration warning (non-fatal):", err.message);
+  }
+
+  try {
     const { seedDatabase } = await import("./seed");
     await seedDatabase();
   } catch (err: any) {
