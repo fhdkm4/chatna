@@ -11,10 +11,12 @@ if (!dbUrl) {
 
 export const tenantStore = new AsyncLocalStorage<string>();
 
+const needsSsl = dbUrl.includes("neon.tech") || dbUrl.includes("supabase") || dbUrl.includes("sslmode=require") || process.env.DB_SSL === "true";
+
 export const pool = new Pool({
   connectionString: dbUrl,
   max: 10,
-  ssl: dbUrl.includes("localhost") || dbUrl.includes("127.0.0.1") ? false : { rejectUnauthorized: false },
+  ...(needsSsl ? { ssl: { rejectUnauthorized: false } } : {}),
 });
 
 const rlsEnabled = process.env.ENABLE_RLS !== "false";
