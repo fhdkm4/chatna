@@ -49,7 +49,7 @@ export default function LandingPage() {
         .nav-in{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between}
         .l-logo{font-size:1.5rem;font-weight:900;color:var(--text);text-decoration:none;letter-spacing:-0.5px}
         .l-logo span{color:var(--g1)}
-        .l-logo img,.l-logo .logo{height:36px;width:auto;object-fit:contain;background:transparent}
+        .l-logo img,.l-logo .logo{height:48px;width:auto;object-fit:contain;background:transparent}
         .nav-r{display:flex;gap:12px;align-items:center}
         .nav-lnk{color:var(--text2);text-decoration:none;font-size:.85rem;font-weight:500;padding:8px 16px;border-radius:8px;transition:all .3s;cursor:pointer;background:none;border:none;font-family:inherit}
         .nav-lnk:hover{color:var(--text)}
@@ -213,7 +213,7 @@ export default function LandingPage() {
 
       <nav ref={navRef} className="l-nav" data-testid="landing-nav">
         <div className="nav-in">
-          <a href="/landing" className="l-logo" data-testid="text-brand-logo" style={{ display: "flex", alignItems: "center" }}><ChatnaLogo height={36} /></a>
+          <a href="/landing" className="l-logo" data-testid="text-brand-logo" style={{ display: "flex", alignItems: "center" }}><ChatnaLogo height={48} /></a>
           <div className="nav-r">
             <button className="nav-lnk" onClick={() => scrollTo("features")} data-testid="link-features">المميزات</button>
             <button className="nav-lnk" onClick={() => scrollTo("how")} data-testid="link-how">كيف يعمل</button>
