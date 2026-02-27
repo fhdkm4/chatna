@@ -42,7 +42,6 @@ app.get("/api/health", async (_req, res) => {
         hasDbUrl: !!process.env.DATABASE_URL,
         hasNeonUrl: !!process.env.NEON_DATABASE_URL,
         hasSessionSecret: !!process.env.SESSION_SECRET,
-        rlsEnabled: process.env.ENABLE_RLS !== "false",
       },
     });
   } catch (err: any) {
