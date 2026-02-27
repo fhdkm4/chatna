@@ -44,12 +44,11 @@ export default function LandingPage() {
         }
         .landing-root ::selection{background:var(--g1);color:#000}
 
-        .l-nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:20px 48px;transition:all .4s;background:rgba(15,23,42,0.6);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,0.05)}
-        .l-nav.scrolled{padding:14px 48px;background:rgba(15,23,42,0.85);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-bottom:1px solid rgba(255,255,255,0.08)}
+        .l-nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:18px 48px;transition:all .4s;background:rgba(15,23,42,0.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,0.05)}
+        .l-nav.scrolled{padding:12px 48px;background:rgba(15,23,42,0.85);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-bottom:1px solid rgba(255,255,255,0.08)}
         .nav-in{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px}
-        .l-logo{font-size:1.5rem;font-weight:900;color:var(--text);text-decoration:none;letter-spacing:-0.5px}
-        .l-logo span{color:var(--g1)}
-        .l-logo img,.l-logo .logo{width:auto;object-fit:contain;background:transparent}
+        .l-logo{text-decoration:none}
+        @media(max-width:768px){.l-nav{padding:14px 20px}.l-nav.scrolled{padding:10px 20px}}
         .nav-r{display:flex;gap:12px;align-items:center}
         .nav-lnk{color:var(--text2);text-decoration:none;font-size:.85rem;font-weight:500;padding:8px 16px;border-radius:8px;transition:all .3s;cursor:pointer;background:none;border:none;font-family:inherit}
         .nav-lnk:hover{color:var(--text)}
@@ -213,7 +212,7 @@ export default function LandingPage() {
 
       <nav ref={navRef} className="l-nav" data-testid="landing-nav">
         <div className="nav-in">
-          <a href="/landing" className="l-logo" data-testid="text-brand-logo" style={{ display: "flex", alignItems: "center" }}><ChatnaLogo className="h-14 md:h-16 w-auto object-contain" /></a>
+          <a href="/landing" className="l-logo" data-testid="text-brand-logo"><ChatnaLogo size="lg" /></a>
           <div className="nav-r">
             <button className="nav-lnk" onClick={() => scrollTo("features")} data-testid="link-features">المميزات</button>
             <button className="nav-lnk" onClick={() => scrollTo("how")} data-testid="link-how">كيف يعمل</button>

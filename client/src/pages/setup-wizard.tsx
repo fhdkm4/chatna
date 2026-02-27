@@ -74,7 +74,7 @@ export default function SetupWizard() {
       <div className="max-w-3xl mx-auto px-4 py-12">
         <div className="text-center mb-10">
           <div className="inline-flex items-center mb-4">
-            <ChatnaLogo className="h-14 md:h-16 w-auto object-contain" />
+            <ChatnaLogo size="lg" />
           </div>
           <p className="text-gray-400 text-sm">أكمل الخطوات التالية لبدء استخدام منصتك</p>
         </div>
