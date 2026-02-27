@@ -65,13 +65,21 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const { seedDatabase } = await import("./seed");
-  await seedDatabase();
+  try {
+    const { seedDatabase } = await import("./seed");
+    await seedDatabase();
+  } catch (err: any) {
+    console.error("Seed warning (non-fatal):", err.message);
+  }
 
-  const { storage } = await import("./storage");
-  const merged = await storage.mergeDuplicateConversations();
-  if (merged > 0) {
-    console.log(`Merged ${merged} duplicate conversation(s)`);
+  try {
+    const { storage } = await import("./storage");
+    const merged = await storage.mergeDuplicateConversations();
+    if (merged > 0) {
+      console.log(`Merged ${merged} duplicate conversation(s)`);
+    }
+  } catch (err: any) {
+    console.error("Merge warning (non-fatal):", err.message);
   }
 
   await registerRoutes(httpServer, app);
