@@ -16,10 +16,14 @@ export const pool = new Pool({
   max: 10,
 });
 
+const rlsEnabled = process.env.ENABLE_RLS !== "false";
+
 pool.on("connect", (client: PoolClient) => {
-  client.query("SET ROLE jawab_app; SELECT set_config('app.rls_bypass', 'true', false)").catch((err) => {
-    console.error("[RLS] CRITICAL: Failed to set jawab_app role on connection. RLS may not be enforced.", err.message);
-  });
+  if (rlsEnabled) {
+    client.query("SET ROLE jawab_app; SELECT set_config('app.rls_bypass', 'true', false)").catch((err) => {
+      console.warn("[RLS] Could not set jawab_app role. RLS will be skipped. Error:", err.message);
+    });
+  }
 });
 
 const originalPoolQuery = pool.query.bind(pool);
@@ -27,7 +31,7 @@ const originalPoolConnect = pool.connect.bind(pool);
 
 (pool as any).query = async function (config: any, values?: any, callback?: any) {
   const tenantId = tenantStore.getStore();
-  if (tenantId) {
+  if (tenantId && rlsEnabled) {
     const client: PoolClient = await originalPoolConnect();
     try {
       await client.query(
