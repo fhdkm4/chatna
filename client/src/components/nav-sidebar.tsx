@@ -35,17 +35,11 @@ export function NavSidebar({ activeView, onViewChange, user, onLogout }: NavSide
 
   return (
     <div className="w-16 bg-[#0d1321] border-l border-white/5 flex flex-col items-center py-4 shrink-0">
-      <div className="mb-8 flex items-center justify-center">
+      <div className="mb-8 flex items-center justify-center px-1">
         <img
           src="/chatna-logo.png"
           alt="Chatna"
-          style={{
-            height: "54px",
-            width: "auto",
-            objectFit: "contain",
-            maxWidth: "52px",
-            background: "transparent",
-          }}
+          className="h-11 w-auto object-contain max-w-[52px]"
           decoding="sync"
           data-testid="sidebar-logo"
         />
