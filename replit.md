@@ -81,7 +81,12 @@ Preferred communication style: Simple, everyday language.
 - All route handlers pass `req.user.tenantId` to storage methods; PATCH endpoints verify tenant ownership before updates
 - Global Express middleware strips `tenantId`/`tenant_id` from POST/PATCH/PUT request bodies to prevent client injection
 - `AsyncLocalStorage` in `server/db.ts` tracks tenant context per-request; auth middleware wraps handlers with `tenantStore.run(tenantId, () => next())`
-- Database connects using the default role from DATABASE_URL — no custom PostgreSQL roles or RLS policies
+- **Row-Level Security (RLS)**: Auto-provisioned via `server/migrate.ts` at startup
+  - `jawab_app` role created automatically with `NOLOGIN` + `GRANT SELECT/INSERT/UPDATE/DELETE` on all public tables
+  - RLS enabled and forced on all tables with `tenant_id` column (16 tables)
+  - Tenant isolation policy: `tenant_id = current_setting('app.current_tenant')` OR bypass via `app.rls_bypass = 'true'`
+  - `setRlsReady(true)` called after migrations succeed — connections use default role until then
+  - Pool `on("connect")` sets `SET ROLE jawab_app` + bypass mode; authenticated queries switch to tenant-scoped mode
 - Users belong to a single tenant; contacts, conversations, and all data are scoped per tenant
 
 ### Authentication Flow

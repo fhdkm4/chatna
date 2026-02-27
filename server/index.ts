@@ -94,6 +94,9 @@ app.use((req, res, next) => {
   try {
     const { runMigrations } = await import("./migrate");
     await runMigrations();
+    const { setRlsReady } = await import("./db");
+    setRlsReady(true);
+    console.log("[RLS] Role jawab_app ready — RLS enforcement enabled");
   } catch (err: any) {
     console.error("Migration warning (non-fatal):", err.message);
   }
