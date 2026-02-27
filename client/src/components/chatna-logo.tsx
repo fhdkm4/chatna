@@ -6,9 +6,9 @@ interface ChatnaLogoProps {
 
 export function ChatnaLogo({ className = "", iconOnly = false, size = "md" }: ChatnaLogoProps) {
   const sizes = {
-    sm: { icon: "h-11", text: "text-lg", gap: "gap-0.5" },
-    md: { icon: "h-14 md:h-16", text: "text-[22px] md:text-[26px]", gap: "gap-0.5" },
-    lg: { icon: "h-16 md:h-[72px]", text: "text-[26px] md:text-[30px]", gap: "gap-0.5" },
+    sm: { icon: "h-7 md:h-8", text: "text-base md:text-lg", gap: "gap-2.5" },
+    md: { icon: "h-8 md:h-9", text: "text-lg md:text-xl", gap: "gap-3" },
+    lg: { icon: "h-7 sm:h-8 md:h-9", text: "text-lg sm:text-xl md:text-[22px]", gap: "gap-3 md:gap-4" },
   };
 
   const s = sizes[size];
@@ -31,13 +31,10 @@ export function ChatnaLogo({ className = "", iconOnly = false, size = "md" }: Ch
       <img
         src="/chatna-icon.png"
         alt="Chatna"
-        className={`${s.icon} w-auto object-contain transition-transform duration-300 group-hover:scale-110`}
+        className={`${s.icon} w-auto object-contain transition-transform duration-300 group-hover:scale-105`}
         decoding="sync"
       />
-      <span
-        className={`${s.text} font-semibold tracking-[1.5px] text-white`}
-        style={{ fontFamily: "inherit" }}
-      >
+      <span className={`${s.text} font-bold tracking-[2px] text-white`}>
         CHATNA
       </span>
     </div>
