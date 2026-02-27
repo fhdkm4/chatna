@@ -23,8 +23,35 @@ app.use(
 
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-app.get("/api/health", (_req, res) => {
-  res.status(200).json({ status: "ok", timestamp: Date.now() });
+app.get("/api/health", async (_req, res) => {
+  try {
+    const { pool } = await import("./db");
+    const result = await pool.query("SELECT NOW() as time, current_database() as db");
+    const tableCheck = await pool.query("SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename");
+    res.status(200).json({
+      status: "ok",
+      timestamp: Date.now(),
+      database: {
+        connected: true,
+        time: result.rows[0]?.time,
+        name: result.rows[0]?.db,
+        tables: tableCheck.rows.map((r: any) => r.tablename),
+      },
+      env: {
+        nodeEnv: process.env.NODE_ENV,
+        hasDbUrl: !!process.env.DATABASE_URL,
+        hasNeonUrl: !!process.env.NEON_DATABASE_URL,
+        hasSessionSecret: !!process.env.SESSION_SECRET,
+        rlsEnabled: process.env.ENABLE_RLS !== "false",
+      },
+    });
+  } catch (err: any) {
+    res.status(200).json({
+      status: "error",
+      timestamp: Date.now(),
+      database: { connected: false, error: err.message },
+    });
+  }
 });
 
 export function log(message: string, source = "express") {
