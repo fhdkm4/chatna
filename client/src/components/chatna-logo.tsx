@@ -6,9 +6,9 @@ interface ChatnaLogoProps {
 
 export function ChatnaLogo({ className = "", iconOnly = false, size = "md" }: ChatnaLogoProps) {
   const sizes = {
-    sm: { icon: "h-9", text: "text-lg", gap: "gap-2" },
-    md: { icon: "h-11 md:h-12", text: "text-[22px] md:text-[26px]", gap: "gap-3" },
-    lg: { icon: "h-12 md:h-[56px]", text: "text-[26px] md:text-[30px]", gap: "gap-3" },
+    sm: { icon: "h-9", text: "text-lg", gap: "gap-1.5" },
+    md: { icon: "h-11 md:h-12", text: "text-[22px] md:text-[26px]", gap: "gap-1.5" },
+    lg: { icon: "h-12 md:h-[56px]", text: "text-[26px] md:text-[30px]", gap: "gap-1.5" },
   };
 
   const s = sizes[size];
