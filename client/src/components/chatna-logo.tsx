@@ -25,7 +25,7 @@ export function ChatnaLogo({ className = "", iconOnly = false }: ChatnaLogoProps
         width="420"
         height="90"
         className="w-auto object-contain"
-        style={{ height: "90px" }}
+        style={{ height: "50px" }}
         decoding="sync"
       />
     </div>
