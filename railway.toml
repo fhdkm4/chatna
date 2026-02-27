@@ -1,9 +1,9 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm install --include=dev && npm run build"
+buildCommand = "npm install --include=dev && npx drizzle-kit push --force && npm run build"
 
 [deploy]
-startCommand = "bash start.sh"
+startCommand = "npm run start"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 180
 restartPolicyType = "on_failure"
