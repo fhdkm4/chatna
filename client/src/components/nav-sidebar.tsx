@@ -40,7 +40,7 @@ export function NavSidebar({ activeView, onViewChange, user, onLogout }: NavSide
           src="/chatna-logo.png"
           alt="Chatna"
           style={{
-            height: "44px",
+            height: "54px",
             width: "auto",
             objectFit: "contain",
             maxWidth: "52px",
