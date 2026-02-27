@@ -121,7 +121,7 @@ export default function AuthPage() {
       <div className="relative z-10 w-full max-w-md mx-4">
         <div className="text-center mb-8">
           <div className="inline-flex items-center mb-4">
-            <ChatnaLogo size="lg" />
+            <ChatnaLogo />
           </div>
           <p className="text-gray-400 text-sm">
             منصة خدمة العملاء الذكية عبر واتساب

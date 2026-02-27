@@ -212,7 +212,7 @@ export default function LandingPage() {
 
       <nav ref={navRef} className="l-nav" data-testid="landing-nav">
         <div className="nav-in">
-          <a href="/landing" className="l-logo" data-testid="text-brand-logo"><ChatnaLogo size="lg" /></a>
+          <a href="/landing" className="l-logo" data-testid="text-brand-logo"><ChatnaLogo /></a>
           <div className="nav-r">
             <button className="nav-lnk" onClick={() => scrollTo("features")} data-testid="link-features">المميزات</button>
             <button className="nav-lnk" onClick={() => scrollTo("how")} data-testid="link-how">كيف يعمل</button>
