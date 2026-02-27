@@ -11,7 +11,7 @@ export function ChatnaLogo({ className = "", height = 42 }: ChatnaLogoProps) {
         alt="Chatna Logo"
         className="logo"
         style={{ height: `${height}px`, width: "auto" }}
-        width={Math.round(height * 4.5)}
+        width={Math.round(height * 1.5)}
         height={height}
         decoding="sync"
       />

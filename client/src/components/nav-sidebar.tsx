@@ -45,8 +45,6 @@ export function NavSidebar({ activeView, onViewChange, user, onLogout }: NavSide
             objectFit: "contain",
             maxWidth: "52px",
             background: "transparent",
-            mixBlendMode: "lighten" as const,
-            filter: "brightness(1.15)",
           }}
           decoding="sync"
           data-testid="sidebar-logo"

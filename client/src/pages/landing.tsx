@@ -49,7 +49,7 @@ export default function LandingPage() {
         .nav-in{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between}
         .l-logo{font-size:1.5rem;font-weight:900;color:var(--text);text-decoration:none;letter-spacing:-0.5px}
         .l-logo span{color:var(--g1)}
-        .l-logo img,.l-logo .logo{height:36px;width:auto;object-fit:contain;background:transparent;mix-blend-mode:lighten;filter:brightness(1.15) drop-shadow(0 0 6px rgba(110,192,71,0.25))}
+        .l-logo img,.l-logo .logo{height:36px;width:auto;object-fit:contain;background:transparent}
         .nav-r{display:flex;gap:12px;align-items:center}
         .nav-lnk{color:var(--text2);text-decoration:none;font-size:.85rem;font-weight:500;padding:8px 16px;border-radius:8px;transition:all .3s;cursor:pointer;background:none;border:none;font-family:inherit}
         .nav-lnk:hover{color:var(--text)}
