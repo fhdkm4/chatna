@@ -54,6 +54,8 @@ export interface IStorage {
   createMessage(data: InsertMessage): Promise<Message>;
   getMessagesByConversation(conversationId: string): Promise<Message[]>;
   getRecentMessages(conversationId: string, limit?: number): Promise<Message[]>;
+  getLastCustomerMessage(conversationId: string): Promise<Message | undefined>;
+  getCampaignBlockRate(tenantId: string): Promise<number>;
 
   createAutoReply(data: InsertAutoReply): Promise<AutoReply>;
   getAutoRepliesByTenant(tenantId: string): Promise<AutoReply[]>;
@@ -325,6 +327,24 @@ class DatabaseStorage implements IStorage {
       .orderBy(desc(messages.createdAt))
       .limit(limit);
     return msgs.reverse();
+  }
+
+  async getLastCustomerMessage(conversationId: string): Promise<Message | undefined> {
+    const msgs = await db.select().from(messages)
+      .where(and(eq(messages.conversationId, conversationId), eq(messages.senderType, "customer")))
+      .orderBy(desc(messages.createdAt))
+      .limit(1);
+    return msgs[0];
+  }
+
+  async getCampaignBlockRate(tenantId: string): Promise<number> {
+    const recentLogs = await db.select().from(campaignLogs)
+      .where(eq(campaignLogs.tenantId, tenantId))
+      .orderBy(desc(campaignLogs.sentAt))
+      .limit(100);
+    if (recentLogs.length === 0) return 0;
+    const failed = recentLogs.filter(l => l.status === "failed").length;
+    return (failed / recentLogs.length) * 100;
   }
 
   async createAutoReply(data: InsertAutoReply): Promise<AutoReply> {

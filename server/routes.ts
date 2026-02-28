@@ -1754,9 +1754,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
 
       let twilioSid: string | null = null;
+      let windowWarning: string | undefined;
       if (!isInternal && conversation.contactId) {
         const contact = await storage.getContactById(conversation.contactId, req.user.tenantId);
         if (contact) {
+          const lastCustomerMsg = await storage.getLastCustomerMessage(conversation.id);
+          const now = new Date();
+          const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          const withinWindow = lastCustomerMsg?.createdAt && new Date(lastCustomerMsg.createdAt) > twentyFourHoursAgo;
+
+          if (!withinWindow) {
+            windowWarning = "تنبيه: آخر رسالة من العميل تجاوزت 24 ساعة. يُسمح فقط بإرسال Template معتمد خارج هذه النافذة";
+          }
+
           try {
             twilioSid = await sendWhatsAppMessage(`whatsapp:${contact.phone}`, content, mediaUrl || undefined);
           } catch (err) {
@@ -1804,7 +1814,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         message: msg,
       });
 
-      res.status(201).json(msg);
+      const response: any = { ...msg };
+      if (windowWarning) response.windowWarning = windowWarning;
+      res.status(201).json(response);
     } catch (err) {
       console.error("Send message error:", err);
       res.status(500).json({ message: "خطأ في إرسال الرسالة" });
@@ -2295,6 +2307,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     description: z.union([z.string(), z.null()]).optional(),
     imageUrl: z.union([z.string(), z.null()]).optional(),
     messageText: z.union([z.string(), z.null()]).optional(),
+    templateName: z.union([z.string(), z.null()]).optional(),
     ctaType: z.union([z.string(), z.null()]).optional(),
     ctaValue: z.union([z.string(), z.null()]).optional(),
     targetType: z.string().optional(),
@@ -2368,6 +2381,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(404).json({ message: "الحملة غير موجودة" });
       }
 
+      if (!campaign.templateName || campaign.templateName.trim() === "") {
+        return res.status(400).json({
+          message: "يجب تحديد اسم Template معتمد من Meta قبل إرسال الحملة",
+          reason: "no_template",
+        });
+      }
+
+      const blockRate = await storage.getCampaignBlockRate(req.user.tenantId);
+      if (blockRate > 3) {
+        return res.status(400).json({
+          message: `نسبة الفشل/الحظر مرتفعة (${blockRate.toFixed(1)}%). يجب أن تكون أقل من 3% قبل إرسال حملة جديدة`,
+          reason: "high_block_rate",
+          blockRate: blockRate.toFixed(1),
+        });
+      }
+
       let allTargetContacts: any[] = [];
       if (campaign.targetType === "all") {
         allTargetContacts = await storage.getContactsByTenant(req.user.tenantId);
@@ -2404,7 +2433,34 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       } as any);
 
       let deliveredCount = 0;
-      for (const contact of targetContacts) {
+      const BATCH_SIZE = 20;
+      const BATCH_DELAY_MS = 2000;
+
+      for (let i = 0; i < targetContacts.length; i++) {
+        const contact = targetContacts[i];
+
+        if (i > 0 && i % BATCH_SIZE === 0) {
+          await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+
+          const currentBlockRate = await storage.getCampaignBlockRate(req.user.tenantId);
+          if (currentBlockRate > 3) {
+            console.warn(`⚠️ Campaign ${campaign.id} stopped: block rate ${currentBlockRate.toFixed(1)}% exceeded 3%`);
+            await storage.updateCampaign(campaign.id, req.user.tenantId, {
+              deliveredCount,
+              status: "stopped",
+            } as any);
+            return res.json({
+              success: false,
+              message: `تم إيقاف الحملة تلقائياً — نسبة الفشل بلغت ${currentBlockRate.toFixed(1)}%`,
+              totalRecipients: targetContacts.length,
+              deliveredCount,
+              skippedNoOptIn: skippedCount,
+              stoppedAt: i,
+              reason: "block_rate_exceeded",
+            });
+          }
+        }
+
         try {
           const baseText = campaign.messageText || campaign.title;
           const messageText = `${baseText}\n\n---\nلإلغاء الاشتراك، أرسل: إلغاء`;
@@ -2442,7 +2498,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             conversationId: conversation!.id,
             tenantId: req.user.tenantId,
             senderType: "system",
-            content: `📢 حملة "${campaign.title}": ${messageText}`,
+            content: `📢 حملة "${campaign.title}": ${baseText}`,
             twilioSid: sid,
           });
 

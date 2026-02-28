@@ -134,6 +134,10 @@ Preferred communication style: Simple, everyday language.
 - **Unsubscribe**: Customers can send "إلغاء" or "stop" via WhatsApp to auto-unsubscribe; confirmation message sent automatically
 - **Re-subscribe**: Customers can send "اشتراك" or "subscribe" to re-opt-in
 - **Campaign Enforcement**: `POST /api/campaigns/:id/send` filters out contacts without opt-in before sending
+- **Template Required**: Campaigns must have `templateName` set before sending — rejected with `no_template` reason otherwise
+- **Block Rate Protection**: Before sending, checks last 100 campaign logs; if failure rate > 3%, campaign is blocked. During sending, re-checks every 20 messages and auto-stops if rate exceeds 3%
+- **Rate Limiting**: Campaigns send in batches of 20 with 2-second delays between batches to prevent sudden spikes
+- **24-Hour Window**: Agent messages check if last customer message was within 24 hours. If outside window, response includes `windowWarning` indicating only approved Templates should be sent
 - **Unsubscribe Footer**: Every campaign message includes "لإلغاء الاشتراك، أرسل: إلغاء" footer
 - **API Routes**: `POST /api/contacts/:id/opt-in`, `POST /api/contacts/:id/opt-out`, `POST /api/contacts/bulk-opt-in`
 - **Template Name**: Campaigns table has `templateName` field for WhatsApp approved template tracking
