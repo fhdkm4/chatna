@@ -90,6 +90,56 @@ async function ensureRlsPolicies(client: any) {
   console.log(`[migrate] RLS policies applied to ${tenantTables.length} tables`);
 }
 
+async function ensureSchemaColumns(client: any) {
+  console.log("[migrate] Ensuring schema columns and tables...");
+
+  const addColumnIfNotExists = async (table: string, column: string, definition: string) => {
+    const check = await client.query(`
+      SELECT 1 FROM information_schema.columns 
+      WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2
+    `, [table, column]);
+    if (check.rows.length === 0) {
+      await client.query(`ALTER TABLE "${table}" ADD COLUMN "${column}" ${definition}`);
+      console.log(`[migrate] Added column ${table}.${column}`);
+    }
+  };
+
+  await addColumnIfNotExists("tenants", "daily_send_limit", "INTEGER DEFAULT 250");
+  await addColumnIfNotExists("tenants", "warmup_days_remaining", "INTEGER DEFAULT 14");
+  await addColumnIfNotExists("tenants", "warmup_started_at", "TIMESTAMP");
+  await addColumnIfNotExists("tenants", "first_campaign_approved", "BOOLEAN DEFAULT false");
+
+  const mlCheck = await client.query(`
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_schema = 'public' AND table_name = 'message_logs'
+  `);
+  if (mlCheck.rows.length === 0) {
+    await client.query(`
+      CREATE TABLE message_logs (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        contact_id UUID REFERENCES contacts(id),
+        conversation_id UUID REFERENCES conversations(id),
+        template_name VARCHAR(255),
+        message_type VARCHAR(30) NOT NULL,
+        direction VARCHAR(10) NOT NULL DEFAULT 'outbound',
+        channel VARCHAR(20) DEFAULT 'whatsapp',
+        delivered BOOLEAN DEFAULT false,
+        read BOOLEAN DEFAULT false,
+        failed BOOLEAN DEFAULT false,
+        error_reason TEXT,
+        twilio_sid VARCHAR(100),
+        sent_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await client.query("CREATE INDEX IF NOT EXISTS message_logs_tenant_idx ON message_logs(tenant_id, sent_at)");
+    await client.query("CREATE INDEX IF NOT EXISTS message_logs_contact_idx ON message_logs(contact_id)");
+    console.log("[migrate] Created message_logs table");
+  }
+
+  console.log("[migrate] Schema columns verified");
+}
+
 export async function runMigrations() {
   const client = await pool.connect();
   try {
@@ -157,6 +207,7 @@ export async function runMigrations() {
       console.log("[migrate] All migrations applied successfully");
     }
 
+    await ensureSchemaColumns(client);
     await ensureRlsRole(client);
     await ensureRlsPolicies(client);
 
