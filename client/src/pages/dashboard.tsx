@@ -100,6 +100,10 @@ export default function Dashboard() {
   const [delayedConversations, setDelayedConversations] = useState<Set<string>>(new Set());
   const [chatWithMemberId, setChatWithMemberId] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
+  const messagesCacheRef = useRef<Map<string, Message[]>>(new Map());
+  const fetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debouncedFetchRef = useRef<() => void>(() => {});
+  const selectedConvRef = useRef<ConversationWithDetails | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -129,8 +133,11 @@ export default function Dashboard() {
     socketRef.current = socket;
 
     socket.on("new_message", (data: { conversationId: string; message: Message }) => {
-      if (selectedConversation?.id === data.conversationId) {
+      if (selectedConvRef.current?.id === data.conversationId) {
         setMessages((prev) => [...prev, data.message]);
+        messagesCacheRef.current.set(data.conversationId, [...(messagesCacheRef.current.get(data.conversationId) || []), data.message]);
+      } else {
+        messagesCacheRef.current.delete(data.conversationId);
       }
 
       if (data.message.senderType === "customer") {
@@ -141,7 +148,7 @@ export default function Dashboard() {
         );
       }
 
-      fetchConversations();
+      debouncedFetchRef.current();
     });
 
     socket.on("escalation", (data: { conversationId: string; reason: string }) => {
@@ -152,7 +159,7 @@ export default function Dashboard() {
         variant: "destructive",
       });
       showBrowserNotification("تنبيه - Chatna", "محادثة تحتاج تدخل بشري");
-      fetchConversations();
+      debouncedFetchRef.current();
     });
 
     socket.on("new_assignment", (data: { conversationId: string; contactName: string; contactPhone: string; lastMessage: string; priority: string; agentName: string }) => {
@@ -167,11 +174,11 @@ export default function Dashboard() {
         "محادثة جديدة - Chatna",
         `تم تعيين محادثة ${data.contactName} لك`
       );
-      fetchConversations();
+      debouncedFetchRef.current();
     });
 
     socket.on("conversation_updated", (_data: { conversationId: string; status: string; assignedTo?: string }) => {
-      fetchConversations();
+      debouncedFetchRef.current();
     });
 
     socket.on("agent_status", (data: { userId: string; status: string }) => {
@@ -194,11 +201,12 @@ export default function Dashboard() {
         variant: "destructive",
       });
       showBrowserNotification("تنبيه تأخير - Chatna", "محادثة لم يتم الرد عليها منذ أكثر من 10 دقائق");
-      fetchConversations();
+      debouncedFetchRef.current();
     });
 
     return () => {
       socket.disconnect();
+      if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
     };
   }, [token]);
 
@@ -230,16 +238,37 @@ export default function Dashboard() {
     }
   }, [filter, searchQuery]);
 
+  const debouncedFetchConversations = useCallback(() => {
+    if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
+    fetchTimerRef.current = setTimeout(() => {
+      fetchConversations();
+    }, 500);
+  }, [fetchConversations]);
+
+  useEffect(() => {
+    debouncedFetchRef.current = debouncedFetchConversations;
+  }, [debouncedFetchConversations]);
+
+  useEffect(() => {
+    selectedConvRef.current = selectedConversation;
+  }, [selectedConversation]);
+
   useEffect(() => {
     fetchConversations();
   }, [fetchConversations]);
 
   const fetchMessages = useCallback(async (conversationId: string) => {
+    const cached = messagesCacheRef.current.get(conversationId);
+    if (cached) {
+      setMessages(cached);
+      return;
+    }
     try {
       const res = await authFetch(`/api/conversations/${conversationId}/messages`);
       if (res.ok) {
         const data = await res.json();
         setMessages(data);
+        messagesCacheRef.current.set(conversationId, data);
       }
     } catch (err) {
       console.error("Failed to fetch messages:", err);
@@ -260,13 +289,17 @@ export default function Dashboard() {
       });
       if (res.ok) {
         const msg = await res.json();
-        setMessages((prev) => [...prev, msg]);
-        fetchConversations();
+        setMessages((prev) => {
+          const updated = [...prev, msg];
+          messagesCacheRef.current.set(selectedConversation.id, updated);
+          return updated;
+        });
+        debouncedFetchConversations();
       }
     } catch (err) {
       console.error("Failed to send message:", err);
     }
-  }, [selectedConversation, fetchConversations]);
+  }, [selectedConversation, debouncedFetchConversations]);
 
   const updateConversation = useCallback(async (id: string, updates: Partial<Conversation>) => {
     try {
@@ -274,14 +307,14 @@ export default function Dashboard() {
         method: "PATCH",
         body: JSON.stringify(updates),
       });
-      fetchConversations();
       if (selectedConversation?.id === id) {
         setSelectedConversation((prev) => prev ? { ...prev, ...updates } : null);
       }
+      debouncedFetchConversations();
     } catch (err) {
       console.error("Failed to update conversation:", err);
     }
-  }, [selectedConversation, fetchConversations]);
+  }, [selectedConversation, debouncedFetchConversations]);
 
   const transferConversation = useCallback(async (conversationId: string, toAgentId: string, reason?: string) => {
     try {
@@ -294,7 +327,7 @@ export default function Dashboard() {
           title: "تم التحويل",
           description: "تم تحويل المحادثة بنجاح",
         });
-        fetchConversations();
+        debouncedFetchConversations();
       } else {
         const err = await res.json();
         toast({ title: "خطأ", description: err.message, variant: "destructive" });
@@ -302,7 +335,7 @@ export default function Dashboard() {
     } catch (err) {
       console.error("Failed to transfer conversation:", err);
     }
-  }, [fetchConversations]);
+  }, [debouncedFetchConversations]);
 
   const assignAgent = useCallback(async (conversationId: string, agentId: string | null) => {
     try {
@@ -315,12 +348,12 @@ export default function Dashboard() {
           title: agentId ? "تم التعيين" : "تم إلغاء التعيين",
           description: agentId ? "تم تعيين الموظف للمحادثة" : "تم إلغاء تعيين الموظف",
         });
-        fetchConversations();
+        debouncedFetchConversations();
       }
     } catch (err) {
       console.error("Failed to assign agent:", err);
     }
-  }, [fetchConversations]);
+  }, [debouncedFetchConversations]);
 
   if (!user) return null;
 

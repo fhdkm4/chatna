@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db, pool } from "./db";
 import { eq, and, desc, ilike, or, sql, count, gte, lte, between, ne, isNull, asc } from "drizzle-orm";
 import {
   tenants, users, contacts, conversations, messages,
@@ -230,44 +230,104 @@ class DatabaseStorage implements IStorage {
   }
 
   async getConversationsByTenant(tenantId: string, status?: string, agentId?: string, role?: string): Promise<any[]> {
-    const conditions = [eq(conversations.tenantId, tenantId)];
+    const conditions = [`c.tenant_id = $1`];
+    const params: any[] = [tenantId];
+    let paramIdx = 2;
+
     if (status && status !== "all") {
-      conditions.push(eq(conversations.status, status));
+      conditions.push(`c.status = $${paramIdx}`);
+      params.push(status);
+      paramIdx++;
     }
     if (role === "agent" && agentId) {
-      conditions.push(eq(conversations.assignedTo, agentId));
+      conditions.push(`c.assigned_to = $${paramIdx}`);
+      params.push(agentId);
+      paramIdx++;
     }
 
-    const convs = await db.select().from(conversations)
-      .where(and(...conditions))
-      .orderBy(desc(conversations.updatedAt));
+    const whereClause = conditions.join(" AND ");
 
-    const result = [];
-    for (const conv of convs) {
-      const contact = conv.contactId
-        ? await this.getContactById(conv.contactId, tenantId)
-        : undefined;
+    const query = `
+      SELECT 
+        c.*,
+        row_to_json(ct.*) AS contact_data,
+        lm.last_message_data,
+        CASE WHEN u.id IS NOT NULL THEN json_build_object('id', u.id, 'name', u.name, 'email', u.email) ELSE NULL END AS agent_data
+      FROM conversations c
+      LEFT JOIN contacts ct ON ct.id = c.contact_id AND ct.tenant_id = c.tenant_id
+      LEFT JOIN users u ON u.id = c.assigned_to
+      LEFT JOIN LATERAL (
+        SELECT row_to_json(m.*) AS last_message_data
+        FROM messages m
+        WHERE m.conversation_id = c.id
+        ORDER BY m.created_at DESC
+        LIMIT 1
+      ) lm ON true
+      WHERE ${whereClause}
+      ORDER BY c.updated_at DESC
+    `;
 
-      const lastMsgs = await db.select().from(messages)
-        .where(eq(messages.conversationId, conv.id))
-        .orderBy(desc(messages.createdAt))
-        .limit(1);
+    const { rows } = await pool.query(query, params);
 
-      let assignedAgent = null;
-      if (conv.assignedTo) {
-        const agent = await this.getUserById(conv.assignedTo);
-        assignedAgent = agent ? { id: agent.id, name: agent.name, email: agent.email } : null;
-      }
+    return rows.map((row: any) => {
+      const contact = row.contact_data ? {
+        id: row.contact_data.id,
+        tenantId: row.contact_data.tenant_id,
+        phone: row.contact_data.phone,
+        name: row.contact_data.name,
+        tags: row.contact_data.tags || [],
+        notes: row.contact_data.notes,
+        sentiment: row.contact_data.sentiment || "neutral",
+        totalConversations: row.contact_data.total_conversations || 0,
+        optInStatus: row.contact_data.opt_in_status || false,
+        optInSource: row.contact_data.opt_in_source,
+        optInTimestamp: row.contact_data.opt_in_timestamp,
+        optInIp: row.contact_data.opt_in_ip,
+        unsubscribed: row.contact_data.unsubscribed || false,
+        unsubscribeTimestamp: row.contact_data.unsubscribe_timestamp,
+        createdAt: row.contact_data.created_at,
+        updatedAt: row.contact_data.updated_at,
+      } : null;
 
-      result.push({
-        ...conv,
+      const lastMessage = row.last_message_data ? {
+        id: row.last_message_data.id,
+        conversationId: row.last_message_data.conversation_id,
+        tenantId: row.last_message_data.tenant_id,
+        senderType: row.last_message_data.sender_type,
+        senderId: row.last_message_data.sender_id,
+        content: row.last_message_data.content,
+        mediaUrl: row.last_message_data.media_url,
+        mediaType: row.last_message_data.media_type,
+        metaMediaId: row.last_message_data.meta_media_id,
+        isInternal: row.last_message_data.is_internal,
+        aiConfidence: row.last_message_data.ai_confidence,
+        twilioSid: row.last_message_data.twilio_sid,
+        createdAt: row.last_message_data.created_at,
+      } : null;
+
+      return {
+        id: row.id,
+        tenantId: row.tenant_id,
+        contactId: row.contact_id,
+        assignedTo: row.assigned_to,
+        assignmentStatus: row.assignment_status,
+        status: row.status,
+        channel: row.channel,
+        aiHandled: row.ai_handled,
+        aiPaused: row.ai_paused,
+        aiFailedAttempts: row.ai_failed_attempts || 0,
+        delayAlerted: row.delay_alerted || false,
+        ratingRequested: row.rating_requested,
+        ratingScheduledAt: row.rating_scheduled_at,
+        startedAt: row.started_at,
+        resolvedAt: row.resolved_at,
+        updatedAt: row.updated_at,
         contact,
-        lastMessage: lastMsgs[0] || null,
+        lastMessage,
         unreadCount: 0,
-        assignedAgent,
-      });
-    }
-    return result;
+        assignedAgent: row.agent_data || null,
+      };
+    });
   }
 
   async getActiveConversation(tenantId: string, contactId: string): Promise<Conversation | undefined> {
