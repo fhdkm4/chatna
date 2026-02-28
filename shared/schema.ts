@@ -41,6 +41,10 @@ export const tenants = pgTable("tenants", {
   aiPersonalityInstructions: text("ai_personality_instructions"),
   defaultEscalationMessage: text("default_escalation_message"),
   languagePreference: varchar("language_preference", { length: 10 }).default("auto"),
+  dailySendLimit: integer("daily_send_limit").default(250),
+  warmupDaysRemaining: integer("warmup_days_remaining").default(14),
+  warmupStartedAt: timestamp("warmup_started_at"),
+  firstCampaignApproved: boolean("first_campaign_approved").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -282,6 +286,27 @@ export const conversationAssignmentsLog = pgTable("conversation_assignments_log"
   index("conv_assign_log_tenant_idx").on(table.tenantId),
 ]);
 
+export const messageLogs = pgTable("message_logs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  contactId: uuid("contact_id").references(() => contacts.id),
+  conversationId: uuid("conversation_id").references(() => conversations.id),
+  templateName: varchar("template_name", { length: 255 }),
+  messageType: varchar("message_type", { length: 30 }).notNull(),
+  direction: varchar("direction", { length: 10 }).notNull().default("outbound"),
+  channel: varchar("channel", { length: 20 }).default("whatsapp"),
+  delivered: boolean("delivered").default(false),
+  read: boolean("read").default(false),
+  failed: boolean("failed").default(false),
+  errorReason: text("error_reason"),
+  twilioSid: varchar("twilio_sid", { length: 100 }),
+  sentAt: timestamp("sent_at").defaultNow(),
+}, (table) => [
+  index("message_logs_tenant_idx").on(table.tenantId, table.sentAt),
+  index("message_logs_contact_idx").on(table.contactId),
+]);
+
+export const insertMessageLogSchema = createInsertSchema(messageLogs).omit({ id: true });
 export const insertInternalMessageSchema = createInsertSchema(internalMessages).omit({ id: true, createdAt: true });
 
 export const insertTenantSchema = createInsertSchema(tenants).omit({ id: true, createdAt: true, updatedAt: true });
@@ -366,3 +391,5 @@ export type InternalMessage = typeof internalMessages.$inferSelect;
 export type InsertInternalMessage = z.infer<typeof insertInternalMessageSchema>;
 export type ConversationAssignmentLog = typeof conversationAssignmentsLog.$inferSelect;
 export type InsertConversationAssignmentLog = z.infer<typeof insertConversationAssignmentsLogSchema>;
+export type MessageLog = typeof messageLogs.$inferSelect;
+export type InsertMessageLog = z.infer<typeof insertMessageLogSchema>;

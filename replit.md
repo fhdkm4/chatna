@@ -71,7 +71,9 @@ Preferred communication style: Simple, everyday language.
   - `campaignLogs` — Per-contact delivery logs for each campaign (status, error, sentAt)
   - `products` — Product catalog entries with name, description, price, currency, category, image, and WhatsApp sharing
   - `conversationAssignmentsLog` — Assignment change tracking log (conversationId, previousAssignee, newAssignee, assignedBy, createdAt)
-- **Schema push**: Use `npm run db:push` (runs `drizzle-kit push`) to sync schema to database
+  - `messageLogs` — Full audit trail for all messages (inbound/outbound), tracking delivery, read, failures, template usage, Twilio SID. Every message is logged — no send without a record
+- **Tenant Compliance Fields**: `dailySendLimit` (default 250), `warmupDaysRemaining` (default 14), `warmupStartedAt`, `firstCampaignApproved` (admin must approve before first campaign)
+- **Schema push**: Use `npm run db:push` (runs `drizzle-kit push`) to sync schema to database. NOTE: App uses NEON_DATABASE_URL; drizzle-kit uses DATABASE_URL — both need to be in sync
 - **Storage layer** (`server/storage.ts`): Repository pattern interface (`IStorage`) abstracting all database operations
 
 ### Multi-Tenancy & Security
@@ -131,7 +133,7 @@ Preferred communication style: Simple, everyday language.
 ### WhatsApp Business Compliance
 - **Opt-in System**: Contacts must have `optInStatus = true` and `unsubscribed = false` to receive campaign messages
 - **Opt-in Sources**: `website`, `in_store`, `whatsapp`, `api`, `dashboard`
-- **Unsubscribe**: Customers can send "إلغاء" or "stop" via WhatsApp to auto-unsubscribe; confirmation message sent automatically
+- **Unsubscribe**: Customers can send "إلغاء", "إيقاف", "stop", or "unsubscribe" via WhatsApp to auto-unsubscribe; confirmation message sent automatically
 - **Re-subscribe**: Customers can send "اشتراك" or "subscribe" to re-opt-in
 - **Campaign Enforcement**: `POST /api/campaigns/:id/send` filters out contacts without opt-in before sending
 - **Template Required**: Campaigns must have `templateName` set before sending — rejected with `no_template` reason otherwise
@@ -141,3 +143,9 @@ Preferred communication style: Simple, everyday language.
 - **Unsubscribe Footer**: Every campaign message includes "لإلغاء الاشتراك، أرسل: إلغاء" footer
 - **API Routes**: `POST /api/contacts/:id/opt-in`, `POST /api/contacts/:id/opt-out`, `POST /api/contacts/bulk-opt-in`
 - **Template Name**: Campaigns table has `templateName` field for WhatsApp approved template tracking
+- **Daily Send Limit**: Default 250 messages/day, enforced in campaign send route. Admin can adjust via `PATCH /api/tenant/daily-limit`
+- **Warm-up System**: New numbers start with 14-day warm-up period. During warm-up, daily limit is progressively increased (starting ~50 msgs, scaling by 1.3x daily)
+- **Admin Approval**: First campaign requires admin approval via `POST /api/tenant/approve-first-campaign`
+- **Message Audit Log**: All messages (inbound/outbound) logged to `message_logs` table. No send without a record
+- **Number Health Dashboard**: `GET /api/number-health` returns blockRate, deliveryRate, readRate, dailySent, dailyLimit, qualityRating, riskLevel, warmupDaysRemaining
+- **Twilio Only**: Only Twilio WhatsApp Business API supported. No WhatsApp Web or unofficial methods

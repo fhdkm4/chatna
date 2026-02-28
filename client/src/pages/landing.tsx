@@ -226,7 +226,7 @@ export default function LandingPage() {
       <section className="hero">
         <div className="glow-top" />
         <div className="hero-in">
-          <div className="hero-tag" data-testid="text-hero-tag"><span className="dot" />منصة خدمة عملاء واتساب بالذكاء الاصطناعي</div>
+          <div className="hero-tag" data-testid="text-hero-tag"><span className="dot" />منصة تنظيم محادثات وتسويق ذكي متوافق مع WhatsApp Business</div>
           <h1 data-testid="text-hero-title">حوّل واتساب شركتك<br />إلى <span className="hl">قوة خارقة</span></h1>
           <p data-testid="text-hero-subtitle">ذكاء اصطناعي يرد فوراً، فريقك يتعاون على رقم واحد، وتحليلات حقيقية تساعدك تنمو — كله من مكان واحد.</p>
           <div className="hero-btns">

@@ -10,6 +10,7 @@ import { AutoReplies } from "@/components/auto-replies";
 import { AiSettings } from "@/components/ai-settings";
 import { CompanyIdentity } from "@/components/company-identity";
 import { StatsOverview } from "@/components/stats-overview";
+import { NumberHealthDashboard } from "@/components/number-health";
 import { TeamManagement } from "@/components/team-management";
 import { TeamMonitoring } from "@/components/team-monitoring";
 import { Campaigns } from "@/components/campaigns";
@@ -341,7 +342,12 @@ export default function Dashboard() {
       case "company-identity":
         return <CompanyIdentity />;
       case "analytics":
-        return <StatsOverview />;
+        return (
+          <div className="space-y-6">
+            <NumberHealthDashboard />
+            <StatsOverview />
+          </div>
+        );
       case "settings":
         return <AutoReplies />;
       case "team":

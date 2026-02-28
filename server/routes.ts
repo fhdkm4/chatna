@@ -1524,7 +1524,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       const messageContent = incoming.content || (incoming.mediaType?.startsWith("image") ? "[صورة]" : "[ملف]");
 
-      const unsubKeywords = ["إلغاء", "الغاء", "stop", "unsubscribe", "إلغاء الاشتراك"];
+      const unsubKeywords = ["إلغاء", "الغاء", "stop", "unsubscribe", "إلغاء الاشتراك", "إيقاف", "ايقاف"];
       if (incoming.content && unsubKeywords.some(k => incoming.content!.trim().toLowerCase() === k.toLowerCase())) {
         await storage.updateContact(contact.id, tenantId!, {
           unsubscribed: true,
@@ -1564,6 +1564,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         mediaType: incoming.mediaType,
         metaMediaId: incoming.metaMediaId,
         twilioSid: incoming.messageSid,
+      });
+
+      await storage.createMessageLog({
+        tenantId,
+        contactId: contact.id,
+        conversationId: conversation.id,
+        messageType: "customer_message",
+        direction: "inbound",
+        channel: "whatsapp",
+        delivered: true,
+        twilioSid: incoming.messageSid,
+        sentAt: new Date(),
       });
 
       io.to(`tenant:${tenantId}`).emit("new_message", {
@@ -1619,6 +1631,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           aiConfidence: 1.0,
           twilioSid: sid,
         });
+        await storage.createMessageLog({
+          tenantId,
+          contactId: contact.id,
+          conversationId: conversation.id,
+          messageType: "auto_reply",
+          direction: "outbound",
+          channel: "whatsapp",
+          delivered: !!sid,
+          failed: !sid,
+          twilioSid: sid,
+          sentAt: new Date(),
+        });
         await storage.updateConversation(conversation.id, tenantId!, { aiHandled: true });
         io.to(`tenant:${tenantId}`).emit("new_message", {
           conversationId: conversation.id,
@@ -1653,6 +1677,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           aiConfidence: aiResponse.confidence,
           twilioSid: sid,
         });
+        await storage.createMessageLog({
+          tenantId,
+          contactId: contact.id,
+          conversationId: conversation.id,
+          messageType: "ai_reply",
+          direction: "outbound",
+          channel: "whatsapp",
+          delivered: !!sid,
+          failed: !sid,
+          twilioSid: sid,
+          sentAt: new Date(),
+        });
         await storage.updateConversation(conversation.id, tenantId!, { aiHandled: true, aiFailedAttempts: 0 });
         io.to(`tenant:${tenantId}`).emit("new_message", {
           conversationId: conversation.id,
@@ -1674,6 +1710,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             content: aiResponse.content,
             aiConfidence: aiResponse.confidence,
             twilioSid: sid,
+          });
+          await storage.createMessageLog({
+            tenantId,
+            contactId: contact.id,
+            conversationId: conversation.id,
+            messageType: "ai_reply",
+            direction: "outbound",
+            channel: "whatsapp",
+            delivered: !!sid,
+            failed: !sid,
+            twilioSid: sid,
+            sentAt: new Date(),
           });
           io.to(`tenant:${tenantId}`).emit("new_message", {
             conversationId: conversation.id,
@@ -1801,6 +1849,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           await storage.updateConversation(conversation.id, req.user.tenantId, updateData);
         }
         await storage.incrementAgentMetric(req.user.id, req.user.tenantId, "totalMessages");
+
+        await storage.createMessageLog({
+          tenantId: req.user.tenantId,
+          contactId: conversation.contactId,
+          conversationId: conversation.id,
+          messageType: "agent_reply",
+          direction: "outbound",
+          channel: "whatsapp",
+          delivered: !!twilioSid,
+          failed: !twilioSid && !isInternal,
+          twilioSid: twilioSid,
+          sentAt: new Date(),
+        });
+
         await storage.createActivityLog({
           tenantId: req.user.tenantId,
           userId: req.user.id,
@@ -2388,6 +2450,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         });
       }
 
+      const tenant = await storage.getTenant(req.user.tenantId);
+      if (!tenant) {
+        return res.status(404).json({ message: "المنشأة غير موجودة" });
+      }
+
+      if (!tenant.firstCampaignApproved) {
+        return res.status(400).json({
+          message: "يجب الحصول على موافقة إدارية قبل إرسال أول حملة",
+          reason: "not_approved",
+        });
+      }
+
       const blockRate = await storage.getCampaignBlockRate(req.user.tenantId);
       if (blockRate > 3) {
         return res.status(400).json({
@@ -2396,6 +2470,34 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           blockRate: blockRate.toFixed(1),
         });
       }
+
+      const dailySent = await storage.getDailySendCount(req.user.tenantId);
+      let effectiveLimit = tenant.dailySendLimit || 250;
+
+      if (tenant.warmupDaysRemaining && tenant.warmupDaysRemaining > 0) {
+        if (!tenant.warmupStartedAt) {
+          await storage.updateTenant(req.user.tenantId, { warmupStartedAt: new Date() });
+        } else {
+          const daysSinceStart = Math.floor((Date.now() - new Date(tenant.warmupStartedAt).getTime()) / (24 * 60 * 60 * 1000));
+          const newRemaining = Math.max(0, 14 - daysSinceStart);
+          if (newRemaining !== tenant.warmupDaysRemaining) {
+            await storage.updateTenant(req.user.tenantId, { warmupDaysRemaining: newRemaining });
+          }
+        }
+        const warmupProgress = Math.max(1, 14 - (tenant.warmupDaysRemaining || 0));
+        effectiveLimit = Math.min(effectiveLimit, Math.floor(50 * Math.pow(1.3, warmupProgress - 1)));
+      }
+
+      if (dailySent >= effectiveLimit) {
+        return res.status(400).json({
+          message: `تم الوصول للحد اليومي للإرسال (${effectiveLimit} رسالة). حاول مرة أخرى غداً`,
+          reason: "daily_limit_reached",
+          dailySent,
+          dailyLimit: effectiveLimit,
+        });
+      }
+
+      const remaining = effectiveLimit - dailySent;
 
       let allTargetContacts: any[] = [];
       if (campaign.targetType === "all") {
@@ -2412,11 +2514,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         );
       }
 
-      const targetContacts = allTargetContacts.filter((c: any) =>
+      let targetContacts = allTargetContacts.filter((c: any) =>
         c.optInStatus === true && c.unsubscribed !== true
       );
 
       const skippedCount = allTargetContacts.length - targetContacts.length;
+      let cappedByLimit = 0;
+      if (targetContacts.length > remaining) {
+        cappedByLimit = targetContacts.length - remaining;
+        targetContacts = targetContacts.slice(0, remaining);
+      }
 
       if (targetContacts.length === 0) {
         return res.status(400).json({
@@ -2514,6 +2621,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             status: "sent",
             sentAt: new Date(),
           });
+
+          await storage.createMessageLog({
+            tenantId: req.user.tenantId,
+            contactId: contact.id,
+            conversationId: conversation?.id,
+            templateName: campaign.templateName,
+            messageType: "campaign",
+            direction: "outbound",
+            channel: "whatsapp",
+            delivered: true,
+            twilioSid: sid,
+            sentAt: new Date(),
+          });
+
           deliveredCount++;
         } catch (sendErr: any) {
           await storage.createCampaignLog({
@@ -2522,6 +2643,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             tenantId: req.user.tenantId,
             status: "failed",
             error: sendErr.message,
+          });
+
+          await storage.createMessageLog({
+            tenantId: req.user.tenantId,
+            contactId: contact.id,
+            templateName: campaign.templateName,
+            messageType: "campaign",
+            direction: "outbound",
+            channel: "whatsapp",
+            failed: true,
+            errorReason: sendErr.message,
+            sentAt: new Date(),
           });
         }
       }
@@ -2533,6 +2666,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         totalRecipients: targetContacts.length,
         deliveredCount,
         skippedNoOptIn: skippedCount,
+        cappedByDailyLimit: cappedByLimit,
       });
     } catch (err) {
       console.error("Campaign send error:", err);
@@ -2636,6 +2770,67 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err) {
       console.error("Text generation error:", err);
       res.status(500).json({ message: "خطأ في إنشاء النص" });
+    }
+  });
+
+  // ==================== NUMBER HEALTH & COMPLIANCE ====================
+
+  app.get("/api/number-health", authMiddleware, async (req: any, res) => {
+    try {
+      const health = await storage.getNumberHealth(req.user.tenantId);
+      const tenant = await storage.getTenant(req.user.tenantId);
+      let riskLevel: "safe" | "warning" | "danger" = "safe";
+      if (health.blockRate > 3) riskLevel = "danger";
+      else if (health.blockRate > 1) riskLevel = "warning";
+
+      res.json({
+        ...health,
+        qualityRating: tenant?.qualityRating || "unknown",
+        riskLevel,
+        warmupDaysRemaining: tenant?.warmupDaysRemaining || 0,
+        firstCampaignApproved: tenant?.firstCampaignApproved || false,
+      });
+    } catch (err) {
+      console.error("Number health error:", err);
+      res.status(500).json({ message: "خطأ في جلب صحة الرقم" });
+    }
+  });
+
+  app.get("/api/message-logs", authMiddleware, async (req: any, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const logs = await storage.getMessageLogsByTenant(req.user.tenantId, limit);
+      res.json(logs);
+    } catch (err) {
+      console.error("Message logs error:", err);
+      res.status(500).json({ message: "خطأ في جلب سجلات الرسائل" });
+    }
+  });
+
+  app.patch("/api/tenant/daily-limit", authMiddleware, managerOrAdmin, async (req: any, res) => {
+    try {
+      const { dailySendLimit } = req.body;
+      if (typeof dailySendLimit !== "number" || dailySendLimit < 1) {
+        return res.status(400).json({ message: "الحد اليومي غير صالح" });
+      }
+      const updated = await storage.updateTenant(req.user.tenantId, { dailySendLimit });
+      res.json(updated);
+    } catch (err) {
+      console.error("Daily limit error:", err);
+      res.status(500).json({ message: "خطأ في تحديث الحد اليومي" });
+    }
+  });
+
+  app.post("/api/tenant/approve-first-campaign", authMiddleware, managerOrAdmin, async (req: any, res) => {
+    try {
+      if (req.user.role !== "admin") {
+        return res.status(403).json({ message: "فقط المدير يمكنه الموافقة" });
+      }
+      const updated = await storage.updateTenant(req.user.tenantId, { firstCampaignApproved: true });
+      res.json(updated);
+    } catch (err) {
+      console.error("Approve campaign error:", err);
+      res.status(500).json({ message: "خطأ في الموافقة على الحملة" });
     }
   });
 

@@ -4,7 +4,7 @@ import {
   tenants, users, contacts, conversations, messages,
   autoReplies, aiKnowledge, quickReplies, invitations,
   ratings, agentMetrics, activityLog,
-  campaigns, campaignLogs, products, internalMessages,
+  campaigns, campaignLogs, products, internalMessages, messageLogs,
   type Tenant, type InsertTenant,
   type User, type InsertUser,
   type Contact, type InsertContact,
@@ -23,6 +23,7 @@ import {
   type InternalMessage, type InsertInternalMessage,
   conversationAssignmentsLog,
   type ConversationAssignmentLog, type InsertConversationAssignmentLog,
+  type MessageLog, type InsertMessageLog,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -56,6 +57,10 @@ export interface IStorage {
   getRecentMessages(conversationId: string, limit?: number): Promise<Message[]>;
   getLastCustomerMessage(conversationId: string): Promise<Message | undefined>;
   getCampaignBlockRate(tenantId: string): Promise<number>;
+  createMessageLog(data: InsertMessageLog): Promise<MessageLog>;
+  getMessageLogsByTenant(tenantId: string, limit?: number): Promise<MessageLog[]>;
+  getDailySendCount(tenantId: string): Promise<number>;
+  getNumberHealth(tenantId: string): Promise<{ blockRate: number; deliveryRate: number; readRate: number; dailySent: number; dailyLimit: number }>;
 
   createAutoReply(data: InsertAutoReply): Promise<AutoReply>;
   getAutoRepliesByTenant(tenantId: string): Promise<AutoReply[]>;
@@ -345,6 +350,53 @@ class DatabaseStorage implements IStorage {
     if (recentLogs.length === 0) return 0;
     const failed = recentLogs.filter(l => l.status === "failed").length;
     return (failed / recentLogs.length) * 100;
+  }
+
+  async createMessageLog(data: InsertMessageLog): Promise<MessageLog> {
+    const [log] = await db.insert(messageLogs).values(data).returning();
+    return log;
+  }
+
+  async getMessageLogsByTenant(tenantId: string, limit = 100): Promise<MessageLog[]> {
+    return db.select().from(messageLogs)
+      .where(eq(messageLogs.tenantId, tenantId))
+      .orderBy(desc(messageLogs.sentAt))
+      .limit(limit);
+  }
+
+  async getDailySendCount(tenantId: string): Promise<number> {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const result = await db.select({ count: count() }).from(messageLogs)
+      .where(and(
+        eq(messageLogs.tenantId, tenantId),
+        eq(messageLogs.direction, "outbound"),
+        gte(messageLogs.sentAt, todayStart),
+      ));
+    return result[0]?.count || 0;
+  }
+
+  async getNumberHealth(tenantId: string): Promise<{ blockRate: number; deliveryRate: number; readRate: number; dailySent: number; dailyLimit: number }> {
+    const recentLogs = await db.select().from(messageLogs)
+      .where(and(eq(messageLogs.tenantId, tenantId), eq(messageLogs.direction, "outbound")))
+      .orderBy(desc(messageLogs.sentAt))
+      .limit(200);
+
+    const total = recentLogs.length;
+    const failed = recentLogs.filter(l => l.failed).length;
+    const delivered = recentLogs.filter(l => l.delivered).length;
+    const read = recentLogs.filter(l => l.read).length;
+
+    const tenant = await this.getTenant(tenantId);
+    const dailySent = await this.getDailySendCount(tenantId);
+
+    return {
+      blockRate: total > 0 ? (failed / total) * 100 : 0,
+      deliveryRate: total > 0 ? (delivered / total) * 100 : 0,
+      readRate: total > 0 ? (read / total) * 100 : 0,
+      dailySent,
+      dailyLimit: tenant?.dailySendLimit || 250,
+    };
   }
 
   async createAutoReply(data: InsertAutoReply): Promise<AutoReply> {
