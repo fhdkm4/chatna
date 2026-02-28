@@ -93,14 +93,22 @@ async function ensureRlsPolicies(client: any) {
 async function ensureSchemaColumns(client: any) {
   console.log("[migrate] Ensuring schema columns and tables...");
 
+  try {
+    await client.query("RESET ROLE");
+  } catch (_e) {}
+
   const addColumnIfNotExists = async (table: string, column: string, definition: string) => {
     const check = await client.query(`
       SELECT 1 FROM information_schema.columns 
       WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2
     `, [table, column]);
     if (check.rows.length === 0) {
-      await client.query(`ALTER TABLE "${table}" ADD COLUMN "${column}" ${definition}`);
-      console.log(`[migrate] Added column ${table}.${column}`);
+      try {
+        await client.query(`ALTER TABLE "${table}" ADD COLUMN "${column}" ${definition}`);
+        console.log(`[migrate] Added column ${table}.${column}`);
+      } catch (e: any) {
+        console.warn(`[migrate] Could not add ${table}.${column}: ${e.message}`);
+      }
     }
   };
 
@@ -108,6 +116,24 @@ async function ensureSchemaColumns(client: any) {
   await addColumnIfNotExists("tenants", "warmup_days_remaining", "INTEGER DEFAULT 14");
   await addColumnIfNotExists("tenants", "warmup_started_at", "TIMESTAMP");
   await addColumnIfNotExists("tenants", "first_campaign_approved", "BOOLEAN DEFAULT false");
+
+  await addColumnIfNotExists("contacts", "opt_in_status", "BOOLEAN DEFAULT false");
+  await addColumnIfNotExists("contacts", "opt_in_source", "VARCHAR(30)");
+  await addColumnIfNotExists("contacts", "opt_in_timestamp", "TIMESTAMP");
+  await addColumnIfNotExists("contacts", "opt_in_ip", "VARCHAR(45)");
+  await addColumnIfNotExists("contacts", "unsubscribed", "BOOLEAN DEFAULT false");
+  await addColumnIfNotExists("contacts", "unsubscribe_timestamp", "TIMESTAMP");
+  await addColumnIfNotExists("contacts", "tags", "TEXT[] DEFAULT '{}'");
+  await addColumnIfNotExists("contacts", "sentiment", "VARCHAR(20) DEFAULT 'neutral'");
+  await addColumnIfNotExists("contacts", "total_conversations", "INTEGER DEFAULT 0");
+
+  await addColumnIfNotExists("campaigns", "template_name", "VARCHAR(255)");
+  await addColumnIfNotExists("campaigns", "target_tags", "TEXT[] DEFAULT '{}'");
+  await addColumnIfNotExists("campaigns", "target_contact_ids", "TEXT[] DEFAULT '{}'");
+
+  await addColumnIfNotExists("conversations", "assignment_status", "VARCHAR(30)");
+  await addColumnIfNotExists("conversations", "ai_failed_attempts", "INTEGER DEFAULT 0");
+  await addColumnIfNotExists("conversations", "delay_alerted", "BOOLEAN DEFAULT false");
 
   const mlCheck = await client.query(`
     SELECT 1 FROM information_schema.tables 
