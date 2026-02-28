@@ -58,7 +58,7 @@ Preferred communication style: Simple, everyday language.
   - `tenants` — Multi-tenant organizations with plan, AI settings, Twilio config, Meta Cloud API encrypted tokens, quality rating, assignmentMode (round_robin/least_busy/manual), maxOpenConversationsPerUser (default 5)
   - `users` — Agents/admins/managers belonging to a tenant (email/password auth, roles: admin, manager, agent, maxConcurrentChats, isActive for enable/disable, jobTitle VARCHAR(120), avatarUrl TEXT, updatedAt TIMESTAMPTZ auto-updated)
   - `invitations` — Email-based team invitations with token, role, expiration
-  - `contacts` — Customer contacts per tenant (unique by tenant+phone)
+  - `contacts` — Customer contacts per tenant (unique by tenant+phone), with WhatsApp Business opt-in compliance fields (optInStatus, optInSource, optInTimestamp, optInIp, unsubscribed, unsubscribeTimestamp)
   - `conversations` — Chat sessions between contacts and tenants, with status tracking, agent assignment, assignmentStatus (ai_handling/waiting_human/assigned/closed), and aiFailedAttempts counter
   - `messages` — Individual messages in conversations (supports sender types: customer, agent, ai, system)
   - `autoReplies` — Rule-based automatic responses (keyword, exact, pattern triggers)
@@ -67,7 +67,7 @@ Preferred communication style: Simple, everyday language.
   - `internalMessages` — 1-to-1 private messages between team members within same tenant (completely separate from customer conversations)
   - `agentMetrics` — Daily agent performance metrics (totalConversations, resolvedConversations, avgResponseTimeSeconds, totalMessages)
   - `activityLog` — System activity audit trail (transfers, assignments, resolutions)
-  - `campaigns` — Marketing campaigns with targeting (all/tags/specific contacts), AI-generated content, scheduling, and delivery tracking
+  - `campaigns` — Marketing campaigns with targeting (all/tags/specific contacts), AI-generated content, scheduling, delivery tracking, and templateName for WhatsApp Business compliance
   - `campaignLogs` — Per-contact delivery logs for each campaign (status, error, sentAt)
   - `products` — Product catalog entries with name, description, price, currency, category, image, and WhatsApp sharing
   - `conversationAssignmentsLog` — Assignment change tracking log (conversationId, previousAssignee, newAssignee, assignedBy, createdAt)
@@ -127,3 +127,13 @@ Preferred communication style: Simple, everyday language.
 - `zustand` — Client state management
 - `date-fns` — Date formatting (with Arabic locale support)
 - `react-icons` — Icon library (WhatsApp icon)
+
+### WhatsApp Business Compliance
+- **Opt-in System**: Contacts must have `optInStatus = true` and `unsubscribed = false` to receive campaign messages
+- **Opt-in Sources**: `website`, `in_store`, `whatsapp`, `api`, `dashboard`
+- **Unsubscribe**: Customers can send "إلغاء" or "stop" via WhatsApp to auto-unsubscribe; confirmation message sent automatically
+- **Re-subscribe**: Customers can send "اشتراك" or "subscribe" to re-opt-in
+- **Campaign Enforcement**: `POST /api/campaigns/:id/send` filters out contacts without opt-in before sending
+- **Unsubscribe Footer**: Every campaign message includes "لإلغاء الاشتراك، أرسل: إلغاء" footer
+- **API Routes**: `POST /api/contacts/:id/opt-in`, `POST /api/contacts/:id/opt-out`, `POST /api/contacts/bulk-opt-in`
+- **Template Name**: Campaigns table has `templateName` field for WhatsApp approved template tracking

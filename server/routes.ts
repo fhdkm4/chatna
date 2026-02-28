@@ -1524,6 +1524,37 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       const messageContent = incoming.content || (incoming.mediaType?.startsWith("image") ? "[صورة]" : "[ملف]");
 
+      const unsubKeywords = ["إلغاء", "الغاء", "stop", "unsubscribe", "إلغاء الاشتراك"];
+      if (incoming.content && unsubKeywords.some(k => incoming.content!.trim().toLowerCase() === k.toLowerCase())) {
+        await storage.updateContact(contact.id, tenantId!, {
+          unsubscribed: true,
+          unsubscribeTimestamp: new Date(),
+        });
+        try {
+          await sendWhatsAppMessage(phone, "تم إلغاء اشتراكك بنجاح. لن تصلك رسائل تسويقية بعد الآن. يمكنك إعادة الاشتراك بإرسال: اشتراك");
+        } catch (e) {
+          console.error("Failed to send unsubscribe confirmation:", e);
+        }
+        return;
+      }
+
+      const resubKeywords = ["اشتراك", "subscribe"];
+      if (incoming.content && resubKeywords.some(k => incoming.content!.trim().toLowerCase() === k.toLowerCase())) {
+        await storage.updateContact(contact.id, tenantId!, {
+          optInStatus: true,
+          optInSource: "whatsapp",
+          optInTimestamp: new Date(),
+          unsubscribed: false,
+          unsubscribeTimestamp: null,
+        });
+        try {
+          await sendWhatsAppMessage(phone, "تم تفعيل اشتراكك بنجاح! ستصلك آخر العروض والتحديثات.");
+        } catch (e) {
+          console.error("Failed to send resubscribe confirmation:", e);
+        }
+        return;
+      }
+
       const customerMessage = await storage.createMessage({
         conversationId: conversation.id,
         tenantId,
@@ -1885,6 +1916,63 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err) {
       console.error("Update contact error:", err);
       res.status(500).json({ message: "خطأ في تحديث جهة الاتصال" });
+    }
+  });
+
+  app.post("/api/contacts/:id/opt-in", authMiddleware, async (req: any, res) => {
+    try {
+      const source = req.body.source || "dashboard";
+      const contact = await storage.updateContact(req.params.id, req.user.tenantId, {
+        optInStatus: true,
+        optInSource: source,
+        optInTimestamp: new Date(),
+        optInIp: req.ip,
+        unsubscribed: false,
+        unsubscribeTimestamp: null,
+      });
+      if (!contact) return res.status(404).json({ message: "جهة الاتصال غير موجودة" });
+      res.json(contact);
+    } catch (err) {
+      console.error("Opt-in error:", err);
+      res.status(500).json({ message: "خطأ في تسجيل الموافقة" });
+    }
+  });
+
+  app.post("/api/contacts/:id/opt-out", authMiddleware, async (req: any, res) => {
+    try {
+      const contact = await storage.updateContact(req.params.id, req.user.tenantId, {
+        unsubscribed: true,
+        unsubscribeTimestamp: new Date(),
+      });
+      if (!contact) return res.status(404).json({ message: "جهة الاتصال غير موجودة" });
+      res.json(contact);
+    } catch (err) {
+      console.error("Opt-out error:", err);
+      res.status(500).json({ message: "خطأ في إلغاء الاشتراك" });
+    }
+  });
+
+  app.post("/api/contacts/bulk-opt-in", authMiddleware, managerOrAdmin, async (req: any, res) => {
+    try {
+      const { contactIds, source } = req.body;
+      if (!Array.isArray(contactIds) || contactIds.length === 0) {
+        return res.status(400).json({ message: "يجب تحديد جهات اتصال" });
+      }
+      let updated = 0;
+      for (const id of contactIds) {
+        const result = await storage.updateContact(id, req.user.tenantId, {
+          optInStatus: true,
+          optInSource: source || "dashboard",
+          optInTimestamp: new Date(),
+          unsubscribed: false,
+          unsubscribeTimestamp: null,
+        });
+        if (result) updated++;
+      }
+      res.json({ updated, total: contactIds.length });
+    } catch (err) {
+      console.error("Bulk opt-in error:", err);
+      res.status(500).json({ message: "خطأ في تسجيل الموافقة الجماعية" });
     }
   });
 
@@ -2280,23 +2368,33 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(404).json({ message: "الحملة غير موجودة" });
       }
 
-      let targetContacts: any[] = [];
+      let allTargetContacts: any[] = [];
       if (campaign.targetType === "all") {
-        targetContacts = await storage.getContactsByTenant(req.user.tenantId);
+        allTargetContacts = await storage.getContactsByTenant(req.user.tenantId);
       } else if (campaign.targetType === "tags" && campaign.targetTags?.length) {
         const allContacts = await storage.getContactsByTenant(req.user.tenantId);
-        targetContacts = allContacts.filter((c: any) =>
+        allTargetContacts = allContacts.filter((c: any) =>
           c.tags?.some((t: string) => campaign.targetTags!.includes(t))
         );
       } else if (campaign.targetType === "specific" && campaign.targetContactIds?.length) {
         const allContacts = await storage.getContactsByTenant(req.user.tenantId);
-        targetContacts = allContacts.filter((c: any) =>
+        allTargetContacts = allContacts.filter((c: any) =>
           campaign.targetContactIds!.includes(c.id)
         );
       }
 
+      const targetContacts = allTargetContacts.filter((c: any) =>
+        c.optInStatus === true && c.unsubscribed !== true
+      );
+
+      const skippedCount = allTargetContacts.length - targetContacts.length;
+
       if (targetContacts.length === 0) {
-        return res.status(400).json({ message: "لا يوجد جهات اتصال مستهدفة" });
+        return res.status(400).json({
+          message: "لا يوجد جهات اتصال مستهدفة لديها موافقة (Opt-in) على استقبال الرسائل",
+          skippedCount,
+          reason: "no_opt_in",
+        });
       }
 
       await storage.updateCampaign(campaign.id, req.user.tenantId, {
@@ -2308,7 +2406,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       let deliveredCount = 0;
       for (const contact of targetContacts) {
         try {
-          const messageText = campaign.messageText || campaign.title;
+          const baseText = campaign.messageText || campaign.title;
+          const messageText = `${baseText}\n\n---\nلإلغاء الاشتراك، أرسل: إلغاء`;
           let sid: string | null = null;
           try {
             sid = await sendWhatsAppMessage(contact.phone, messageText);
@@ -2377,6 +2476,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         success: true,
         totalRecipients: targetContacts.length,
         deliveredCount,
+        skippedNoOptIn: skippedCount,
       });
     } catch (err) {
       console.error("Campaign send error:", err);
