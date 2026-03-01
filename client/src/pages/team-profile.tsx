@@ -204,7 +204,7 @@ export default function TeamProfile() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" data-testid="loading-spinner" />
       </div>
     );
@@ -212,8 +212,8 @@ export default function TeamProfile() {
 
   if (error || !profile) {
     return (
-      <div className="min-h-screen bg-[#0a0f1a] flex flex-col items-center justify-center gap-4">
-        <p className="text-gray-400 text-lg" data-testid="text-error-message">لم يتم العثور على الموظف</p>
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <p className="text-muted-foreground text-lg" data-testid="text-error-message">لم يتم العثور على الموظف</p>
         <Button variant="ghost" data-testid="button-back-error" onClick={() => navigate("/")} className="text-emerald-400">
           <ArrowRight className="w-4 h-4 ml-2" />
           العودة للوحة التحكم
@@ -227,19 +227,19 @@ export default function TeamProfile() {
   const isAdmin = user?.role === "admin";
 
   return (
-    <div className="min-h-screen bg-[#0a0f1a] text-white" dir="rtl">
+    <div className="min-h-screen bg-background text-foreground" dir="rtl">
       <div className="max-w-2xl mx-auto py-10 px-6">
         <Button
           variant="ghost"
           data-testid="button-back-dashboard"
           onClick={() => navigate("/")}
-          className="text-gray-400 mb-6"
+          className="text-muted-foreground mb-6"
         >
           <ArrowRight className="w-4 h-4 ml-2" />
           العودة للوحة التحكم
         </Button>
 
-        <div className="bg-[#111827]/80 border border-white/5 rounded-2xl p-8">
+        <div className="bg-popover/90 border border-border rounded-2xl p-8">
           <div className="flex flex-col items-center gap-4">
             <div className="relative group">
               {profile.avatarUrl ? (
@@ -247,12 +247,12 @@ export default function TeamProfile() {
                   src={profile.avatarUrl}
                   alt={profile.name}
                   data-testid="img-avatar"
-                  className={`w-24 h-24 rounded-full object-cover border-2 border-white/10 ${profile.isActive === false ? "grayscale" : ""}`}
+                  className={`w-24 h-24 rounded-full object-cover border-2 border-border ${profile.isActive === false ? "grayscale" : ""}`}
                 />
               ) : (
                 <div
                   data-testid="img-avatar-placeholder"
-                  className={`w-24 h-24 rounded-full flex items-center justify-center text-3xl font-bold text-white ${
+                  className={`w-24 h-24 rounded-full flex items-center justify-center text-3xl font-bold text-foreground ${
                     profile.isActive === false ? "bg-gray-600" : (ROLE_AVATAR_COLORS[profile.role] || ROLE_AVATAR_COLORS.agent)
                   }`}
                 >
@@ -282,9 +282,9 @@ export default function TeamProfile() {
                     className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer disabled:cursor-wait"
                   >
                     {isUploading ? (
-                      <Loader2 className="w-6 h-6 text-white animate-spin" />
+                      <Loader2 className="w-6 h-6 text-foreground animate-spin" />
                     ) : (
-                      <Camera className="w-6 h-6 text-white" />
+                      <Camera className="w-6 h-6 text-foreground" />
                     )}
                   </button>
                 </>
@@ -292,7 +292,7 @@ export default function TeamProfile() {
             </div>
 
             <div className="text-center">
-              <h1 data-testid="text-profile-name" className="text-xl font-bold text-white">
+              <h1 data-testid="text-profile-name" className="text-xl font-bold text-foreground">
                 {profile.name}
               </h1>
               {editingJobTitle ? (
@@ -302,7 +302,7 @@ export default function TeamProfile() {
                     value={jobTitleValue}
                     onChange={(e) => setJobTitleValue(e.target.value)}
                     maxLength={120}
-                    className="h-8 w-48 text-sm text-center bg-[#0a0f1a] border-white/10 text-white"
+                    className="h-8 w-48 text-sm text-center bg-background border-border text-foreground"
                     placeholder="المسمى الوظيفي"
                     autoFocus
                     onKeyDown={(e) => {
@@ -321,14 +321,14 @@ export default function TeamProfile() {
                   <button
                     data-testid="button-cancel-job-title"
                     onClick={() => setEditingJobTitle(false)}
-                    className="p-1 text-gray-400 hover:text-gray-300 transition-colors"
+                    className="p-1 text-muted-foreground hover:text-gray-300 transition-colors"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
               ) : (
                 <div className="flex items-center gap-1 mt-1 justify-center group/jt">
-                  <p data-testid="text-profile-job-title" className="text-sm text-gray-400">
+                  <p data-testid="text-profile-job-title" className="text-sm text-muted-foreground">
                     {profile.jobTitle || "\u2014"}
                   </p>
                   {isAdmin && !isSelf && (
@@ -338,7 +338,7 @@ export default function TeamProfile() {
                         setJobTitleValue(profile.jobTitle || "");
                         setEditingJobTitle(true);
                       }}
-                      className="p-1 text-gray-500 hover:text-emerald-400 opacity-0 group-hover/jt:opacity-100 transition-all"
+                      className="p-1 text-muted-foreground hover:text-emerald-400 opacity-0 group-hover/jt:opacity-100 transition-all"
                     >
                       <Pencil className="w-3 h-3" />
                     </button>
@@ -372,7 +372,7 @@ export default function TeamProfile() {
                     className={`text-xs ${
                       isOnline
                         ? "border-emerald-500/30 text-emerald-400"
-                        : "border-gray-500/30 text-gray-400"
+                        : "border-gray-500/30 text-muted-foreground"
                     }`}
                   >
                     <Circle className={`w-2 h-2 ml-1 ${isOnline ? "fill-emerald-400" : "fill-gray-500"}`} />
@@ -380,26 +380,26 @@ export default function TeamProfile() {
                   </Badge>
                 )}
               </div>
-              <p className="text-xs text-gray-500 mt-2" dir="ltr" data-testid="text-profile-email">{profile.email}</p>
+              <p className="text-xs text-muted-foreground mt-2" dir="ltr" data-testid="text-profile-email">{profile.email}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4 mt-8">
             <div
               data-testid="stat-open-conversations"
-              className="bg-[#0a0f1a]/60 border border-white/5 rounded-xl p-5 text-center"
+              className="bg-background/80 border border-border rounded-xl p-5 text-center"
             >
               <MessageSquare className="w-6 h-6 text-blue-400 mx-auto mb-2" />
-              <p className="text-2xl font-bold text-white">{profile.stats.openConversations}</p>
-              <p className="text-xs text-gray-400 mt-1">محادثات مفتوحة</p>
+              <p className="text-2xl font-bold text-foreground">{profile.stats.openConversations}</p>
+              <p className="text-xs text-muted-foreground mt-1">محادثات مفتوحة</p>
             </div>
             <div
               data-testid="stat-resolved-conversations"
-              className="bg-[#0a0f1a]/60 border border-white/5 rounded-xl p-5 text-center"
+              className="bg-background/80 border border-border rounded-xl p-5 text-center"
             >
               <CheckCircle className="w-6 h-6 text-emerald-400 mx-auto mb-2" />
-              <p className="text-2xl font-bold text-white">{profile.stats.resolvedConversations}</p>
-              <p className="text-xs text-gray-400 mt-1">محادثات مغلقة</p>
+              <p className="text-2xl font-bold text-foreground">{profile.stats.resolvedConversations}</p>
+              <p className="text-xs text-muted-foreground mt-1">محادثات مغلقة</p>
             </div>
           </div>
 
@@ -417,26 +417,26 @@ export default function TeamProfile() {
           </div>
 
           {isAdmin && !isSelf && (
-            <div className="mt-6 pt-6 border-t border-white/5">
+            <div className="mt-6 pt-6 border-t border-border">
               <h3 className="text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
                 <Shield className="w-4 h-4 text-amber-400" />
                 إجراءات المدير
               </h3>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-xs text-gray-400">تغيير الصلاحية</Label>
+                  <Label className="text-xs text-muted-foreground">تغيير الصلاحية</Label>
                   <div className="flex items-center gap-2">
                     <Select
                       value={selectedRole || profile.role}
                       onValueChange={(v) => setSelectedRole(v)}
                     >
-                      <SelectTrigger className="flex-1 bg-[#0a0f1a] border-white/10 text-white text-sm h-9" data-testid="select-profile-role">
+                      <SelectTrigger className="flex-1 bg-background border-border text-foreground text-sm h-9" data-testid="select-profile-role">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="bg-[#111827] border-white/10">
-                        <SelectItem value="agent" className="text-white">موظف</SelectItem>
-                        <SelectItem value="manager" className="text-white">مشرف</SelectItem>
-                        <SelectItem value="admin" className="text-white">مدير</SelectItem>
+                      <SelectContent className="bg-popover border-border">
+                        <SelectItem value="agent" className="text-foreground">موظف</SelectItem>
+                        <SelectItem value="manager" className="text-foreground">مشرف</SelectItem>
+                        <SelectItem value="admin" className="text-foreground">مدير</SelectItem>
                       </SelectContent>
                     </Select>
                     <Button
@@ -482,24 +482,24 @@ export default function TeamProfile() {
       </div>
 
       <Dialog open={!!confirmDialog} onOpenChange={(open) => { if (!open) setConfirmDialog(null); }}>
-        <DialogContent className="bg-[#111827] border-white/10 text-white max-w-sm" data-testid="dialog-confirm-profile-action">
+        <DialogContent className="bg-popover border-border text-foreground max-w-sm" data-testid="dialog-confirm-profile-action">
           <DialogHeader>
-            <DialogTitle className="text-white flex items-center gap-2">
+            <DialogTitle className="text-foreground flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-amber-400" />
               {confirmDialog === "delete" ? "تأكيد الحذف" : profile.isActive === false ? "تأكيد التفعيل" : "تأكيد التعطيل"}
             </DialogTitle>
-            <DialogDescription className="text-gray-400 pt-2">
+            <DialogDescription className="text-muted-foreground pt-2">
               {confirmDialog === "delete" ? (
-                <>هل أنت متأكد من حذف <span className="text-white font-medium">{profile.name}</span>؟ لا يمكن التراجع عن هذا الإجراء.</>
+                <>هل أنت متأكد من حذف <span className="text-foreground font-medium">{profile.name}</span>؟ لا يمكن التراجع عن هذا الإجراء.</>
               ) : profile.isActive === false ? (
-                <>هل تريد إعادة تفعيل حساب <span className="text-white font-medium">{profile.name}</span>؟</>
+                <>هل تريد إعادة تفعيل حساب <span className="text-foreground font-medium">{profile.name}</span>؟</>
               ) : (
-                <>هل تريد تعطيل حساب <span className="text-white font-medium">{profile.name}</span>؟ لن يتمكن من تسجيل الدخول.</>
+                <>هل تريد تعطيل حساب <span className="text-foreground font-medium">{profile.name}</span>؟ لن يتمكن من تسجيل الدخول.</>
               )}
             </DialogDescription>
           </DialogHeader>
           <div className="flex gap-2 justify-end mt-2">
-            <Button variant="ghost" onClick={() => setConfirmDialog(null)} className="text-gray-400" disabled={confirmLoading}>
+            <Button variant="ghost" onClick={() => setConfirmDialog(null)} className="text-muted-foreground" disabled={confirmLoading}>
               إلغاء
             </Button>
             <Button

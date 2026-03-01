@@ -40,9 +40,9 @@ function getMessageBg(senderType: string, isInternal?: boolean | null) {
     case "ai": return "bg-emerald-500/5";
     case "agent": return "bg-blue-500/5";
     case "internal": return "bg-amber-500/10 border border-amber-500/20";
-    case "customer": return "bg-white/5";
+    case "customer": return "bg-muted/40";
     case "system": return "bg-amber-500/5";
-    default: return "bg-white/5";
+    default: return "bg-muted/40";
   }
 }
 
@@ -56,7 +56,7 @@ function MediaDisplay({ mediaUrl, mediaType }: { mediaUrl: string; mediaType: st
           <img
             src={mediaUrl}
             alt="صورة مرفقة"
-            className="w-full h-auto rounded-lg border border-white/10"
+            className="w-full h-auto rounded-lg border border-border"
             data-testid="media-image"
           />
         </a>
@@ -70,12 +70,12 @@ function MediaDisplay({ mediaUrl, mediaType }: { mediaUrl: string; mediaType: st
       target="_blank"
       rel="noopener noreferrer"
       data-testid="media-file"
-      className="mt-2 flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-3 hover:bg-white/10 transition-colors max-w-[300px]"
+      className="mt-2 flex items-center gap-2 bg-muted/40 border border-border rounded-lg p-3 hover:bg-muted/60 transition-colors max-w-[300px]"
     >
       <FileDown className="w-5 h-5 text-emerald-400 shrink-0" />
       <div className="min-w-0">
-        <p className="text-xs text-white truncate">ملف مرفق</p>
-        <p className="text-[10px] text-gray-500">{mediaType || "ملف"}</p>
+        <p className="text-xs text-foreground truncate">ملف مرفق</p>
+        <p className="text-[10px] text-muted-foreground">{mediaType || "ملف"}</p>
       </div>
     </a>
   );
@@ -109,21 +109,21 @@ function TransferPopup({ conversationId, currentAgentId, onTransfer, onClose }: 
   }, [currentAgentId]);
 
   return (
-    <div className="absolute top-full left-0 mt-1 w-64 bg-[#111827] border border-white/10 rounded-lg shadow-xl z-50 overflow-hidden">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-white/5">
-        <span className="text-xs text-gray-400">تحويل المحادثة</span>
-        <button onClick={onClose} className="text-gray-500 hover:text-gray-300" data-testid="button-close-transfer">
+    <div className="absolute top-full left-0 mt-1 w-64 bg-popover border border-border rounded-lg shadow-xl z-50 overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+        <span className="text-xs text-muted-foreground">تحويل المحادثة</span>
+        <button onClick={onClose} className="text-muted-foreground hover:text-foreground/80" data-testid="button-close-transfer">
           <X className="w-3 h-3" />
         </button>
       </div>
-      <div className="px-3 py-2 border-b border-white/5">
+      <div className="px-3 py-2 border-b border-border">
         <input
           type="text"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="سبب التحويل (اختياري)"
           data-testid="input-transfer-reason"
-          className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-emerald-500/50"
+          className="w-full bg-muted/40 border border-border rounded px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-emerald-500/50"
         />
       </div>
       {loading ? (
@@ -131,7 +131,7 @@ function TransferPopup({ conversationId, currentAgentId, onTransfer, onClose }: 
           <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
         </div>
       ) : agents.length === 0 ? (
-        <div className="px-3 py-4 text-center text-xs text-gray-500">
+        <div className="px-3 py-4 text-center text-xs text-muted-foreground">
           لا يوجد موظفين متاحين
         </div>
       ) : (
@@ -141,14 +141,14 @@ function TransferPopup({ conversationId, currentAgentId, onTransfer, onClose }: 
               key={agent.id}
               data-testid={`button-transfer-to-${agent.id}`}
               onClick={() => onTransfer(agent.id, reason || undefined)}
-              className="w-full px-3 py-2 flex items-center gap-2 text-right hover:bg-white/5 transition-colors"
+              className="w-full px-3 py-2 flex items-center gap-2 text-right hover:bg-muted/40 transition-colors"
             >
-              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-[10px] font-bold text-foreground shrink-0">
                 {agent.name.charAt(0)}
               </div>
               <div className="flex-1 min-w-0 text-right">
-                <p className="text-xs text-white truncate">{agent.name}</p>
-                <p className="text-[10px] text-gray-500 truncate">{agent.role === "admin" ? "مدير" : agent.role === "manager" ? "مشرف" : "موظف"}</p>
+                <p className="text-xs text-foreground truncate">{agent.name}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{agent.role === "admin" ? "مدير" : agent.role === "manager" ? "مشرف" : "موظف"}</p>
               </div>
             </button>
           ))}
@@ -198,10 +198,10 @@ function SendToColleaguePopup({ conversationId, contactName, onClose }: {
   };
 
   return (
-    <div className="absolute top-full left-0 mt-1 w-64 bg-[#111827] border border-white/10 rounded-lg shadow-xl z-50 overflow-hidden" data-testid="popup-send-to-colleague">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-white/5">
-        <span className="text-xs text-gray-400">إرسال لزميل</span>
-        <button onClick={onClose} className="text-gray-500 hover:text-gray-300" data-testid="button-close-send-colleague">
+    <div className="absolute top-full left-0 mt-1 w-64 bg-popover border border-border rounded-lg shadow-xl z-50 overflow-hidden" data-testid="popup-send-to-colleague">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+        <span className="text-xs text-muted-foreground">إرسال لزميل</span>
+        <button onClick={onClose} className="text-muted-foreground hover:text-foreground/80" data-testid="button-close-send-colleague">
           <X className="w-3 h-3" />
         </button>
       </div>
@@ -210,7 +210,7 @@ function SendToColleaguePopup({ conversationId, contactName, onClose }: {
           <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
         </div>
       ) : members.length === 0 ? (
-        <div className="px-3 py-4 text-center text-xs text-gray-500">
+        <div className="px-3 py-4 text-center text-xs text-muted-foreground">
           لا يوجد أعضاء في الفريق
         </div>
       ) : (
@@ -221,14 +221,14 @@ function SendToColleaguePopup({ conversationId, contactName, onClose }: {
               data-testid={`button-send-to-${member.id}`}
               onClick={() => handleSend(member.id)}
               disabled={sending === member.id || sent.has(member.id)}
-              className="w-full px-3 py-2 flex items-center gap-2 text-right hover:bg-white/5 transition-colors disabled:opacity-50"
+              className="w-full px-3 py-2 flex items-center gap-2 text-right hover:bg-muted/40 transition-colors disabled:opacity-50"
             >
-              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-[10px] font-bold text-foreground shrink-0">
                 {member.name.charAt(0)}
               </div>
               <div className="flex-1 min-w-0 text-right">
-                <p className="text-xs text-white truncate">{member.name}</p>
-                <p className="text-[10px] text-gray-500 truncate">
+                <p className="text-xs text-foreground truncate">{member.name}</p>
+                <p className="text-[10px] text-muted-foreground truncate">
                   {member.role === "admin" ? "مسؤول" : member.role === "manager" ? "مدير" : "موظف"}
                 </p>
               </div>
@@ -237,7 +237,7 @@ function SendToColleaguePopup({ conversationId, contactName, onClose }: {
               ) : sent.has(member.id) ? (
                 <Check className="w-3 h-3 text-emerald-400 shrink-0" />
               ) : (
-                <Forward className="w-3 h-3 text-gray-500 shrink-0" />
+                <Forward className="w-3 h-3 text-muted-foreground shrink-0" />
               )}
             </button>
           ))}
@@ -279,28 +279,28 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
 
   if (!conversation) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-[#0a0f1a]/50 text-gray-500">
+      <div className="flex-1 flex flex-col items-center justify-center bg-background/80 text-muted-foreground">
         <div className="w-20 h-20 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-4">
           <Bot className="w-10 h-10 text-emerald-500/40" />
         </div>
-        <p className="text-lg font-medium text-gray-400">اختر محادثة للبدء</p>
-        <p className="text-sm mt-1 text-gray-600">يمكنك اختيار محادثة من القائمة</p>
+        <p className="text-lg font-medium text-muted-foreground">اختر محادثة للبدء</p>
+        <p className="text-sm mt-1 text-muted-foreground">يمكنك اختيار محادثة من القائمة</p>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-[#0a0f1a]/50 min-w-0">
-      <div className="h-14 border-b border-white/5 flex items-center justify-between px-4 bg-[#0d1321]/50 shrink-0">
+    <div className="flex-1 flex flex-col bg-background/80 min-w-0">
+      <div className="h-14 border-b border-border flex items-center justify-between px-4 bg-card/80 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-xs font-bold text-white">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-xs font-bold text-foreground">
             {conversation.contact?.name?.[0] || "؟"}
           </div>
           <div>
-            <h3 className="text-sm font-medium text-white">
+            <h3 className="text-sm font-medium text-foreground">
               {conversation.contact?.name || conversation.contact?.phone || "جهة اتصال"}
             </h3>
-            <span className="text-[10px] text-gray-500">{conversation.contact?.phone}</span>
+            <span className="text-[10px] text-muted-foreground">{conversation.contact?.phone}</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -326,7 +326,7 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
                 ? "border-emerald-500/30 text-emerald-400"
                 : conversation.status === "waiting"
                 ? "border-amber-500/30 text-amber-400"
-                : "border-gray-500/30 text-gray-400"
+                : "border-gray-500/30 text-muted-foreground"
             }`}
           >
             {conversation.status === "active" ? "نشط" : conversation.status === "waiting" ? "بانتظار" : "مغلق"}
@@ -337,7 +337,7 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
               variant="ghost"
               data-testid="button-assign-agent"
               onClick={() => setShowAssign(!showAssign)}
-              className="text-xs text-gray-400 h-7"
+              className="text-xs text-muted-foreground h-7"
             >
               <UserPlus className="w-3 h-3 ml-1" />
               تعيين
@@ -360,7 +360,7 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
               variant="ghost"
               data-testid="button-send-to-colleague"
               onClick={() => setShowSendColleague(!showSendColleague)}
-              className="text-xs text-gray-400 h-7"
+              className="text-xs text-muted-foreground h-7"
             >
               <Forward className="w-3 h-3 ml-1" />
               إرسال لزميل
@@ -380,7 +380,7 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
                 variant="ghost"
                 data-testid="button-transfer"
                 onClick={() => setShowTransfer(!showTransfer)}
-                className="text-xs text-gray-400 h-7"
+                className="text-xs text-muted-foreground h-7"
               >
                 <ArrowLeftRight className="w-3 h-3 ml-1" />
                 تحويل
@@ -404,7 +404,7 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
               variant="ghost"
               data-testid="button-resolve"
               onClick={() => onUpdateConversation(conversation.id, { status: "resolved" })}
-              className="text-xs text-gray-400 h-7"
+              className="text-xs text-muted-foreground h-7"
             >
               <Check className="w-3 h-3 ml-1" />
               إغلاق
@@ -415,7 +415,7 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
             variant="ghost"
             data-testid="button-toggle-contact"
             onClick={onToggleContact}
-            className="text-gray-400"
+            className="text-muted-foreground"
           >
             <PanelRightOpen className="w-4 h-4" />
           </Button>
@@ -441,7 +441,7 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
               {(msg.senderType === "agent" || msg.senderType === "internal") && !msg.isInternal && (
                 <UserCircle className="w-3 h-3 text-blue-400" />
               )}
-              <span className="text-[10px] text-gray-500">
+              <span className="text-[10px] text-muted-foreground">
                 {msg.isInternal
                   ? "ملاحظة داخلية"
                   : msg.senderType === "ai"
@@ -466,7 +466,7 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
                   {Math.round(msg.aiConfidence * 100)}%
                 </Badge>
               )}
-              <span className="text-[9px] text-gray-600 mr-auto">
+              <span className="text-[9px] text-muted-foreground mr-auto">
                 {msg.createdAt
                   ? formatDistanceToNow(new Date(msg.createdAt), { locale: ar, addSuffix: true })
                   : ""}
@@ -487,7 +487,7 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
         ))}
       </div>
 
-      <div className="p-3 border-t border-white/5 bg-[#0d1321]/50 shrink-0 relative">
+      <div className="p-3 border-t border-border bg-card/80 shrink-0 relative">
         {showQuickReplies && (
           <QuickRepliesPopup
             onSelect={(content) => {
@@ -509,7 +509,7 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
             variant="ghost"
             data-testid="button-quick-replies"
             onClick={() => setShowQuickReplies(!showQuickReplies)}
-            className="text-gray-400 shrink-0"
+            className="text-muted-foreground shrink-0"
             title="ردود سريعة"
           >
             <Zap className="w-4 h-4" />
@@ -519,7 +519,7 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
             variant="ghost"
             data-testid="button-internal-note"
             onClick={() => setIsInternalMode(!isInternalMode)}
-            className={`shrink-0 ${isInternalMode ? "text-amber-400 bg-amber-500/10" : "text-gray-400"}`}
+            className={`shrink-0 ${isInternalMode ? "text-amber-400 bg-amber-500/10" : "text-muted-foreground"}`}
             title="ملاحظة داخلية (همس)"
           >
             {isInternalMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -533,10 +533,10 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
               onKeyDown={handleKeyDown}
               placeholder={isInternalMode ? "اكتب ملاحظة داخلية..." : "اكتب رسالة..."}
               rows={1}
-              className={`w-full bg-[#0a0f1a] border rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 resize-none focus:outline-none transition-colors ${
+              className={`w-full bg-background border rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none transition-colors ${
                 isInternalMode
                   ? "border-amber-500/30 focus:border-amber-500/50"
-                  : "border-white/10 focus:border-emerald-500/30"
+                  : "border-border focus:border-emerald-500/30"
               }`}
               style={{ minHeight: "40px", maxHeight: "120px" }}
             />

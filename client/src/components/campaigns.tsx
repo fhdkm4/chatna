@@ -213,7 +213,7 @@ export function Campaigns() {
       case "sent": return <Badge className="bg-emerald-500/20 text-emerald-400 border-0"><CheckCircle className="w-3 h-3 ml-1" />تم الإرسال</Badge>;
       case "scheduled": return <Badge className="bg-blue-500/20 text-blue-400 border-0"><Clock className="w-3 h-3 ml-1" />مجدولة</Badge>;
       case "failed": return <Badge className="bg-red-500/20 text-red-400 border-0"><XCircle className="w-3 h-3 ml-1" />فشل</Badge>;
-      default: return <Badge className="bg-gray-500/20 text-gray-400 border-0">مسودة</Badge>;
+      default: return <Badge className="bg-gray-500/20 text-muted-foreground border-0">مسودة</Badge>;
     }
   };
 
@@ -250,23 +250,23 @@ export function Campaigns() {
         return (
           <div className="space-y-4">
             <div>
-              <Label className="text-gray-300 mb-1.5 block">عنوان الحملة *</Label>
+              <Label className="text-foreground/80 mb-1.5 block">عنوان الحملة *</Label>
               <Input
                 data-testid="input-campaign-title"
                 value={form.title}
                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                 placeholder="مثال: عرض نهاية الأسبوع"
-                className="bg-[#1a2235] border-white/10 text-white"
+                className="bg-popover border-border text-foreground"
               />
             </div>
             <div>
-              <Label className="text-gray-300 mb-1.5 block">وصف الحملة</Label>
+              <Label className="text-foreground/80 mb-1.5 block">وصف الحملة</Label>
               <Textarea
                 data-testid="input-campaign-description"
                 value={form.description}
                 onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                 placeholder="وصف مختصر عن الحملة والعرض..."
-                className="bg-[#1a2235] border-white/10 text-white min-h-[100px]"
+                className="bg-popover border-border text-foreground min-h-[100px]"
               />
             </div>
           </div>
@@ -275,17 +275,17 @@ export function Campaigns() {
       case "content":
         return (
           <div className="space-y-4">
-            <div className="p-4 rounded-lg bg-[#0d1321] border border-white/5">
+            <div className="p-4 rounded-lg bg-card border border-border">
               <div className="flex items-center gap-2 mb-3">
                 <Wand2 className="w-4 h-4 text-emerald-400" />
-                <Label className="text-gray-300">إنشاء نص بالذكاء الاصطناعي</Label>
+                <Label className="text-foreground/80">إنشاء نص بالذكاء الاصطناعي</Label>
               </div>
               <div className="flex gap-2 mb-2">
                 <Select value={form.textTone} onValueChange={v => setForm(f => ({ ...f, textTone: v }))}>
-                  <SelectTrigger className="bg-[#1a2235] border-white/10 text-white w-40" data-testid="select-text-tone">
+                  <SelectTrigger className="bg-popover border-border text-foreground w-40" data-testid="select-text-tone">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#1a2235] border-white/10">
+                  <SelectContent className="bg-popover border-border">
                     <SelectItem value="احترافية">احترافية</SelectItem>
                     <SelectItem value="ودية">ودية</SelectItem>
                     <SelectItem value="حماسية">حماسية</SelectItem>
@@ -303,24 +303,24 @@ export function Campaigns() {
                   إنشاء نص
                 </Button>
               </div>
-              {!form.description && <p className="text-xs text-gray-500">أضف وصفاً للحملة أولاً في الخطوة السابقة</p>}
+              {!form.description && <p className="text-xs text-muted-foreground">أضف وصفاً للحملة أولاً في الخطوة السابقة</p>}
             </div>
 
             <div>
-              <Label className="text-gray-300 mb-1.5 block">نص الرسالة *</Label>
+              <Label className="text-foreground/80 mb-1.5 block">نص الرسالة *</Label>
               <Textarea
                 data-testid="input-campaign-message"
                 value={form.messageText}
                 onChange={e => setForm(f => ({ ...f, messageText: e.target.value }))}
                 placeholder="اكتب نص الرسالة هنا أو استخدم الذكاء الاصطناعي..."
-                className="bg-[#1a2235] border-white/10 text-white min-h-[120px]"
+                className="bg-popover border-border text-foreground min-h-[120px]"
               />
             </div>
 
-            <div className="p-4 rounded-lg bg-[#0d1321] border border-white/5">
+            <div className="p-4 rounded-lg bg-card border border-border">
               <div className="flex items-center gap-2 mb-3">
                 <ImageIcon className="w-4 h-4 text-emerald-400" />
-                <Label className="text-gray-300">صورة الحملة (اختياري)</Label>
+                <Label className="text-foreground/80">صورة الحملة (اختياري)</Label>
               </div>
               <div className="flex gap-2 mb-2">
                 <Input
@@ -328,7 +328,7 @@ export function Campaigns() {
                   value={form.imagePrompt}
                   onChange={e => setForm(f => ({ ...f, imagePrompt: e.target.value }))}
                   placeholder="وصف الصورة المراد إنشاءها..."
-                  className="bg-[#1a2235] border-white/10 text-white flex-1"
+                  className="bg-popover border-border text-foreground flex-1"
                 />
                 <Button
                   data-testid="button-generate-image"
@@ -343,19 +343,19 @@ export function Campaigns() {
               </div>
               {form.imageUrl && (
                 <div className="mt-3">
-                  <img src={form.imageUrl} alt="Campaign" className="w-full max-w-xs rounded-lg border border-white/10" data-testid="img-campaign-preview" />
+                  <img src={form.imageUrl} alt="Campaign" className="w-full max-w-xs rounded-lg border border-border" data-testid="img-campaign-preview" />
                 </div>
               )}
             </div>
 
             <div>
-              <Label className="text-gray-300 mb-1.5 block">رابط CTA (اختياري)</Label>
+              <Label className="text-foreground/80 mb-1.5 block">رابط CTA (اختياري)</Label>
               <div className="flex gap-2">
                 <Select value={form.ctaType} onValueChange={v => setForm(f => ({ ...f, ctaType: v }))}>
-                  <SelectTrigger className="bg-[#1a2235] border-white/10 text-white w-36" data-testid="select-cta-type">
+                  <SelectTrigger className="bg-popover border-border text-foreground w-36" data-testid="select-cta-type">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#1a2235] border-white/10">
+                  <SelectContent className="bg-popover border-border">
                     <SelectItem value="none">بدون</SelectItem>
                     <SelectItem value="link">رابط</SelectItem>
                     <SelectItem value="phone">هاتف</SelectItem>
@@ -367,7 +367,7 @@ export function Campaigns() {
                     value={form.ctaValue}
                     onChange={e => setForm(f => ({ ...f, ctaValue: e.target.value }))}
                     placeholder={form.ctaType === "link" ? "https://..." : "+966..."}
-                    className="bg-[#1a2235] border-white/10 text-white flex-1"
+                    className="bg-popover border-border text-foreground flex-1"
                   />
                 )}
               </div>
@@ -379,7 +379,7 @@ export function Campaigns() {
         return (
           <div className="space-y-4">
             <div>
-              <Label className="text-gray-300 mb-3 block">استهداف الجمهور</Label>
+              <Label className="text-foreground/80 mb-3 block">استهداف الجمهور</Label>
               <div className="space-y-2">
                 {[
                   { value: "all", label: "جميع جهات الاتصال", desc: `${contacts.length} جهة اتصال` },
@@ -393,11 +393,11 @@ export function Campaigns() {
                     className={`w-full p-3 rounded-lg border text-right transition-all ${
                       form.targetType === opt.value
                         ? "border-emerald-500/50 bg-emerald-500/10"
-                        : "border-white/10 bg-[#1a2235] hover:border-white/20"
+                        : "border-border bg-popover hover:border-white/20"
                     }`}
                   >
-                    <div className="font-medium text-white text-sm">{opt.label}</div>
-                    <div className="text-xs text-gray-400 mt-0.5">{opt.desc}</div>
+                    <div className="font-medium text-foreground text-sm">{opt.label}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{opt.desc}</div>
                   </button>
                 ))}
               </div>
@@ -405,7 +405,7 @@ export function Campaigns() {
 
             {form.targetType === "tags" && uniqueTags.length > 0 && (
               <div>
-                <Label className="text-gray-300 mb-2 block">اختر العلامات</Label>
+                <Label className="text-foreground/80 mb-2 block">اختر العلامات</Label>
                 <div className="flex flex-wrap gap-2">
                   {uniqueTags.map(tag => (
                     <button
@@ -420,7 +420,7 @@ export function Campaigns() {
                       className={`px-3 py-1 rounded-full text-sm transition-all ${
                         form.targetTags.includes(tag)
                           ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/50"
-                          : "bg-[#1a2235] text-gray-400 border border-white/10 hover:border-white/20"
+                          : "bg-popover text-muted-foreground border border-border hover:border-white/20"
                       }`}
                     >
                       {tag}
@@ -432,8 +432,8 @@ export function Campaigns() {
 
             {form.targetType === "specific" && (
               <div>
-                <Label className="text-gray-300 mb-2 block">اختر جهات الاتصال</Label>
-                <ScrollArea className="h-48 rounded-lg border border-white/10 bg-[#1a2235]">
+                <Label className="text-foreground/80 mb-2 block">اختر جهات الاتصال</Label>
+                <ScrollArea className="h-48 rounded-lg border border-border bg-popover">
                   <div className="p-2 space-y-1">
                     {contacts.map(contact => (
                       <button
@@ -451,12 +451,12 @@ export function Campaigns() {
                             : "hover:bg-white/5"
                         }`}
                       >
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-xs font-bold text-foreground shrink-0">
                           {(contact.name || contact.phone).charAt(0)}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="text-sm text-white truncate">{contact.name || contact.phone}</div>
-                          <div className="text-xs text-gray-500">{contact.phone}</div>
+                          <div className="text-sm text-foreground truncate">{contact.name || contact.phone}</div>
+                          <div className="text-xs text-muted-foreground">{contact.phone}</div>
                         </div>
                         {form.targetContactIds.includes(contact.id) && (
                           <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -465,7 +465,7 @@ export function Campaigns() {
                     ))}
                   </div>
                 </ScrollArea>
-                <p className="text-xs text-gray-500 mt-1">تم اختيار {form.targetContactIds.length} جهة اتصال</p>
+                <p className="text-xs text-muted-foreground mt-1">تم اختيار {form.targetContactIds.length} جهة اتصال</p>
               </div>
             )}
           </div>
@@ -474,16 +474,16 @@ export function Campaigns() {
       case "review":
         return (
           <div className="space-y-4">
-            <div className="p-4 rounded-lg bg-[#0d1321] border border-white/5">
-              <h4 className="text-sm font-medium text-gray-300 mb-2">ملخص الحملة</h4>
+            <div className="p-4 rounded-lg bg-card border border-border">
+              <h4 className="text-sm font-medium text-foreground/80 mb-2">ملخص الحملة</h4>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">العنوان:</span>
-                  <span className="text-white" data-testid="review-title">{form.title}</span>
+                  <span className="text-muted-foreground">العنوان:</span>
+                  <span className="text-foreground" data-testid="review-title">{form.title}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">الجمهور:</span>
-                  <span className="text-white">
+                  <span className="text-muted-foreground">الجمهور:</span>
+                  <span className="text-foreground">
                     {form.targetType === "all" ? `جميع جهات الاتصال (${contacts.length})` :
                      form.targetType === "tags" ? `حسب العلامات (${form.targetTags.length} علامة)` :
                      `${form.targetContactIds.length} جهة اتصال`}
@@ -491,24 +491,24 @@ export function Campaigns() {
                 </div>
                 {form.ctaType !== "none" && (
                   <div className="flex justify-between">
-                    <span className="text-gray-500">CTA:</span>
-                    <span className="text-white">{form.ctaValue}</span>
+                    <span className="text-muted-foreground">CTA:</span>
+                    <span className="text-foreground">{form.ctaValue}</span>
                   </div>
                 )}
               </div>
             </div>
 
             <div>
-              <Label className="text-gray-300 mb-1.5 block text-sm">نص الرسالة</Label>
-              <div className="p-3 rounded-lg bg-[#1a2235] border border-white/10 text-sm text-gray-300 whitespace-pre-wrap" data-testid="review-message">
-                {form.messageText || <span className="text-gray-500 italic">لم يتم إدخال نص</span>}
+              <Label className="text-foreground/80 mb-1.5 block text-sm">نص الرسالة</Label>
+              <div className="p-3 rounded-lg bg-popover border border-border text-sm text-foreground/80 whitespace-pre-wrap" data-testid="review-message">
+                {form.messageText || <span className="text-muted-foreground italic">لم يتم إدخال نص</span>}
               </div>
             </div>
 
             {form.imageUrl && (
               <div>
-                <Label className="text-gray-300 mb-1.5 block text-sm">صورة الحملة</Label>
-                <img src={form.imageUrl} alt="Campaign" className="w-full max-w-xs rounded-lg border border-white/10" />
+                <Label className="text-foreground/80 mb-1.5 block text-sm">صورة الحملة</Label>
+                <img src={form.imageUrl} alt="Campaign" className="w-full max-w-xs rounded-lg border border-border" />
               </div>
             )}
           </div>
@@ -518,14 +518,14 @@ export function Campaigns() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 border-b border-white/5 flex items-center justify-between shrink-0">
+      <div className="p-4 border-b border-border flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
             <Megaphone className="w-5 h-5 text-emerald-400" />
           </div>
           <div>
-            <h2 className="font-bold text-white text-lg">الحملات التسويقية</h2>
-            <p className="text-xs text-gray-500">{campaigns.length} حملة</p>
+            <h2 className="font-bold text-foreground text-lg">الحملات التسويقية</h2>
+            <p className="text-xs text-muted-foreground">{campaigns.length} حملة</p>
           </div>
         </div>
         <Button data-testid="button-new-campaign" onClick={openWizard} className="bg-emerald-600 hover:bg-emerald-700 text-white">
@@ -537,13 +537,13 @@ export function Campaigns() {
         <div className="p-4">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           ) : campaigns.length === 0 ? (
             <div className="text-center py-12">
-              <Megaphone className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-              <h3 className="text-gray-400 font-medium mb-1">لا توجد حملات</h3>
-              <p className="text-gray-500 text-sm mb-4">أنشئ حملتك التسويقية الأولى</p>
+              <Megaphone className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+              <h3 className="text-muted-foreground font-medium mb-1">لا توجد حملات</h3>
+              <p className="text-muted-foreground text-sm mb-4">أنشئ حملتك التسويقية الأولى</p>
               <Button data-testid="button-create-first-campaign" onClick={openWizard} variant="outline" className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10">
                 <Plus className="w-4 h-4 ml-1" /> إنشاء حملة
               </Button>
@@ -554,16 +554,16 @@ export function Campaigns() {
                 <div
                   key={campaign.id}
                   data-testid={`card-campaign-${campaign.id}`}
-                  className="p-4 rounded-xl bg-[#111827] border border-white/5 hover:border-white/10 transition-all"
+                  className="p-4 rounded-xl bg-popover border border-border hover:border-border transition-all"
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div>
-                      <h3 className="font-medium text-white">{campaign.title}</h3>
-                      {campaign.description && <p className="text-sm text-gray-400 mt-0.5 line-clamp-1">{campaign.description}</p>}
+                      <h3 className="font-medium text-foreground">{campaign.title}</h3>
+                      {campaign.description && <p className="text-sm text-muted-foreground mt-0.5 line-clamp-1">{campaign.description}</p>}
                     </div>
                     {getStatusBadge(campaign.status)}
                   </div>
-                  <div className="flex items-center gap-4 text-xs text-gray-500 mt-2">
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
                     <span className="flex items-center gap-1">
                       <Users className="w-3 h-3" />
                       {getTargetLabel(campaign)}
@@ -599,7 +599,7 @@ export function Campaigns() {
                       size="sm"
                       variant="ghost"
                       onClick={() => deleteCampaign(campaign.id)}
-                      className="text-gray-500 hover:text-red-400 hover:bg-red-400/10 text-xs"
+                      className="text-muted-foreground hover:text-red-400 hover:bg-red-400/10 text-xs"
                     >
                       <Trash2 className="w-3 h-3" />
                     </Button>
@@ -612,9 +612,9 @@ export function Campaigns() {
       </ScrollArea>
 
       <Dialog open={showWizard} onOpenChange={setShowWizard}>
-        <DialogContent className="bg-[#111827] border-white/10 text-white max-w-lg max-h-[85vh] flex flex-col">
+        <DialogContent className="bg-popover border-border text-foreground max-w-lg max-h-[85vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle className="text-white flex items-center gap-2">
+            <DialogTitle className="text-foreground flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-emerald-400" /> إنشاء حملة جديدة
             </DialogTitle>
           </DialogHeader>
@@ -632,7 +632,7 @@ export function Campaigns() {
                       ? "bg-emerald-500/20 text-emerald-400"
                       : i < currentStepIndex
                         ? "text-emerald-400/60"
-                        : "text-gray-500"
+                        : "text-muted-foreground"
                   }`}
                 >
                   <step.icon className="w-3 h-3" />
@@ -649,7 +649,7 @@ export function Campaigns() {
             {renderWizardContent()}
           </div>
 
-          <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/10 shrink-0">
+          <div className="flex items-center justify-between mt-4 pt-3 border-t border-border shrink-0">
             <Button
               data-testid="button-wizard-back"
               variant="ghost"
@@ -658,7 +658,7 @@ export function Campaigns() {
                 if (prev) setWizardStep(prev.id);
               }}
               disabled={currentStepIndex === 0}
-              className="text-gray-400"
+              className="text-muted-foreground"
             >
               <ArrowRight className="w-4 h-4 ml-1" /> السابق
             </Button>
@@ -670,7 +670,7 @@ export function Campaigns() {
                     variant="outline"
                     onClick={handleSaveDraft}
                     disabled={savingDraft || savingSend}
-                    className="border-white/20 text-gray-300"
+                    className="border-white/20 text-foreground/80"
                   >
                     {savingDraft ? <Loader2 className="w-4 h-4 animate-spin ml-1" /> : null}
                     حفظ كمسودة

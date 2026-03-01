@@ -11,6 +11,7 @@ import SetupWizard from "@/pages/setup-wizard";
 import TeamProfile from "@/pages/team-profile";
 import LandingPage from "@/pages/landing";
 import { useAuth } from "@/lib/auth";
+import { ThemeProvider } from "@/lib/theme";
 
 function ProtectedRoute({ component: Component }: { component: () => JSX.Element | null }) {
   const { token } = useAuth();
@@ -48,12 +49,14 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 

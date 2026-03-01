@@ -1,5 +1,6 @@
-import { MessageSquare, Users, Brain, BarChart3, Settings, LogOut, UserCog, Activity, Megaphone, Package, Sparkles, Building2, MessagesSquare } from "lucide-react";
+import { MessageSquare, Users, Brain, BarChart3, Settings, LogOut, UserCog, Activity, Megaphone, Package, Sparkles, Building2, MessagesSquare, Sun, Moon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useTheme } from "@/lib/theme";
 import type { ActiveView } from "@/pages/dashboard";
 
 interface NavSidebarProps {
@@ -32,9 +33,10 @@ function hasMinRole(userRole: string, minRole: "admin" | "manager"): boolean {
 
 export function NavSidebar({ activeView, onViewChange, user, onLogout }: NavSidebarProps) {
   const visibleItems = navItems.filter(item => !item.minRole || hasMinRole(user.role, item.minRole));
+  const { theme, toggleTheme } = useTheme();
 
   return (
-    <div className="w-16 bg-[#0d1321] border-l border-white/5 flex flex-col items-center py-4 shrink-0">
+    <div className="w-16 bg-sidebar border-l border-sidebar-border flex flex-col items-center py-4 shrink-0">
       <div className="mb-8 flex items-center justify-center">
         <img
           src="/chatna-icon.png"
@@ -52,18 +54,16 @@ export function NavSidebar({ activeView, onViewChange, user, onLogout }: NavSide
               <button
                 data-testid={`nav-${item.id}`}
                 onClick={() => onViewChange(item.id)}
-                className="w-10 h-10 rounded-lg flex items-center justify-center transition-all"
-                style={activeView === item.id
-                  ? { backgroundColor: "rgba(110, 192, 71, 0.2)", color: "#6EC047" }
-                  : { color: "#6b7280" }
-                }
-                onMouseEnter={(e) => { if (activeView !== item.id) { e.currentTarget.style.color = "#d1d5db"; e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}}
-                onMouseLeave={(e) => { if (activeView !== item.id) { e.currentTarget.style.color = "#6b7280"; e.currentTarget.style.backgroundColor = "transparent"; }}}
+                className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
+                  activeView === item.id
+                    ? "bg-primary/20 text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                }`}
               >
                 <item.icon className="w-5 h-5" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="left" className="bg-[#1a2235] text-white border-white/10">
+            <TooltipContent side="left" className="bg-popover text-popover-foreground border-popover-border">
               {item.label}
             </TooltipContent>
           </Tooltip>
@@ -73,11 +73,25 @@ export function NavSidebar({ activeView, onViewChange, user, onLogout }: NavSide
       <div className="flex flex-col items-center gap-2">
         <Tooltip>
           <TooltipTrigger asChild>
+            <button
+              data-testid="button-toggle-theme"
+              onClick={toggleTheme}
+              className="w-10 h-10 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all"
+            >
+              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="bg-popover text-popover-foreground border-popover-border">
+            {theme === "dark" ? "الوضع النهاري" : "الوضع الليلي"}
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: "linear-gradient(to bottom right, var(--primary-green), var(--primary-green-dark))" }}>
               {user.name.charAt(0)}
             </div>
           </TooltipTrigger>
-          <TooltipContent side="left" className="bg-[#1a2235] text-white border-white/10">
+          <TooltipContent side="left" className="bg-popover text-popover-foreground border-popover-border">
             {user.name}
           </TooltipContent>
         </Tooltip>
@@ -86,12 +100,12 @@ export function NavSidebar({ activeView, onViewChange, user, onLogout }: NavSide
             <button
               data-testid="button-logout"
               onClick={onLogout}
-              className="w-10 h-10 rounded-lg flex items-center justify-center text-gray-500 hover:text-red-400 hover:bg-red-400/10 transition-all"
+              className="w-10 h-10 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-400 hover:bg-red-400/10 transition-all"
             >
               <LogOut className="w-4 h-4" />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="left" className="bg-[#1a2235] text-white border-white/10">
+          <TooltipContent side="left" className="bg-popover text-popover-foreground border-popover-border">
             تسجيل الخروج
           </TooltipContent>
         </Tooltip>

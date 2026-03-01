@@ -117,7 +117,7 @@ export function TeamMonitoring({ onlineAgents = new Set() }: TeamMonitoringProps
       case "conversation_assigned": return "text-blue-400";
       case "conversation_transferred": return "text-amber-400";
       case "conversation_resolved": return "text-emerald-400";
-      default: return "text-gray-400";
+      default: return "text-muted-foreground";
     }
   };
 
@@ -174,15 +174,15 @@ export function TeamMonitoring({ onlineAgents = new Set() }: TeamMonitoringProps
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      <div className="h-14 border-b border-white/5 flex items-center justify-between gap-2 px-6 bg-[#0d1321]/50 shrink-0">
+      <div className="h-14 border-b border-border flex items-center justify-between gap-2 px-6 bg-card/80 shrink-0">
         <div className="flex items-center gap-2">
           <Activity className="w-5 h-5 text-emerald-400" />
-          <h2 className="text-base font-semibold text-white" data-testid="text-monitoring-title">مراقبة الفريق</h2>
-          <Badge variant="secondary" className="text-[10px] bg-white/5 text-gray-300">
+          <h2 className="text-base font-semibold text-foreground" data-testid="text-monitoring-title">مراقبة الفريق</h2>
+          <Badge variant="secondary" className="text-[10px] bg-muted/40 text-foreground/80">
             {agents.length} موظف
           </Badge>
         </div>
-        <Button size="sm" variant="ghost" data-testid="button-refresh-monitoring" onClick={() => { setLoading(true); fetchData(); }} className="text-gray-400 text-xs">
+        <Button size="sm" variant="ghost" data-testid="button-refresh-monitoring" onClick={() => { setLoading(true); fetchData(); }} className="text-muted-foreground text-xs">
           <RefreshCw className="w-3 h-3 ml-1" />
           تحديث
         </Button>
@@ -194,44 +194,44 @@ export function TeamMonitoring({ onlineAgents = new Set() }: TeamMonitoringProps
             <div
               key={card.label}
               data-testid={`stat-card-${card.label}`}
-              className={`bg-[#111827]/50 border ${card.border} rounded-xl p-5 transition-all hover:bg-[#111827]/80`}
+              className={`bg-card/60 border ${card.border} rounded-xl p-5 transition-all hover:bg-popover/80`}
             >
               <div className="flex items-center justify-between gap-2 mb-4">
                 <div className={`w-10 h-10 rounded-lg ${card.bg} flex items-center justify-center`}>
                   <card.icon className={`w-5 h-5 ${card.color}`} />
                 </div>
               </div>
-              <div className="text-2xl font-bold text-white mb-1" data-testid={`stat-value-${card.label}`}>{card.value}</div>
-              <div className="text-xs text-gray-400">{card.label}</div>
+              <div className="text-2xl font-bold text-foreground mb-1" data-testid={`stat-value-${card.label}`}>{card.value}</div>
+              <div className="text-xs text-muted-foreground">{card.label}</div>
             </div>
           ))}
         </div>
 
         <div className="max-w-5xl mb-8">
-          <h3 className="text-sm font-semibold text-white mb-4">أداء الموظفين</h3>
-          <div className="bg-[#111827]/50 border border-white/5 rounded-xl overflow-hidden">
+          <h3 className="text-sm font-semibold text-foreground mb-4">أداء الموظفين</h3>
+          <div className="bg-card/60 border border-border rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm" data-testid="table-agent-performance">
                 <thead>
-                  <tr className="border-b border-white/5">
-                    <th className="text-right text-gray-400 text-xs font-medium p-4">الموظف</th>
-                    <th className="text-right text-gray-400 text-xs font-medium p-4">الحالة</th>
-                    <th className="text-right text-gray-400 text-xs font-medium p-4">محادثات نشطة</th>
-                    <th className="text-right text-gray-400 text-xs font-medium p-4">إجمالي المحادثات</th>
-                    <th className="text-right text-gray-400 text-xs font-medium p-4">تم الحل</th>
-                    <th className="text-right text-gray-400 text-xs font-medium p-4">متوسط وقت الرد</th>
-                    <th className="text-right text-gray-400 text-xs font-medium p-4">تقييم العملاء</th>
+                  <tr className="border-b border-border">
+                    <th className="text-right text-muted-foreground text-xs font-medium p-4">الموظف</th>
+                    <th className="text-right text-muted-foreground text-xs font-medium p-4">الحالة</th>
+                    <th className="text-right text-muted-foreground text-xs font-medium p-4">محادثات نشطة</th>
+                    <th className="text-right text-muted-foreground text-xs font-medium p-4">إجمالي المحادثات</th>
+                    <th className="text-right text-muted-foreground text-xs font-medium p-4">تم الحل</th>
+                    <th className="text-right text-muted-foreground text-xs font-medium p-4">متوسط وقت الرد</th>
+                    <th className="text-right text-muted-foreground text-xs font-medium p-4">تقييم العملاء</th>
                   </tr>
                 </thead>
                 <tbody>
                   {agents.map((agent) => {
                     const online = isOnline(agent);
                     return (
-                      <tr key={agent.id} data-testid={`agent-row-${agent.id}`} className="border-b border-white/5 last:border-b-0">
+                      <tr key={agent.id} data-testid={`agent-row-${agent.id}`} className="border-b border-border last:border-b-0">
                         <td className="p-4">
                           <div className="flex items-center gap-3">
                             <div className="relative">
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-foreground ${
                                 agent.role === "admin" ? "bg-gradient-to-br from-amber-400 to-amber-600" : "bg-gradient-to-br from-blue-400 to-blue-600"
                               }`}>
                                 {agent.name.charAt(0)}
@@ -245,7 +245,7 @@ export function TeamMonitoring({ onlineAgents = new Set() }: TeamMonitoringProps
                             </div>
                             <div>
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-sm font-medium text-white">{agent.name}</span>
+                                <span className="text-sm font-medium text-foreground">{agent.name}</span>
                                 <Badge
                                   variant="outline"
                                   className={`text-[9px] px-1.5 ${
@@ -261,34 +261,34 @@ export function TeamMonitoring({ onlineAgents = new Set() }: TeamMonitoringProps
                                   )}
                                 </Badge>
                               </div>
-                              <span className="text-xs text-gray-500">{agent.email}</span>
+                              <span className="text-xs text-muted-foreground">{agent.email}</span>
                             </div>
                           </div>
                         </td>
                         <td className="p-4">
                           <div className="flex items-center gap-1.5">
-                            <Circle className={`w-2.5 h-2.5 fill-current ${online ? "text-emerald-500" : "text-gray-500"}`} />
-                            <span className={`text-xs ${online ? "text-emerald-400" : "text-gray-500"}`}>
+                            <Circle className={`w-2.5 h-2.5 fill-current ${online ? "text-emerald-500" : "text-muted-foreground"}`} />
+                            <span className={`text-xs ${online ? "text-emerald-400" : "text-muted-foreground"}`}>
                               {online ? "متصل" : "غير متصل"}
                             </span>
                           </div>
                         </td>
                         <td className="p-4">
-                          <span className="text-white text-sm" data-testid={`active-chats-${agent.id}`}>{agent.activeChats}</span>
-                          <span className="text-gray-500 text-xs"> / {agent.maxConcurrentChats}</span>
+                          <span className="text-foreground text-sm" data-testid={`active-chats-${agent.id}`}>{agent.activeChats}</span>
+                          <span className="text-muted-foreground text-xs"> / {agent.maxConcurrentChats}</span>
                         </td>
                         <td className="p-4">
-                          <span className="text-white text-sm" data-testid={`total-conversations-${agent.id}`}>
+                          <span className="text-foreground text-sm" data-testid={`total-conversations-${agent.id}`}>
                             {agent.totalConversationsToday || 0}
                           </span>
                         </td>
                         <td className="p-4">
-                          <span className="text-white text-sm" data-testid={`resolved-conversations-${agent.id}`}>
+                          <span className="text-foreground text-sm" data-testid={`resolved-conversations-${agent.id}`}>
                             {agent.resolvedToday || 0}
                           </span>
                         </td>
                         <td className="p-4">
-                          <span className="text-white text-sm" data-testid={`avg-response-${agent.id}`}>
+                          <span className="text-foreground text-sm" data-testid={`avg-response-${agent.id}`}>
                             {formatTime(agent.avgResponseTimeSeconds || 0)}
                           </span>
                         </td>
@@ -299,15 +299,15 @@ export function TeamMonitoring({ onlineAgents = new Set() }: TeamMonitoringProps
                                 ratingStats.get(agent.id)!.avgRating >= 4 ? "text-emerald-400" :
                                 ratingStats.get(agent.id)!.avgRating >= 3 ? "text-amber-400" : "text-red-400"
                               }`} />
-                              <span className="text-white text-sm font-medium">
+                              <span className="text-foreground text-sm font-medium">
                                 {ratingStats.get(agent.id)!.avgRating.toFixed(1)}
                               </span>
-                              <span className="text-gray-500 text-xs">
+                              <span className="text-muted-foreground text-xs">
                                 ({ratingStats.get(agent.id)!.totalRatings})
                               </span>
                             </div>
                           ) : (
-                            <span className="text-gray-500 text-xs" data-testid={`no-rating-${agent.id}`}>لا تقييمات</span>
+                            <span className="text-muted-foreground text-xs" data-testid={`no-rating-${agent.id}`}>لا تقييمات</span>
                           )}
                         </td>
                       </tr>
@@ -315,7 +315,7 @@ export function TeamMonitoring({ onlineAgents = new Set() }: TeamMonitoringProps
                   })}
                   {agents.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="p-8 text-center text-gray-500 text-sm">
+                      <td colSpan={7} className="p-8 text-center text-muted-foreground text-sm">
                         لا يوجد موظفين
                       </td>
                     </tr>
@@ -327,7 +327,7 @@ export function TeamMonitoring({ onlineAgents = new Set() }: TeamMonitoringProps
         </div>
 
         <div className="max-w-5xl">
-          <h3 className="text-sm font-semibold text-white mb-4">سجل النشاطات</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-4">سجل النشاطات</h3>
           <div className="space-y-2">
             {activities.length > 0 ? (
               activities.slice(0, 20).map((entry) => {
@@ -337,34 +337,34 @@ export function TeamMonitoring({ onlineAgents = new Set() }: TeamMonitoringProps
                   <div
                     key={entry.id}
                     data-testid={`activity-entry-${entry.id}`}
-                    className="bg-[#111827]/50 border border-white/5 rounded-lg p-4 flex items-center gap-3"
+                    className="bg-card/60 border border-border rounded-lg p-4 flex items-center gap-3"
                   >
-                    <div className={`w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center shrink-0`}>
+                    <div className={`w-8 h-8 rounded-lg bg-muted/40 flex items-center justify-center shrink-0`}>
                       <ActionIcon className={`w-4 h-4 ${colorClass}`} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm text-white font-medium">{getActionLabel(entry.action)}</span>
+                        <span className="text-sm text-foreground font-medium">{getActionLabel(entry.action)}</span>
                         {entry.details?.agentName && (
-                          <Badge variant="outline" className="text-[9px] border-white/10 text-gray-300">
+                          <Badge variant="outline" className="text-[9px] border-border text-foreground/80">
                             {entry.details.agentName}
                           </Badge>
                         )}
                       </div>
                       {entry.details?.conversationId && (
-                        <span className="text-xs text-gray-500 block truncate">
+                        <span className="text-xs text-muted-foreground block truncate">
                           محادثة: {entry.details.conversationId.slice(0, 8)}...
                         </span>
                       )}
                     </div>
-                    <span className="text-[10px] text-gray-500 shrink-0" data-testid={`activity-time-${entry.id}`}>
+                    <span className="text-[10px] text-muted-foreground shrink-0" data-testid={`activity-time-${entry.id}`}>
                       {formatTimestamp(entry.createdAt)}
                     </span>
                   </div>
                 );
               })
             ) : (
-              <div className="bg-[#111827]/50 border border-white/5 rounded-lg p-8 text-center text-gray-500 text-sm">
+              <div className="bg-card/60 border border-border rounded-lg p-8 text-center text-muted-foreground text-sm">
                 لا توجد نشاطات مسجلة
               </div>
             )}

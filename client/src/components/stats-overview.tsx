@@ -118,10 +118,10 @@ export function StatsOverview() {
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      <div className="h-14 border-b border-white/5 flex items-center justify-between px-6 bg-[#0d1321]/50 shrink-0">
+      <div className="h-14 border-b border-border flex items-center justify-between px-6 bg-card/80 shrink-0">
         <div className="flex items-center gap-2">
           <BarChart3 className="w-5 h-5 text-emerald-400" />
-          <h2 className="text-base font-semibold text-white">لوحة الإحصائيات</h2>
+          <h2 className="text-base font-semibold text-foreground">لوحة الإحصائيات</h2>
         </div>
         <div className="flex items-center gap-1">
           <Button
@@ -148,12 +148,12 @@ export function StatsOverview() {
                 setExporting(false);
               }
             }}
-            className="text-xs text-gray-400 h-7 ml-2"
+            className="text-xs text-muted-foreground h-7 ml-2"
           >
             {exporting ? <Loader2 className="w-3 h-3 animate-spin ml-1" /> : <Download className="w-3 h-3 ml-1" />}
             تصدير CSV
           </Button>
-          <Calendar className="w-4 h-4 text-gray-500 ml-2" />
+          <Calendar className="w-4 h-4 text-muted-foreground ml-2" />
           {[7, 30].map((d) => (
             <Button
               key={d}
@@ -161,7 +161,7 @@ export function StatsOverview() {
               variant={period === d ? "default" : "ghost"}
               data-testid={`button-period-${d}`}
               onClick={() => { setLoading(true); setPeriod(d); }}
-              className={`text-xs h-7 ${period === d ? "bg-emerald-600" : "text-gray-400"}`}
+              className={`text-xs h-7 ${period === d ? "bg-emerald-600" : "text-muted-foreground"}`}
             >
               {d === 7 ? "٧ أيام" : "٣٠ يوم"}
             </Button>
@@ -175,22 +175,22 @@ export function StatsOverview() {
             <div
               key={card.label}
               data-testid={`stat-card-${card.label}`}
-              className={`bg-[#111827]/50 border ${card.border} rounded-xl p-5 transition-all hover:bg-[#111827]/80`}
+              className={`bg-card/60 border ${card.border} rounded-xl p-5 transition-all hover:bg-popover/80`}
             >
               <div className="flex items-center justify-between mb-4">
                 <div className={`w-10 h-10 rounded-lg ${card.bg} flex items-center justify-center`}>
                   <card.icon className={`w-5 h-5 ${card.color}`} />
                 </div>
               </div>
-              <div className="text-2xl font-bold text-white mb-1">{card.value}</div>
-              <div className="text-xs text-gray-400">{card.label}</div>
+              <div className="text-2xl font-bold text-foreground mb-1">{card.value}</div>
+              <div className="text-xs text-muted-foreground">{card.label}</div>
             </div>
           ))}
         </div>
 
         <div className="max-w-4xl">
-          <h3 className="text-sm font-semibold text-white mb-4">المحادثات اليومية</h3>
-          <div className="bg-[#111827]/50 border border-white/5 rounded-xl p-5">
+          <h3 className="text-sm font-semibold text-foreground mb-4">المحادثات اليومية</h3>
+          <div className="bg-card/60 border border-border rounded-xl p-5">
             {analytics?.dailyConversations && analytics.dailyConversations.length > 0 ? (
               <div className="flex items-end gap-1 h-40">
                 {analytics.dailyConversations.map((day, i) => {
@@ -198,18 +198,18 @@ export function StatsOverview() {
                   const dateStr = new Date(day.date).toLocaleDateString("ar-SA", { month: "short", day: "numeric" });
                   return (
                     <div key={i} className="flex-1 flex flex-col items-center gap-1" data-testid={`chart-bar-${i}`}>
-                      <span className="text-[9px] text-gray-400">{day.count}</span>
+                      <span className="text-[9px] text-muted-foreground">{day.count}</span>
                       <div
                         className="w-full bg-emerald-500/30 rounded-t-sm min-h-[4px] transition-all"
                         style={{ height: `${Math.max(height, 4)}%` }}
                       />
-                      <span className="text-[8px] text-gray-600 whitespace-nowrap">{dateStr}</span>
+                      <span className="text-[8px] text-muted-foreground whitespace-nowrap">{dateStr}</span>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <div className="flex items-center justify-center h-40 text-gray-500 text-sm">
+              <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
                 لا توجد بيانات للفترة المحددة
               </div>
             )}

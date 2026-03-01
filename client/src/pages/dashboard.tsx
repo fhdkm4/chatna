@@ -436,7 +436,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="h-screen flex bg-[#0a0f1a] text-white overflow-hidden" dir="rtl">
+    <div className="h-screen flex bg-background text-foreground overflow-hidden" dir="rtl">
       <NavSidebar
         activeView={activeView}
         onViewChange={setActiveView}

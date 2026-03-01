@@ -112,12 +112,12 @@ function SampleReply({ tone, lang }: { tone: string; lang: string }) {
   };
   const displayLang = lang === "auto" ? "ar" : lang;
   return (
-    <div className="bg-[#0d1321] border border-white/5 rounded-lg p-3 mt-3" data-testid="text-sample-reply">
+    <div className="bg-card border border-border rounded-lg p-3 mt-3" data-testid="text-sample-reply">
       <div className="flex items-center gap-2 mb-2">
         <Bot className="w-3.5 h-3.5 text-emerald-400" />
-        <span className="text-[10px] text-gray-500 uppercase tracking-wider">معاينة الرد</span>
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">معاينة الرد</span>
       </div>
-      <p className="text-xs text-gray-300 leading-relaxed" dir={displayLang === "ar" ? "rtl" : "ltr"}>
+      <p className="text-xs text-foreground/80 leading-relaxed" dir={displayLang === "ar" ? "rtl" : "ltr"}>
         {samples[tone]?.[displayLang] || samples.friendly.ar}
       </p>
     </div>
@@ -208,10 +208,10 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      <div className="h-14 border-b border-white/5 flex items-center justify-between px-6 bg-[#0d1321]/50 shrink-0">
+      <div className="h-14 border-b border-border flex items-center justify-between px-6 bg-card/80 shrink-0">
         <div className="flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-emerald-400" />
-          <h2 className="text-base font-semibold text-white" data-testid="text-ai-settings-title">إعدادات الذكاء الاصطناعي</h2>
+          <h2 className="text-base font-semibold text-foreground" data-testid="text-ai-settings-title">إعدادات الذكاء الاصطناعي</h2>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -219,7 +219,7 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
             variant="outline"
             onClick={handleReset}
             data-testid="button-reset-ai-settings"
-            className="text-xs border-white/10 text-gray-300"
+            className="text-xs border-border text-foreground/80"
           >
             <RotateCcw className="w-3 h-3 ml-1" />
             إعادة تعيين
@@ -249,18 +249,18 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
                     <Bot className="w-7 h-7 text-emerald-400" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-white" data-testid="text-ai-name">{data?.name || "مساعد الذكاء الاصطناعي"}</h3>
-                    <p className="text-xs text-gray-400 mt-0.5" data-testid="text-ai-status">
+                    <h3 className="text-lg font-bold text-foreground" data-testid="text-ai-name">{data?.name || "مساعد الذكاء الاصطناعي"}</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5" data-testid="text-ai-status">
                       {watchedEnabled ? "المساعد مفعّل ويرد على العملاء تلقائياً" : "المساعد معطّل حالياً"}
                     </p>
                     <div className="flex items-center gap-2 mt-2">
                       <Badge variant="outline" data-testid="badge-ai-enabled" className={`text-[10px] ${watchedEnabled ? "border-emerald-500/30 text-emerald-400" : "border-red-500/30 text-red-400"}`}>
                         {watchedEnabled ? "مفعّل" : "معطّل"}
                       </Badge>
-                      <Badge variant="outline" data-testid="badge-ai-tone" className="text-[10px] border-white/10 text-gray-400">
+                      <Badge variant="outline" data-testid="badge-ai-tone" className="text-[10px] border-border text-muted-foreground">
                         {toneLabels[watchedTone] || "ودود"}
                       </Badge>
-                      <Badge variant="outline" data-testid="badge-ai-lang" className="text-[10px] border-white/10 text-gray-400">
+                      <Badge variant="outline" data-testid="badge-ai-lang" className="text-[10px] border-border text-muted-foreground">
                         {langLabels[watchedLang] || "تلقائي"}
                       </Badge>
                     </div>
@@ -271,7 +271,7 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
                   name="aiEnabled"
                   render={({ field }) => (
                     <FormItem className="flex items-center gap-3 space-y-0">
-                      <FormLabel className="text-sm text-gray-300">تفعيل الذكاء الاصطناعي</FormLabel>
+                      <FormLabel className="text-sm text-foreground/80">تفعيل الذكاء الاصطناعي</FormLabel>
                       <FormControl>
                         <Switch
                           data-testid="switch-ai-enabled"
@@ -287,10 +287,10 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
             </div>
 
             {/* 2. Tone & Language */}
-            <div className="bg-[#111827]/50 border border-white/5 rounded-xl p-6">
+            <div className="bg-card/60 border border-border rounded-xl p-6">
               <div className="flex items-center gap-2 mb-5">
                 <MessageSquare className="w-4 h-4 text-emerald-400" />
-                <h3 className="text-sm font-semibold text-white">الأسلوب واللغة</h3>
+                <h3 className="text-sm font-semibold text-foreground">الأسلوب واللغة</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
@@ -298,19 +298,19 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
                   name="aiTone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs text-gray-400">أسلوب الرد</FormLabel>
+                      <FormLabel className="text-xs text-muted-foreground">أسلوب الرد</FormLabel>
                       <Select value={field.value} onValueChange={field.onChange}>
                         <FormControl>
-                          <SelectTrigger data-testid="select-ai-tone" className="bg-[#0d1321] border-white/10 text-white">
+                          <SelectTrigger data-testid="select-ai-tone" className="bg-card border-border text-foreground">
                             <SelectValue />
                           </SelectTrigger>
                         </FormControl>
-                        <SelectContent className="bg-[#1a2235] border-white/10">
+                        <SelectContent className="bg-popover border-border">
                           {Object.entries(toneLabels).map(([value, label]) => (
-                            <SelectItem key={value} value={value} className="text-white">
+                            <SelectItem key={value} value={value} className="text-foreground">
                               <div>
                                 <span>{label}</span>
-                                <span className="text-[10px] text-gray-500 mr-2">{toneDescriptions[value]}</span>
+                                <span className="text-[10px] text-muted-foreground mr-2">{toneDescriptions[value]}</span>
                               </div>
                             </SelectItem>
                           ))}
@@ -325,16 +325,16 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
                   name="languagePreference"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs text-gray-400">لغة الرد</FormLabel>
+                      <FormLabel className="text-xs text-muted-foreground">لغة الرد</FormLabel>
                       <Select value={field.value} onValueChange={field.onChange}>
                         <FormControl>
-                          <SelectTrigger data-testid="select-language" className="bg-[#0d1321] border-white/10 text-white">
+                          <SelectTrigger data-testid="select-language" className="bg-card border-border text-foreground">
                             <SelectValue />
                           </SelectTrigger>
                         </FormControl>
-                        <SelectContent className="bg-[#1a2235] border-white/10">
+                        <SelectContent className="bg-popover border-border">
                           {Object.entries(langLabels).map(([value, label]) => (
-                            <SelectItem key={value} value={value} className="text-white">
+                            <SelectItem key={value} value={value} className="text-foreground">
                               {label}
                             </SelectItem>
                           ))}
@@ -349,10 +349,10 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
             </div>
 
             {/* 3. Custom Instructions */}
-            <div className="bg-[#111827]/50 border border-white/5 rounded-xl p-6">
+            <div className="bg-card/60 border border-border rounded-xl p-6">
               <div className="flex items-center gap-2 mb-5">
                 <Sparkles className="w-4 h-4 text-emerald-400" />
-                <h3 className="text-sm font-semibold text-white">تعليمات مخصصة</h3>
+                <h3 className="text-sm font-semibold text-foreground">تعليمات مخصصة</h3>
               </div>
               <div className="space-y-5">
                 <FormField
@@ -361,8 +361,8 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
                   render={({ field }) => (
                     <FormItem>
                       <div className="flex items-center justify-between">
-                        <FormLabel className="text-xs text-gray-400">تعليمات الشخصية</FormLabel>
-                        <span className={`text-[10px] ${personalityCount > 2000 ? "text-red-400" : "text-gray-500"}`} data-testid="text-personality-count">
+                        <FormLabel className="text-xs text-muted-foreground">تعليمات الشخصية</FormLabel>
+                        <span className={`text-[10px] ${personalityCount > 2000 ? "text-red-400" : "text-muted-foreground"}`} data-testid="text-personality-count">
                           {personalityCount} / 2000
                         </span>
                       </div>
@@ -373,12 +373,12 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
                           onChange={(e) => field.onChange(e.target.value.slice(0, 2000))}
                           placeholder="مثال: كن دائماً إيجابياً. استخدم الرموز التعبيرية باعتدال. اذكر اسم العميل في الرد. لا تستخدم كلمات تقنية معقدة."
                           rows={4}
-                          className="bg-[#0d1321] border-white/10 text-white text-sm resize-none placeholder:text-gray-600"
+                          className="bg-card border-border text-foreground text-sm resize-none placeholder:text-muted-foreground"
                         />
                       </FormControl>
                       <div className="flex items-start gap-1.5 mt-1.5">
-                        <Info className="w-3 h-3 text-gray-600 mt-0.5 shrink-0" />
-                        <p className="text-[10px] text-gray-600">هذه التعليمات تحدد سلوك وشخصية المساعد عند التواصل مع العملاء</p>
+                        <Info className="w-3 h-3 text-muted-foreground mt-0.5 shrink-0" />
+                        <p className="text-[10px] text-muted-foreground">هذه التعليمات تحدد سلوك وشخصية المساعد عند التواصل مع العملاء</p>
                       </div>
                       <FormMessage />
                     </FormItem>
@@ -391,10 +391,10 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
                     <FormItem>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
-                          <FormLabel className="text-xs text-gray-400">تعليمات النظام المتقدمة</FormLabel>
-                          <Code2 className="w-3 h-3 text-gray-600" />
+                          <FormLabel className="text-xs text-muted-foreground">تعليمات النظام المتقدمة</FormLabel>
+                          <Code2 className="w-3 h-3 text-muted-foreground" />
                         </div>
-                        <span className={`text-[10px] ${systemPromptCount > 2000 ? "text-red-400" : "text-gray-500"}`} data-testid="text-system-prompt-count">
+                        <span className={`text-[10px] ${systemPromptCount > 2000 ? "text-red-400" : "text-muted-foreground"}`} data-testid="text-system-prompt-count">
                           {systemPromptCount} / 2000
                         </span>
                       </div>
@@ -405,12 +405,12 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
                           onChange={(e) => field.onChange(e.target.value.slice(0, 2000))}
                           placeholder="للمستخدمين المتقدمين: أضف تعليمات نظام مخصصة هنا"
                           rows={3}
-                          className="bg-[#0d1321] border-white/10 text-white text-sm resize-none placeholder:text-gray-600"
+                          className="bg-card border-border text-foreground text-sm resize-none placeholder:text-muted-foreground"
                         />
                       </FormControl>
                       <div className="flex items-start gap-1.5 mt-1.5">
-                        <Info className="w-3 h-3 text-gray-600 mt-0.5 shrink-0" />
-                        <p className="text-[10px] text-gray-600">للمستخدمين المتقدمين فقط. هذه التعليمات تضاف مباشرة لنظام الذكاء الاصطناعي</p>
+                        <Info className="w-3 h-3 text-muted-foreground mt-0.5 shrink-0" />
+                        <p className="text-[10px] text-muted-foreground">للمستخدمين المتقدمين فقط. هذه التعليمات تضاف مباشرة لنظام الذكاء الاصطناعي</p>
                       </div>
                       <FormMessage />
                     </FormItem>
@@ -420,10 +420,10 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
             </div>
 
             {/* 4. Business Context */}
-            <div className="bg-[#111827]/50 border border-white/5 rounded-xl p-6">
+            <div className="bg-card/60 border border-border rounded-xl p-6">
               <div className="flex items-center gap-2 mb-5">
                 <Building2 className="w-4 h-4 text-emerald-400" />
-                <h3 className="text-sm font-semibold text-white">سياق العمل</h3>
+                <h3 className="text-sm font-semibold text-foreground">سياق العمل</h3>
               </div>
               <div className="space-y-5">
                 <FormField
@@ -431,14 +431,14 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
                   name="businessDescription"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs text-gray-400">وصف النشاط التجاري</FormLabel>
+                      <FormLabel className="text-xs text-muted-foreground">وصف النشاط التجاري</FormLabel>
                       <FormControl>
                         <Textarea
                           data-testid="textarea-business-description"
                           {...field}
                           placeholder="وصف مختصر لنشاطك التجاري وما تقدمه من خدمات أو منتجات"
                           rows={3}
-                          className="bg-[#0d1321] border-white/10 text-white text-sm resize-none placeholder:text-gray-600"
+                          className="bg-card border-border text-foreground text-sm resize-none placeholder:text-muted-foreground"
                         />
                       </FormControl>
                       <FormMessage />
@@ -451,16 +451,16 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
                     name="businessType"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs text-gray-400">نوع النشاط</FormLabel>
+                        <FormLabel className="text-xs text-muted-foreground">نوع النشاط</FormLabel>
                         <Select value={field.value} onValueChange={field.onChange}>
                           <FormControl>
-                            <SelectTrigger data-testid="select-business-type" className="bg-[#0d1321] border-white/10 text-white">
+                            <SelectTrigger data-testid="select-business-type" className="bg-card border-border text-foreground">
                               <SelectValue placeholder="اختر نوع النشاط" />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent className="bg-[#1a2235] border-white/10">
+                          <SelectContent className="bg-popover border-border">
                             {businessTypes.map((bt) => (
-                              <SelectItem key={bt.value} value={bt.value} className="text-white">
+                              <SelectItem key={bt.value} value={bt.value} className="text-foreground">
                                 {bt.label}
                               </SelectItem>
                             ))}
@@ -475,7 +475,7 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
                     name="contactPhone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs text-gray-400">
+                        <FormLabel className="text-xs text-muted-foreground">
                           <Phone className="w-3 h-3 inline ml-1" />
                           رقم التواصل
                         </FormLabel>
@@ -485,7 +485,7 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
                             {...field}
                             placeholder="+966 5x xxx xxxx"
                             dir="ltr"
-                            className="bg-[#0d1321] border-white/10 text-white text-sm placeholder:text-gray-600"
+                            className="bg-card border-border text-foreground text-sm placeholder:text-muted-foreground"
                           />
                         </FormControl>
                         <FormMessage />
@@ -499,7 +499,7 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
                     name="website"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs text-gray-400">
+                        <FormLabel className="text-xs text-muted-foreground">
                           <Globe className="w-3 h-3 inline ml-1" />
                           الموقع الإلكتروني
                         </FormLabel>
@@ -509,7 +509,7 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
                             {...field}
                             placeholder="https://example.com"
                             dir="ltr"
-                            className="bg-[#0d1321] border-white/10 text-white text-sm placeholder:text-gray-600"
+                            className="bg-card border-border text-foreground text-sm placeholder:text-muted-foreground"
                           />
                         </FormControl>
                         <FormMessage />
@@ -521,7 +521,7 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
                     name="workingHours"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs text-gray-400">
+                        <FormLabel className="text-xs text-muted-foreground">
                           <Clock className="w-3 h-3 inline ml-1" />
                           ساعات العمل
                         </FormLabel>
@@ -530,7 +530,7 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
                             data-testid="input-working-hours"
                             {...field}
                             placeholder="السبت - الخميس، 9 ص - 6 م"
-                            className="bg-[#0d1321] border-white/10 text-white text-sm placeholder:text-gray-600"
+                            className="bg-card border-border text-foreground text-sm placeholder:text-muted-foreground"
                           />
                         </FormControl>
                         <FormMessage />
@@ -543,7 +543,7 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
                   name="address"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs text-gray-400">
+                      <FormLabel className="text-xs text-muted-foreground">
                         <MapPin className="w-3 h-3 inline ml-1" />
                         العنوان
                       </FormLabel>
@@ -552,7 +552,7 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
                           data-testid="input-address"
                           {...field}
                           placeholder="الرياض، المملكة العربية السعودية"
-                          className="bg-[#0d1321] border-white/10 text-white text-sm placeholder:text-gray-600"
+                          className="bg-card border-border text-foreground text-sm placeholder:text-muted-foreground"
                         />
                       </FormControl>
                       <FormMessage />
@@ -563,10 +563,10 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
             </div>
 
             {/* 5. Messages */}
-            <div className="bg-[#111827]/50 border border-white/5 rounded-xl p-6">
+            <div className="bg-card/60 border border-border rounded-xl p-6">
               <div className="flex items-center gap-2 mb-5">
                 <MessageSquare className="w-4 h-4 text-emerald-400" />
-                <h3 className="text-sm font-semibold text-white">رسائل النظام</h3>
+                <h3 className="text-sm font-semibold text-foreground">رسائل النظام</h3>
               </div>
               <div className="space-y-5">
                 <FormField
@@ -574,19 +574,19 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
                   name="welcomeMessage"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs text-gray-400">رسالة الترحيب</FormLabel>
+                      <FormLabel className="text-xs text-muted-foreground">رسالة الترحيب</FormLabel>
                       <FormControl>
                         <Textarea
                           data-testid="textarea-welcome-message"
                           {...field}
                           placeholder="أهلاً وسهلاً! كيف يمكنني مساعدتك اليوم؟"
                           rows={2}
-                          className="bg-[#0d1321] border-white/10 text-white text-sm resize-none placeholder:text-gray-600"
+                          className="bg-card border-border text-foreground text-sm resize-none placeholder:text-muted-foreground"
                         />
                       </FormControl>
                       <div className="flex items-start gap-1.5 mt-1.5">
-                        <Info className="w-3 h-3 text-gray-600 mt-0.5 shrink-0" />
-                        <p className="text-[10px] text-gray-600">ترسل تلقائياً عند بدء محادثة جديدة مع العميل</p>
+                        <Info className="w-3 h-3 text-muted-foreground mt-0.5 shrink-0" />
+                        <p className="text-[10px] text-muted-foreground">ترسل تلقائياً عند بدء محادثة جديدة مع العميل</p>
                       </div>
                       <FormMessage />
                     </FormItem>
@@ -597,19 +597,19 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
                   name="offHoursMessage"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs text-gray-400">رسالة خارج ساعات العمل</FormLabel>
+                      <FormLabel className="text-xs text-muted-foreground">رسالة خارج ساعات العمل</FormLabel>
                       <FormControl>
                         <Textarea
                           data-testid="textarea-off-hours"
                           {...field}
                           placeholder="شكراً لتواصلك. نحن حالياً خارج ساعات العمل. سنرد عليك في أقرب وقت ممكن."
                           rows={2}
-                          className="bg-[#0d1321] border-white/10 text-white text-sm resize-none placeholder:text-gray-600"
+                          className="bg-card border-border text-foreground text-sm resize-none placeholder:text-muted-foreground"
                         />
                       </FormControl>
                       <div className="flex items-start gap-1.5 mt-1.5">
-                        <Info className="w-3 h-3 text-gray-600 mt-0.5 shrink-0" />
-                        <p className="text-[10px] text-gray-600">ترسل عندما يتواصل العميل خارج ساعات العمل المحددة</p>
+                        <Info className="w-3 h-3 text-muted-foreground mt-0.5 shrink-0" />
+                        <p className="text-[10px] text-muted-foreground">ترسل عندما يتواصل العميل خارج ساعات العمل المحددة</p>
                       </div>
                       <FormMessage />
                     </FormItem>
@@ -620,19 +620,19 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
                   name="defaultEscalationMessage"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs text-gray-400">رسالة التحويل للموظف</FormLabel>
+                      <FormLabel className="text-xs text-muted-foreground">رسالة التحويل للموظف</FormLabel>
                       <FormControl>
                         <Textarea
                           data-testid="textarea-escalation"
                           {...field}
                           placeholder="سأحولك الآن لأحد موظفينا لمساعدتك بشكل أفضل. يرجى الانتظار لحظات."
                           rows={2}
-                          className="bg-[#0d1321] border-white/10 text-white text-sm resize-none placeholder:text-gray-600"
+                          className="bg-card border-border text-foreground text-sm resize-none placeholder:text-muted-foreground"
                         />
                       </FormControl>
                       <div className="flex items-start gap-1.5 mt-1.5">
-                        <Info className="w-3 h-3 text-gray-600 mt-0.5 shrink-0" />
-                        <p className="text-[10px] text-gray-600">ترسل عندما يحوّل العميل لموظف بشري بدلاً من الذكاء الاصطناعي</p>
+                        <Info className="w-3 h-3 text-muted-foreground mt-0.5 shrink-0" />
+                        <p className="text-[10px] text-muted-foreground">ترسل عندما يحوّل العميل لموظف بشري بدلاً من الذكاء الاصطناعي</p>
                       </div>
                       <FormMessage />
                     </FormItem>
@@ -642,15 +642,15 @@ export function AiSettings({ onNavigateToKnowledgeBase }: AiSettingsProps) {
             </div>
 
             {/* 6. Knowledge Base Quick Access */}
-            <div className="bg-[#111827]/50 border border-white/5 rounded-xl p-6">
+            <div className="bg-card/60 border border-border rounded-xl p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
                     <BookOpen className="w-5 h-5 text-emerald-400" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-white">قاعدة المعرفة</h3>
-                    <p className="text-xs text-gray-400 mt-0.5" data-testid="text-knowledge-count">
+                    <h3 className="text-sm font-semibold text-foreground">قاعدة المعرفة</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5" data-testid="text-knowledge-count">
                       {data?.knowledgeBaseCount !== undefined
                         ? `${data.knowledgeBaseCount} مدخل نشط يستخدمه الذكاء الاصطناعي`
                         : "جاري التحميل..."}

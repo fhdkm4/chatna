@@ -52,18 +52,18 @@ export function ConversationList({
   delayedConversations,
 }: ConversationListProps) {
   return (
-    <div className="w-[340px] border-l border-white/5 bg-[#0d1321] flex flex-col shrink-0">
-      <div className="p-4 border-b border-white/5">
-        <h2 className="text-lg font-semibold text-white mb-3">المحادثات</h2>
+    <div className="w-[340px] border-l border-border bg-card flex flex-col shrink-0">
+      <div className="p-4 border-b border-border">
+        <h2 className="text-lg font-semibold text-foreground mb-3">المحادثات</h2>
         <div className="relative">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             data-testid="input-search-conversations"
             type="search"
             placeholder="بحث..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="pr-10 bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 text-sm"
+            className="pr-10 bg-background border-border text-foreground placeholder:text-muted-foreground text-sm"
           />
         </div>
         <div className="flex gap-1 mt-3">
@@ -75,7 +75,7 @@ export function ConversationList({
               className={`flex-1 text-xs py-1.5 rounded-md transition-all font-medium ${
                 filter === f.id
                   ? "bg-emerald-500/20 text-emerald-400"
-                  : "text-gray-400 hover:bg-white/5"
+                  : "text-muted-foreground hover:bg-white/5"
               }`}
             >
               {f.label}
@@ -98,7 +98,7 @@ export function ConversationList({
             ))}
           </div>
         ) : conversations.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+          <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
             <MessageSquare className="w-10 h-10 mb-3 opacity-30" />
             <p className="text-sm">لا توجد محادثات</p>
           </div>
@@ -120,7 +120,7 @@ export function ConversationList({
                 }`}
               >
                 <div className="relative shrink-0">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white ${
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-foreground ${
                     isDelayed
                       ? "bg-gradient-to-br from-red-400/80 to-red-600/80"
                       : "bg-gradient-to-br from-emerald-400/80 to-emerald-600/80"
@@ -131,14 +131,14 @@ export function ConversationList({
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2 mb-0.5">
-                    <span className={`text-sm font-medium truncate ${isDelayed ? "text-red-400" : "text-white"}`}>
+                    <span className={`text-sm font-medium truncate ${isDelayed ? "text-red-400" : "text-foreground"}`}>
                       {conv.contact?.name || conv.contact?.phone || "جهة اتصال"}
                     </span>
                     <div className="flex items-center gap-1 shrink-0">
                       {isDelayed && (
                         <AlertTriangle className="w-3.5 h-3.5 text-red-400" data-testid={`delay-icon-${conv.id}`} />
                       )}
-                      <span className="text-[10px] text-gray-500">
+                      <span className="text-[10px] text-muted-foreground">
                         {conv.updatedAt
                           ? formatDistanceToNow(new Date(conv.updatedAt), { locale: ar, addSuffix: true })
                           : ""}
@@ -146,7 +146,7 @@ export function ConversationList({
                     </div>
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs text-gray-400 truncate">
+                    <p className="text-xs text-muted-foreground truncate">
                       {conv.lastMessage?.content || "لا توجد رسائل"}
                     </p>
                     <div className="flex items-center gap-1 shrink-0">
@@ -161,7 +161,7 @@ export function ConversationList({
                         </Badge>
                       )}
                       {(conv.unreadCount ?? 0) > 0 && (
-                        <span className="min-w-[18px] h-[18px] rounded-full bg-emerald-500 text-[10px] font-bold text-white flex items-center justify-center px-1">
+                        <span className="min-w-[18px] h-[18px] rounded-full bg-emerald-500 text-[10px] font-bold text-foreground flex items-center justify-center px-1">
                           {conv.unreadCount}
                         </span>
                       )}
@@ -170,7 +170,7 @@ export function ConversationList({
                   {conv.contact?.tags && conv.contact.tags.length > 0 && (
                     <div className="flex gap-1 mt-1 flex-wrap">
                       {conv.contact.tags.slice(0, 2).map((tag) => (
-                        <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-gray-400">
+                        <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-muted-foreground">
                           {tag}
                         </span>
                       ))}

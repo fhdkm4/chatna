@@ -115,11 +115,11 @@ export function AutoReplies() {
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      <div className="h-14 border-b border-white/5 flex items-center justify-between px-6 bg-[#0d1321]/50 shrink-0">
+      <div className="h-14 border-b border-border flex items-center justify-between px-6 bg-card/80 shrink-0">
         <div className="flex items-center gap-2">
           <Settings className="w-5 h-5 text-emerald-400" />
-          <h2 className="text-base font-semibold text-white">الردود التلقائية</h2>
-          <Badge variant="secondary" className="text-[10px] bg-white/5 text-gray-300">
+          <h2 className="text-base font-semibold text-foreground">الردود التلقائية</h2>
+          <Badge variant="secondary" className="text-[10px] bg-muted/40 text-foreground/80">
             {replies.length}
           </Badge>
         </div>
@@ -135,7 +135,7 @@ export function AutoReplies() {
             <Loader2 className="w-6 h-6 text-emerald-400 animate-spin" />
           </div>
         ) : replies.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+          <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
             <Zap className="w-12 h-12 mb-3 opacity-30" />
             <p className="text-sm">لا توجد ردود تلقائية</p>
             <p className="text-xs mt-1">أضف ردود تلقائية للرد على الكلمات المفتاحية</p>
@@ -146,8 +146,8 @@ export function AutoReplies() {
               <div
                 key={reply.id}
                 data-testid={`auto-reply-${reply.id}`}
-                className={`bg-[#111827]/50 border rounded-lg p-4 group transition-all ${
-                  reply.isActive ? "border-emerald-500/20" : "border-white/5 opacity-60"
+                className={`bg-card/60 border rounded-lg p-4 group transition-all ${
+                  reply.isActive ? "border-emerald-500/20" : "border-border opacity-60"
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -160,12 +160,12 @@ export function AutoReplies() {
                         {reply.triggerValue}
                       </code>
                     </div>
-                    <p className="text-xs text-gray-300 whitespace-pre-wrap">{reply.response}</p>
+                    <p className="text-xs text-foreground/80 whitespace-pre-wrap">{reply.response}</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => toggleActive(reply)}
-                      className="text-gray-400 hover:text-emerald-400 transition-colors"
+                      className="text-muted-foreground hover:text-emerald-400 transition-colors"
                       data-testid={`toggle-reply-${reply.id}`}
                     >
                       {reply.isActive ? (
@@ -174,10 +174,10 @@ export function AutoReplies() {
                         <ToggleLeft className="w-5 h-5" />
                       )}
                     </button>
-                    <Button size="icon" variant="ghost" onClick={() => openEdit(reply)} className="w-7 h-7 text-gray-400 opacity-0 group-hover:opacity-100">
+                    <Button size="icon" variant="ghost" onClick={() => openEdit(reply)} className="w-7 h-7 text-muted-foreground opacity-0 group-hover:opacity-100">
                       <Pencil className="w-3 h-3" />
                     </Button>
-                    <Button size="icon" variant="ghost" onClick={() => handleDelete(reply.id)} className="w-7 h-7 text-gray-400 hover:text-red-400 opacity-0 group-hover:opacity-100">
+                    <Button size="icon" variant="ghost" onClick={() => handleDelete(reply.id)} className="w-7 h-7 text-muted-foreground hover:text-red-400 opacity-0 group-hover:opacity-100">
                       <Trash2 className="w-3 h-3" />
                     </Button>
                   </div>
@@ -188,20 +188,20 @@ export function AutoReplies() {
         )}
       </ScrollArea>
 
-      <div className="border-t border-white/5 px-6 py-6">
+      <div className="border-t border-border px-6 py-6">
         <div className="flex items-center gap-2 mb-4">
           <Star className="w-5 h-5 text-amber-400" />
-          <h3 className="text-sm font-semibold text-white">إعدادات تقييم العملاء</h3>
+          <h3 className="text-sm font-semibold text-foreground">إعدادات تقييم العملاء</h3>
         </div>
         <div className="max-w-3xl space-y-4">
-          <div className="flex items-center justify-between bg-[#111827]/50 border border-white/5 rounded-lg p-4">
+          <div className="flex items-center justify-between bg-card/60 border border-border rounded-lg p-4">
             <div>
-              <p className="text-sm text-white font-medium">تفعيل التقييم التلقائي</p>
-              <p className="text-xs text-gray-400 mt-0.5">إرسال طلب تقييم للعميل بعد إغلاق المحادثة</p>
+              <p className="text-sm text-foreground font-medium">تفعيل التقييم التلقائي</p>
+              <p className="text-xs text-muted-foreground mt-0.5">إرسال طلب تقييم للعميل بعد إغلاق المحادثة</p>
             </div>
             <button
               onClick={() => setRatingEnabled(!ratingEnabled)}
-              className="text-gray-400 hover:text-emerald-400 transition-colors"
+              className="text-muted-foreground hover:text-emerald-400 transition-colors"
               data-testid="toggle-rating-enabled"
             >
               {ratingEnabled ? (
@@ -215,24 +215,24 @@ export function AutoReplies() {
           {ratingEnabled && (
             <>
               <div className="space-y-2">
-                <Label className="text-gray-300 text-xs">مدة الانتظار قبل إرسال التقييم (بالدقائق)</Label>
+                <Label className="text-foreground/80 text-xs">مدة الانتظار قبل إرسال التقييم (بالدقائق)</Label>
                 <Input
                   type="number"
                   min={0}
                   max={60}
                   value={ratingDelayMinutes}
                   onChange={(e) => setRatingDelayMinutes(parseInt(e.target.value) || 0)}
-                  className="bg-[#0a0f1a] border-white/10 text-white w-32"
+                  className="bg-background border-border text-foreground w-32"
                   data-testid="input-rating-delay"
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-gray-300 text-xs">رسالة طلب التقييم</Label>
+                <Label className="text-foreground/80 text-xs">رسالة طلب التقييم</Label>
                 <Textarea
                   value={ratingMessage}
                   onChange={(e) => setRatingMessage(e.target.value)}
                   placeholder="شكراً لتواصلك معنا! كيف تقيّم الخدمة؟"
-                  className="bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 min-h-[80px]"
+                  className="bg-background border-border text-foreground placeholder:text-muted-foreground min-h-[80px]"
                   data-testid="input-rating-message"
                 />
               </div>
@@ -250,18 +250,18 @@ export function AutoReplies() {
       </div>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="bg-[#111827] border-white/10 text-white max-w-lg">
+        <DialogContent className="bg-popover border-border text-foreground max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-white">{editing ? "تعديل الرد" : "إضافة رد تلقائي"}</DialogTitle>
+            <DialogTitle className="text-foreground">{editing ? "تعديل الرد" : "إضافة رد تلقائي"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-gray-300 text-xs">نوع المحفز</Label>
+              <Label className="text-foreground/80 text-xs">نوع المحفز</Label>
               <Select value={form.triggerType} onValueChange={(v) => setForm({ ...form, triggerType: v })}>
-                <SelectTrigger className="bg-[#0a0f1a] border-white/10 text-white" data-testid="select-trigger-type">
+                <SelectTrigger className="bg-background border-border text-foreground" data-testid="select-trigger-type">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-[#111827] border-white/10 text-white">
+                <SelectContent className="bg-popover border-border text-foreground">
                   <SelectItem value="keyword">كلمة مفتاحية</SelectItem>
                   <SelectItem value="exact">تطابق تام</SelectItem>
                   <SelectItem value="pattern">نمط</SelectItem>
@@ -269,27 +269,27 @@ export function AutoReplies() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label className="text-gray-300 text-xs">قيمة المحفز</Label>
+              <Label className="text-foreground/80 text-xs">قيمة المحفز</Label>
               <Input
                 data-testid="input-trigger-value"
                 value={form.triggerValue}
                 onChange={(e) => setForm({ ...form, triggerValue: e.target.value })}
                 placeholder="مثال: السعر، المواعيد"
-                className="bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500"
+                className="bg-background border-border text-foreground placeholder:text-muted-foreground"
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-gray-300 text-xs">الرد</Label>
+              <Label className="text-foreground/80 text-xs">الرد</Label>
               <Textarea
                 data-testid="input-auto-response"
                 value={form.response}
                 onChange={(e) => setForm({ ...form, response: e.target.value })}
                 placeholder="اكتب الرد التلقائي..."
-                className="bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 min-h-[100px]"
+                className="bg-background border-border text-foreground placeholder:text-muted-foreground min-h-[100px]"
               />
             </div>
             <div className="flex gap-2 justify-end">
-              <Button variant="ghost" onClick={() => setShowDialog(false)} className="text-gray-400">إلغاء</Button>
+              <Button variant="ghost" onClick={() => setShowDialog(false)} className="text-muted-foreground">إلغاء</Button>
               <Button data-testid="button-save-auto-reply" onClick={handleSave} disabled={saving} className="bg-emerald-600">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "حفظ"}
               </Button>

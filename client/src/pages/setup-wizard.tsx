@@ -70,13 +70,13 @@ export default function SetupWizard() {
   const roleLabels: Record<string, string> = { admin: "مدير", manager: "مشرف", agent: "موظف" };
 
   return (
-    <div className="min-h-screen bg-[#0a0f1a] text-white" dir="rtl">
+    <div className="min-h-screen bg-background text-foreground" dir="rtl">
       <div className="max-w-3xl mx-auto px-4 py-12">
         <div className="text-center mb-10">
           <div className="inline-flex items-center mb-4">
             <ChatnaLogo />
           </div>
-          <p className="text-gray-400 text-sm">أكمل الخطوات التالية لبدء استخدام منصتك</p>
+          <p className="text-muted-foreground text-sm">أكمل الخطوات التالية لبدء استخدام منصتك</p>
         </div>
 
         <div className="flex items-center justify-center gap-2 mb-10">
@@ -99,18 +99,18 @@ export default function SetupWizard() {
           ))}
         </div>
 
-        <div className="bg-[#111827]/80 backdrop-blur-xl border border-white/5 rounded-2xl p-8">
+        <div className="bg-popover/90 backdrop-blur-xl border border-border rounded-2xl p-8">
           {currentStep === 1 && (
             <div className="space-y-6">
               <div className="text-center mb-6">
                 <MessageSquare className="w-12 h-12 text-[#6EC047] mx-auto mb-3" />
                 <h2 className="text-xl font-semibold mb-2">ربط WhatsApp Business API</h2>
-                <p className="text-gray-400 text-sm">قم بربط حسابك في Meta لبدء استقبال رسائل واتساب</p>
+                <p className="text-muted-foreground text-sm">قم بربط حسابك في Meta لبدء استقبال رسائل واتساب</p>
               </div>
 
               <div className="p-4 rounded-lg bg-amber-500/5 border border-amber-500/10">
                 <p className="text-amber-400 text-sm mb-2 font-medium">ملاحظة هامة</p>
-                <p className="text-gray-400 text-xs">ربط WhatsApp Business API يتطلب حساب Meta Business. يمكنك إتمام هذا الربط لاحقاً من صفحة الإعدادات.</p>
+                <p className="text-muted-foreground text-xs">ربط WhatsApp Business API يتطلب حساب Meta Business. يمكنك إتمام هذا الربط لاحقاً من صفحة الإعدادات.</p>
               </div>
 
               <Button
@@ -123,7 +123,7 @@ export default function SetupWizard() {
               </Button>
 
               <div className="flex justify-between mt-6">
-                <Button variant="ghost" className="text-gray-400" onClick={() => setCurrentStep(2)}>
+                <Button variant="ghost" className="text-muted-foreground" onClick={() => setCurrentStep(2)}>
                   تخطي هذه الخطوة
                   <ChevronLeft className="w-4 h-4 mr-1" />
                 </Button>
@@ -136,7 +136,7 @@ export default function SetupWizard() {
               <div className="text-center mb-6">
                 <Bot className="w-12 h-12 text-[#6EC047] mx-auto mb-3" />
                 <h2 className="text-xl font-semibold mb-2">إعداد الذكاء الاصطناعي</h2>
-                <p className="text-gray-400 text-sm">خصص تعليمات مساعد الذكاء الاصطناعي</p>
+                <p className="text-muted-foreground text-sm">خصص تعليمات مساعد الذكاء الاصطناعي</p>
               </div>
 
               <div className="space-y-3">
@@ -146,14 +146,14 @@ export default function SetupWizard() {
                   value={aiPrompt}
                   onChange={(e) => setAiPrompt(e.target.value)}
                   rows={5}
-                  className="bg-[#0a0f1a] border-white/10 text-white resize-none"
+                  className="bg-background border-border text-foreground resize-none"
                   placeholder="أدخل التعليمات التي سيتبعها مساعد الذكاء الاصطناعي عند الرد على العملاء..."
                 />
-                <p className="text-gray-500 text-xs">يمكنك تعديل هذه التعليمات لاحقاً من صفحة الإعدادات</p>
+                <p className="text-muted-foreground text-xs">يمكنك تعديل هذه التعليمات لاحقاً من صفحة الإعدادات</p>
               </div>
 
               <div className="flex justify-between mt-6">
-                <Button variant="ghost" className="text-gray-400" onClick={() => setCurrentStep(1)}>
+                <Button variant="ghost" className="text-muted-foreground" onClick={() => setCurrentStep(1)}>
                   <ChevronRight className="w-4 h-4 ml-1" />
                   السابق
                 </Button>
@@ -169,7 +169,7 @@ export default function SetupWizard() {
               <div className="text-center mb-6">
                 <Users className="w-12 h-12 text-[#6EC047] mx-auto mb-3" />
                 <h2 className="text-xl font-semibold mb-2">دعوة أعضاء الفريق</h2>
-                <p className="text-gray-400 text-sm">أرسل دعوات لأعضاء فريقك للانضمام</p>
+                <p className="text-muted-foreground text-sm">أرسل دعوات لأعضاء فريقك للانضمام</p>
               </div>
 
               <div className="flex gap-3">
@@ -179,13 +179,13 @@ export default function SetupWizard() {
                   onChange={(e) => setInviteEmail(e.target.value)}
                   placeholder="البريد الإلكتروني"
                   dir="ltr"
-                  className="flex-1 bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 text-left"
+                  className="flex-1 bg-background border-border text-foreground placeholder:text-muted-foreground text-left"
                 />
                 <select
                   data-testid="select-wizard-invite-role"
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value)}
-                  className="bg-[#0a0f1a] border border-white/10 rounded-md px-3 text-white text-sm"
+                  className="bg-background border border-border rounded-md px-3 text-foreground text-sm"
                 >
                   <option value="agent">موظف</option>
                   <option value="manager">مشرف</option>
@@ -197,9 +197,9 @@ export default function SetupWizard() {
 
               {invitations.length > 0 && (
                 <div className="space-y-2 mt-4">
-                  <Label className="text-gray-400 text-xs">الدعوات المرسلة</Label>
+                  <Label className="text-muted-foreground text-xs">الدعوات المرسلة</Label>
                   {invitations.map((inv, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5">
+                    <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-border">
                       <span className="text-sm text-gray-300" dir="ltr">{inv.email}</span>
                       <span className="text-xs px-2 py-1 rounded" style={{ color: "#6EC047", backgroundColor: "rgba(110,192,71,0.1)" }}>{roleLabels[inv.role]}</span>
                     </div>
@@ -208,7 +208,7 @@ export default function SetupWizard() {
               )}
 
               <div className="flex justify-between mt-6">
-                <Button variant="ghost" className="text-gray-400" onClick={() => setCurrentStep(2)}>
+                <Button variant="ghost" className="text-muted-foreground" onClick={() => setCurrentStep(2)}>
                   <ChevronRight className="w-4 h-4 ml-1" />
                   السابق
                 </Button>
@@ -221,7 +221,7 @@ export default function SetupWizard() {
         </div>
 
         <div className="text-center mt-6">
-          <Button variant="ghost" className="text-gray-500 text-sm" onClick={() => setLocation("/")}>
+          <Button variant="ghost" className="text-muted-foreground text-sm" onClick={() => setLocation("/")}>
             <ArrowLeft className="w-4 h-4 ml-1" />
             تخطي الإعداد والذهاب للوحة التحكم
           </Button>

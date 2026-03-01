@@ -146,15 +146,15 @@ export function ProductCatalog() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 border-b border-white/5 shrink-0">
+      <div className="p-4 border-b border-border shrink-0">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
               <Package className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
-              <h2 className="font-bold text-white text-lg">كتالوج المنتجات</h2>
-              <p className="text-xs text-gray-500">{products.length} منتج</p>
+              <h2 className="font-bold text-foreground text-lg">كتالوج المنتجات</h2>
+              <p className="text-xs text-muted-foreground">{products.length} منتج</p>
             </div>
           </div>
           <Button data-testid="button-add-product" onClick={openCreate} className="bg-emerald-600 hover:bg-emerald-700 text-white">
@@ -162,13 +162,13 @@ export function ProductCatalog() {
           </Button>
         </div>
         <div className="relative">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             data-testid="input-search-products"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="بحث عن منتج..."
-            className="bg-[#1a2235] border-white/10 text-white pr-10"
+            className="bg-popover border-border text-foreground pr-10"
           />
         </div>
       </div>
@@ -177,13 +177,13 @@ export function ProductCatalog() {
         <div className="p-4">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           ) : products.length === 0 ? (
             <div className="text-center py-12">
-              <Package className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-              <h3 className="text-gray-400 font-medium mb-1">لا توجد منتجات</h3>
-              <p className="text-gray-500 text-sm mb-4">أضف منتجاتك لمشاركتها مع عملائك عبر واتساب</p>
+              <Package className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+              <h3 className="text-muted-foreground font-medium mb-1">لا توجد منتجات</h3>
+              <p className="text-muted-foreground text-sm mb-4">أضف منتجاتك لمشاركتها مع عملائك عبر واتساب</p>
               <Button data-testid="button-create-first-product" onClick={openCreate} variant="outline" className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10">
                 <Plus className="w-4 h-4 ml-1" /> إضافة منتج
               </Button>
@@ -194,7 +194,7 @@ export function ProductCatalog() {
                 <div
                   key={product.id}
                   data-testid={`card-product-${product.id}`}
-                  className="rounded-xl bg-[#111827] border border-white/5 hover:border-white/10 transition-all overflow-hidden"
+                  className="rounded-xl bg-popover border border-border hover:border-border transition-all overflow-hidden"
                 >
                   {product.imageUrl ? (
                     <img src={product.imageUrl} alt={product.name} className="w-full h-40 object-cover" />
@@ -205,7 +205,7 @@ export function ProductCatalog() {
                   )}
                   <div className="p-3">
                     <div className="flex items-start justify-between mb-1">
-                      <h3 className="font-medium text-white text-sm truncate flex-1">{product.name}</h3>
+                      <h3 className="font-medium text-foreground text-sm truncate flex-1">{product.name}</h3>
                       {product.category && (
                         <Badge className="bg-emerald-500/10 text-emerald-400 border-0 text-xs mr-2 shrink-0">
                           {product.category}
@@ -213,7 +213,7 @@ export function ProductCatalog() {
                       )}
                     </div>
                     {product.description && (
-                      <p className="text-xs text-gray-400 line-clamp-2 mb-2">{product.description}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{product.description}</p>
                     )}
                     {product.price && (
                       <div className="flex items-center gap-1 text-emerald-400 font-medium text-sm mb-2">
@@ -235,7 +235,7 @@ export function ProductCatalog() {
                         size="sm"
                         variant="ghost"
                         onClick={() => openEdit(product)}
-                        className="text-gray-500 hover:text-white"
+                        className="text-muted-foreground hover:text-foreground"
                       >
                         <Pencil className="w-3 h-3" />
                       </Button>
@@ -244,7 +244,7 @@ export function ProductCatalog() {
                         size="sm"
                         variant="ghost"
                         onClick={() => deleteProduct(product.id)}
-                        className="text-gray-500 hover:text-red-400 hover:bg-red-400/10"
+                        className="text-muted-foreground hover:text-red-400 hover:bg-red-400/10"
                       >
                         <Trash2 className="w-3 h-3" />
                       </Button>
@@ -258,36 +258,36 @@ export function ProductCatalog() {
       </ScrollArea>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="bg-[#111827] border-white/10 text-white max-w-md">
+        <DialogContent className="bg-popover border-border text-foreground max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-white">
+            <DialogTitle className="text-foreground">
               {editing ? "تعديل المنتج" : "إضافة منتج جديد"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label className="text-gray-300 mb-1 block text-sm">اسم المنتج *</Label>
+              <Label className="text-foreground/80 mb-1 block text-sm">اسم المنتج *</Label>
               <Input
                 data-testid="input-product-name"
                 value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                 placeholder="اسم المنتج"
-                className="bg-[#1a2235] border-white/10 text-white"
+                className="bg-popover border-border text-foreground"
               />
             </div>
             <div>
-              <Label className="text-gray-300 mb-1 block text-sm">الوصف</Label>
+              <Label className="text-foreground/80 mb-1 block text-sm">الوصف</Label>
               <Textarea
                 data-testid="input-product-description"
                 value={form.description}
                 onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                 placeholder="وصف المنتج..."
-                className="bg-[#1a2235] border-white/10 text-white min-h-[80px]"
+                className="bg-popover border-border text-foreground min-h-[80px]"
               />
             </div>
             <div className="flex gap-2">
               <div className="flex-1">
-                <Label className="text-gray-300 mb-1 block text-sm">السعر</Label>
+                <Label className="text-foreground/80 mb-1 block text-sm">السعر</Label>
                 <Input
                   data-testid="input-product-price"
                   value={form.price}
@@ -295,16 +295,16 @@ export function ProductCatalog() {
                   placeholder="99.99"
                   type="number"
                   step="0.01"
-                  className="bg-[#1a2235] border-white/10 text-white"
+                  className="bg-popover border-border text-foreground"
                 />
               </div>
               <div className="w-28">
-                <Label className="text-gray-300 mb-1 block text-sm">العملة</Label>
+                <Label className="text-foreground/80 mb-1 block text-sm">العملة</Label>
                 <Select value={form.currency} onValueChange={v => setForm(f => ({ ...f, currency: v }))}>
-                  <SelectTrigger className="bg-[#1a2235] border-white/10 text-white" data-testid="select-product-currency">
+                  <SelectTrigger className="bg-popover border-border text-foreground" data-testid="select-product-currency">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#1a2235] border-white/10">
+                  <SelectContent className="bg-popover border-border">
                     <SelectItem value="SAR">ر.س</SelectItem>
                     <SelectItem value="USD">$</SelectItem>
                     <SelectItem value="EUR">€</SelectItem>
@@ -315,38 +315,38 @@ export function ProductCatalog() {
               </div>
             </div>
             <div>
-              <Label className="text-gray-300 mb-1 block text-sm">التصنيف</Label>
+              <Label className="text-foreground/80 mb-1 block text-sm">التصنيف</Label>
               <Input
                 data-testid="input-product-category"
                 value={form.category}
                 onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
                 placeholder="مثال: إلكترونيات، ملابس..."
-                className="bg-[#1a2235] border-white/10 text-white"
+                className="bg-popover border-border text-foreground"
               />
             </div>
             <div>
-              <Label className="text-gray-300 mb-1 block text-sm">رابط المنتج</Label>
+              <Label className="text-foreground/80 mb-1 block text-sm">رابط المنتج</Label>
               <Input
                 data-testid="input-product-link"
                 value={form.link}
                 onChange={e => setForm(f => ({ ...f, link: e.target.value }))}
                 placeholder="https://..."
-                className="bg-[#1a2235] border-white/10 text-white"
+                className="bg-popover border-border text-foreground"
               />
             </div>
             <div>
-              <Label className="text-gray-300 mb-1 block text-sm">رابط الصورة</Label>
+              <Label className="text-foreground/80 mb-1 block text-sm">رابط الصورة</Label>
               <Input
                 data-testid="input-product-image"
                 value={form.imageUrl}
                 onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))}
                 placeholder="https://..."
-                className="bg-[#1a2235] border-white/10 text-white"
+                className="bg-popover border-border text-foreground"
               />
             </div>
           </div>
           <div className="flex justify-end gap-2 mt-4">
-            <Button variant="ghost" onClick={() => setShowDialog(false)} className="text-gray-400">
+            <Button variant="ghost" onClick={() => setShowDialog(false)} className="text-muted-foreground">
               إلغاء
             </Button>
             <Button
@@ -363,25 +363,25 @@ export function ProductCatalog() {
       </Dialog>
 
       <Dialog open={showSendDialog} onOpenChange={setShowSendDialog}>
-        <DialogContent className="bg-[#111827] border-white/10 text-white max-w-sm">
+        <DialogContent className="bg-popover border-border text-foreground max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-white">إرسال المنتج عبر واتساب</DialogTitle>
+            <DialogTitle className="text-foreground">إرسال المنتج عبر واتساب</DialogTitle>
           </DialogHeader>
           {sendingProduct && (
             <div className="space-y-3">
-              <div className="p-3 rounded-lg bg-[#0d1321] border border-white/5">
-                <p className="font-medium text-white text-sm">{sendingProduct.name}</p>
+              <div className="p-3 rounded-lg bg-card border border-border">
+                <p className="font-medium text-foreground text-sm">{sendingProduct.name}</p>
                 {sendingProduct.price && (
                   <p className="text-emerald-400 text-xs mt-1">{sendingProduct.price} {sendingProduct.currency || "SAR"}</p>
                 )}
               </div>
               <div>
-                <Label className="text-gray-300 mb-1 block text-sm">اختر جهة الاتصال</Label>
+                <Label className="text-foreground/80 mb-1 block text-sm">اختر جهة الاتصال</Label>
                 <Select value={selectedContactId} onValueChange={setSelectedContactId}>
-                  <SelectTrigger className="bg-[#1a2235] border-white/10 text-white" data-testid="select-send-contact">
+                  <SelectTrigger className="bg-popover border-border text-foreground" data-testid="select-send-contact">
                     <SelectValue placeholder="اختر جهة اتصال..." />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#1a2235] border-white/10 max-h-48">
+                  <SelectContent className="bg-popover border-border max-h-48">
                     {contacts.map(c => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.name || c.phone} - {c.phone}
@@ -391,7 +391,7 @@ export function ProductCatalog() {
                 </Select>
               </div>
               <div className="flex justify-end gap-2">
-                <Button variant="ghost" onClick={() => setShowSendDialog(false)} className="text-gray-400">
+                <Button variant="ghost" onClick={() => setShowSendDialog(false)} className="text-muted-foreground">
                   إلغاء
                 </Button>
                 <Button

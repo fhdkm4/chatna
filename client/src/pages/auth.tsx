@@ -111,7 +111,7 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0a0f1a] relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-1/4 right-1/4 w-96 h-96 rounded-full blur-3xl" style={{ backgroundColor: "rgba(110,192,71,0.05)" }} />
         <div className="absolute bottom-1/4 left-1/4 w-96 h-96 rounded-full blur-3xl" style={{ backgroundColor: "rgba(110,192,71,0.05)" }} />
@@ -123,13 +123,13 @@ export default function AuthPage() {
           <div className="inline-flex items-center mb-4">
             <ChatnaLogo />
           </div>
-          <p className="text-gray-400 text-sm">
+          <p className="text-muted-foreground text-sm">
             منصة خدمة العملاء الذكية عبر واتساب
           </p>
         </div>
 
-        <div className="bg-[#111827]/80 backdrop-blur-xl border border-white/5 rounded-2xl p-8">
-          <div className="flex gap-2 mb-6 bg-[#0a0f1a] rounded-lg p-1">
+        <div className="bg-popover/90 backdrop-blur-xl border border-border rounded-2xl p-8">
+          <div className="flex gap-2 mb-6 bg-background rounded-lg p-1">
             <button
               type="button"
               onClick={() => { setIsLogin(true); setErrors({}); }}
@@ -137,7 +137,7 @@ export default function AuthPage() {
               className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
                 isLogin
                   ? "bg-primary/20 text-primary"
-                  : "text-gray-400"
+                  : "text-muted-foreground"
               }`}
             >
               تسجيل الدخول
@@ -149,7 +149,7 @@ export default function AuthPage() {
               className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
                 !isLogin
                   ? "bg-primary/20 text-primary"
-                  : "text-gray-400"
+                  : "text-muted-foreground"
               }`}
             >
               حساب جديد
@@ -169,10 +169,10 @@ export default function AuthPage() {
 
           <div className="relative mb-4">
             <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-white/10" />
+              <span className="w-full border-t border-border" />
             </div>
             <div className="relative flex justify-center text-xs">
-              <span className="bg-[#111827] px-3 text-gray-500">أو</span>
+              <span className="bg-popover px-3 text-muted-foreground">أو</span>
             </div>
           </div>
 
@@ -189,7 +189,7 @@ export default function AuthPage() {
                       setErrors((prev) => ({ ...prev, companyName: "" }));
                     }}
                     placeholder="مثال: شركة التقنية"
-                    className={`bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20 ${errors.companyName ? "border-red-500/50" : ""}`}
+                    className={`bg-background border-border text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:ring-primary/20 ${errors.companyName ? "border-red-500/50" : ""}`}
                   />
                   {errors.companyName && <p className="text-red-400 text-xs" data-testid="error-company-name">{errors.companyName}</p>}
                 </div>
@@ -203,7 +203,7 @@ export default function AuthPage() {
                       setErrors((prev) => ({ ...prev, name: "" }));
                     }}
                     placeholder="مثال: أحمد محمد"
-                    className={`bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20 ${errors.name ? "border-red-500/50" : ""}`}
+                    className={`bg-background border-border text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:ring-primary/20 ${errors.name ? "border-red-500/50" : ""}`}
                   />
                   {errors.name && <p className="text-red-400 text-xs" data-testid="error-name">{errors.name}</p>}
                 </div>
@@ -221,12 +221,12 @@ export default function AuthPage() {
                 }}
                 placeholder="email@example.com"
                 dir="ltr"
-                className={`bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20 text-left ${errors.email ? "border-red-500/50" : ""}`}
+                className={`bg-background border-border text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:ring-primary/20 text-left ${errors.email ? "border-red-500/50" : ""}`}
               />
               {errors.email && <p className="text-red-400 text-xs" data-testid="error-email">{errors.email}</p>}
             </div>
             <div className="space-y-2">
-              <Label className="text-gray-300 text-sm">كلمة المرور {!isLogin && <span className="text-gray-500">(6 أحرف على الأقل)</span>}</Label>
+              <Label className="text-gray-300 text-sm">كلمة المرور {!isLogin && <span className="text-muted-foreground">(6 أحرف على الأقل)</span>}</Label>
               <Input
                 data-testid="input-password"
                 type="password"
@@ -237,7 +237,7 @@ export default function AuthPage() {
                 }}
                 placeholder="••••••••"
                 dir="ltr"
-                className={`bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20 text-left ${errors.password ? "border-red-500/50" : ""}`}
+                className={`bg-background border-border text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:ring-primary/20 text-left ${errors.password ? "border-red-500/50" : ""}`}
               />
               {errors.password && <p className="text-red-400 text-xs" data-testid="error-password">{errors.password}</p>}
             </div>
@@ -246,7 +246,7 @@ export default function AuthPage() {
               <div className="space-y-2">
                 <Label className="text-gray-300 text-sm flex items-center gap-1.5">
                   <Tag className="w-3.5 h-3.5" />
-                  كود الخصم <span className="text-gray-500">(اختياري)</span>
+                  كود الخصم <span className="text-muted-foreground">(اختياري)</span>
                 </Label>
                 <Input
                   data-testid="input-discount-code"
@@ -254,7 +254,7 @@ export default function AuthPage() {
                   onChange={(e) => setForm({ ...form, discountCode: e.target.value })}
                   placeholder="أدخل كود الخصم إن وجد"
                   dir="ltr"
-                  className="bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 focus:border-primary/50 focus:ring-primary/20 text-left"
+                  className="bg-background border-border text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:ring-primary/20 text-left"
                 />
               </div>
             )}
@@ -263,7 +263,7 @@ export default function AuthPage() {
               type="submit"
               disabled={loading}
               data-testid="button-submit-auth"
-              className="w-full text-white font-medium py-2.5 mt-2"
+              className="w-full text-foreground font-medium py-2.5 mt-2"
               style={{ backgroundColor: "var(--primary-green)" }}
             >
               {loading ? (
@@ -279,14 +279,14 @@ export default function AuthPage() {
           {!isLogin && (
             <div className="mt-5 flex items-start gap-2 p-3 rounded-lg border" style={{ backgroundColor: "rgba(110,192,71,0.05)", borderColor: "rgba(110,192,71,0.1)" }}>
               <ShieldCheck className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "var(--primary-green)" }} />
-              <p className="text-xs text-gray-400 leading-relaxed" data-testid="text-whatsapp-api-notice">
+              <p className="text-xs text-muted-foreground leading-relaxed" data-testid="text-whatsapp-api-notice">
                 نحن نستخدم WhatsApp Business API الرسمي لضمان أمان رقمك وعدم تعرضه للحظر.
               </p>
             </div>
           )}
         </div>
 
-        <p className="text-center text-gray-500 text-xs mt-6">
+        <p className="text-center text-muted-foreground text-xs mt-6">
           Chatna &copy; 2026 - جميع الحقوق محفوظة
         </p>
       </div>

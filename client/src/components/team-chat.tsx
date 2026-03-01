@@ -120,28 +120,28 @@ export function TeamChat({ socket, initialMemberId, onMemberSelected }: TeamChat
 
   return (
     <div className="flex h-full" data-testid="team-chat-container">
-      <div className="w-80 border-l border-white/5 bg-[#0d1321] flex flex-col shrink-0">
-        <div className="p-4 border-b border-white/5">
-          <h2 className="text-lg font-semibold text-white mb-3" data-testid="text-team-chat-title">
+      <div className="w-80 border-l border-border bg-card flex flex-col shrink-0">
+        <div className="p-4 border-b border-border">
+          <h2 className="text-lg font-semibold text-foreground mb-3" data-testid="text-team-chat-title">
             المحادثات الداخلية
           </h2>
           <div className="relative">
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               data-testid="input-team-search"
               placeholder="بحث عن عضو..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pr-9 bg-white/5 border-white/10 text-white placeholder:text-gray-500 h-9 text-sm"
+              className="pr-9 bg-white/5 border-border text-foreground placeholder:text-muted-foreground h-9 text-sm"
             />
           </div>
         </div>
 
         <ScrollArea className="flex-1">
           {membersLoading ? (
-            <div className="p-4 text-center text-gray-500 text-sm">جاري التحميل...</div>
+            <div className="p-4 text-center text-muted-foreground text-sm">جاري التحميل...</div>
           ) : filteredMembers.length === 0 ? (
-            <div className="p-4 text-center text-gray-500 text-sm">لا يوجد أعضاء</div>
+            <div className="p-4 text-center text-muted-foreground text-sm">لا يوجد أعضاء</div>
           ) : (
             <div className="p-2">
               {filteredMembers.map((member) => (
@@ -156,18 +156,18 @@ export function TeamChat({ socket, initialMemberId, onMemberSelected }: TeamChat
                   }`}
                 >
                   <div className="relative shrink-0">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-sm font-bold text-white">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-sm font-bold text-foreground">
                       {member.name.charAt(0)}
                     </div>
                     <Circle
                       className={`absolute -bottom-0.5 -left-0.5 w-3.5 h-3.5 ${
-                        member.status === "online" ? "text-emerald-400 fill-emerald-400" : "text-gray-600 fill-gray-600"
+                        member.status === "online" ? "text-emerald-400 fill-emerald-400" : "text-muted-foreground fill-gray-600"
                       }`}
                     />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-white truncate">{member.name}</div>
-                    <div className="text-xs text-gray-500">{roleLabel(member.role)}</div>
+                    <div className="text-sm font-medium text-foreground truncate">{member.name}</div>
+                    <div className="text-xs text-muted-foreground">{roleLabel(member.role)}</div>
                   </div>
                 </button>
               ))}
@@ -176,25 +176,25 @@ export function TeamChat({ socket, initialMemberId, onMemberSelected }: TeamChat
         </ScrollArea>
       </div>
 
-      <div className="flex-1 flex flex-col bg-[#0a0f1a] min-w-0">
+      <div className="flex-1 flex flex-col bg-background min-w-0">
         {selectedMember ? (
           <>
-            <div className="px-6 py-4 border-b border-white/5 bg-[#0d1321] flex items-center gap-3">
+            <div className="px-6 py-4 border-b border-border bg-card flex items-center gap-3">
               <div className="relative">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-sm font-bold text-white">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-sm font-bold text-foreground">
                   {selectedMember.name.charAt(0)}
                 </div>
                 <Circle
                   className={`absolute -bottom-0.5 -left-0.5 w-3.5 h-3.5 ${
-                    selectedMember.status === "online" ? "text-emerald-400 fill-emerald-400" : "text-gray-600 fill-gray-600"
+                    selectedMember.status === "online" ? "text-emerald-400 fill-emerald-400" : "text-muted-foreground fill-gray-600"
                   }`}
                 />
               </div>
               <div>
-                <div className="font-semibold text-white" data-testid="text-selected-member-name">
+                <div className="font-semibold text-foreground" data-testid="text-selected-member-name">
                   {selectedMember.name}
                 </div>
-                <div className="text-xs text-gray-400">
+                <div className="text-xs text-muted-foreground">
                   {roleLabel(selectedMember.role)} · {selectedMember.status === "online" ? "متصل" : "غير متصل"}
                 </div>
               </div>
@@ -202,9 +202,9 @@ export function TeamChat({ socket, initialMemberId, onMemberSelected }: TeamChat
 
             <ScrollArea className="flex-1 p-4">
               {messagesLoading ? (
-                <div className="text-center text-gray-500 text-sm py-8">جاري تحميل الرسائل...</div>
+                <div className="text-center text-muted-foreground text-sm py-8">جاري تحميل الرسائل...</div>
               ) : messages.length === 0 ? (
-                <div className="text-center text-gray-500 text-sm py-8" data-testid="text-no-messages">
+                <div className="text-center text-muted-foreground text-sm py-8" data-testid="text-no-messages">
                   لا توجد رسائل بعد. ابدأ المحادثة!
                 </div>
               ) : (
@@ -225,7 +225,7 @@ export function TeamChat({ socket, initialMemberId, onMemberSelected }: TeamChat
                           }`}
                         >
                           <p className="text-sm whitespace-pre-wrap break-words">{msg.message}</p>
-                          <p className={`text-[10px] mt-1 ${isMine ? "text-emerald-400/60" : "text-gray-500"}`}>
+                          <p className={`text-[10px] mt-1 ${isMine ? "text-emerald-400/60" : "text-muted-foreground"}`}>
                             {msg.createdAt ? formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true, locale: ar }) : ""}
                           </p>
                         </div>
@@ -237,7 +237,7 @@ export function TeamChat({ socket, initialMemberId, onMemberSelected }: TeamChat
               )}
             </ScrollArea>
 
-            <div className="px-4 py-3 border-t border-white/5 bg-[#0d1321]">
+            <div className="px-4 py-3 border-t border-border bg-card">
               <div className="flex items-center gap-2 max-w-3xl mx-auto">
                 <Input
                   ref={inputRef}
@@ -246,7 +246,7 @@ export function TeamChat({ socket, initialMemberId, onMemberSelected }: TeamChat
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  className="flex-1 bg-white/5 border-white/10 text-white placeholder:text-gray-500"
+                  className="flex-1 bg-white/5 border-border text-foreground placeholder:text-muted-foreground"
                   disabled={sendMutation.isPending}
                 />
                 <Button
@@ -265,8 +265,8 @@ export function TeamChat({ socket, initialMemberId, onMemberSelected }: TeamChat
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center" data-testid="text-select-member-prompt">
               <MessageSquare className="w-16 h-16 text-gray-700 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-400">المحادثات الداخلية</h3>
-              <p className="text-sm text-gray-600 mt-1">اختر عضو من الفريق لبدء المحادثة</p>
+              <h3 className="text-lg font-medium text-muted-foreground">المحادثات الداخلية</h3>
+              <p className="text-sm text-muted-foreground mt-1">اختر عضو من الفريق لبدء المحادثة</p>
             </div>
           </div>
         )}

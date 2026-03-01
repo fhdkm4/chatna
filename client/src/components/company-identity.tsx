@@ -190,10 +190,10 @@ export function CompanyIdentity() {
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      <div className="h-14 border-b border-white/5 flex items-center justify-between px-6 bg-[#0d1321]/50 shrink-0">
+      <div className="h-14 border-b border-border flex items-center justify-between px-6 bg-card/80 shrink-0">
         <div className="flex items-center gap-2">
           <Building2 className="w-5 h-5 text-emerald-400" />
-          <h2 className="text-base font-semibold text-white" data-testid="text-company-identity-title">هوية الشركة</h2>
+          <h2 className="text-base font-semibold text-foreground" data-testid="text-company-identity-title">هوية الشركة</h2>
         </div>
         <div className="flex items-center gap-3">
           {saveMutation.isSuccess && !hasChanges && (
@@ -226,13 +226,13 @@ export function CompanyIdentity() {
                   <Building2 className="w-7 h-7 text-emerald-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white" data-testid="text-company-name-display">
+                  <h3 className="text-lg font-bold text-foreground" data-testid="text-company-name-display">
                     {allValues.name || "اسم شركتك"}
                   </h3>
-                  <p className="text-xs text-gray-400 mt-0.5">عرّف شركتك حتى يتعرّف عليها المساعد الذكي ويمثّلها بشكل صحيح</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">عرّف شركتك حتى يتعرّف عليها المساعد الذكي ويمثّلها بشكل صحيح</p>
                   <div className="flex items-center gap-2 mt-2">
                     {allValues.businessType && (
-                      <Badge variant="outline" data-testid="badge-business-type" className="text-[10px] border-white/10 text-gray-400">
+                      <Badge variant="outline" data-testid="badge-business-type" className="text-[10px] border-border text-muted-foreground">
                         {businessTypes.find(bt => bt.value === allValues.businessType)?.label || allValues.businessType}
                       </Badge>
                     )}
@@ -249,7 +249,7 @@ export function CompanyIdentity() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs text-gray-300">
+                      <FormLabel className="text-xs text-foreground/80">
                         اسم الشركة <span className="text-red-400">*</span>
                       </FormLabel>
                       <FormControl>
@@ -257,7 +257,7 @@ export function CompanyIdentity() {
                           data-testid="input-company-name"
                           {...field}
                           placeholder="مثال: شركة التقنية الذكية"
-                          className="bg-[#0d1321] border-white/10 text-white text-sm placeholder:text-gray-600"
+                          className="bg-card border-border text-foreground text-sm placeholder:text-muted-foreground"
                         />
                       </FormControl>
                       <FormMessage className="text-red-400 text-[11px]" />
@@ -269,16 +269,16 @@ export function CompanyIdentity() {
                   name="businessType"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs text-gray-300">مجال العمل</FormLabel>
+                      <FormLabel className="text-xs text-foreground/80">مجال العمل</FormLabel>
                       <Select value={field.value} onValueChange={field.onChange}>
                         <FormControl>
-                          <SelectTrigger data-testid="select-business-type" className="bg-[#0d1321] border-white/10 text-white">
+                          <SelectTrigger data-testid="select-business-type" className="bg-card border-border text-foreground">
                             <SelectValue placeholder="اختر مجال العمل" />
                           </SelectTrigger>
                         </FormControl>
-                        <SelectContent className="bg-[#1a2235] border-white/10">
+                        <SelectContent className="bg-popover border-border">
                           {businessTypes.map((bt) => (
-                            <SelectItem key={bt.value} value={bt.value} className="text-white">
+                            <SelectItem key={bt.value} value={bt.value} className="text-foreground">
                               {bt.label}
                             </SelectItem>
                           ))}
@@ -292,17 +292,17 @@ export function CompanyIdentity() {
             </div>
 
             {/* Description Section */}
-            <div className="bg-[#111827]/50 border border-white/5 rounded-xl p-6">
+            <div className="bg-card/60 border border-border rounded-xl p-6">
               <div className="flex items-center gap-2 mb-5">
                 <Info className="w-4 h-4 text-emerald-400" />
-                <h3 className="text-sm font-semibold text-white">الوصف والتعريف</h3>
+                <h3 className="text-sm font-semibold text-foreground">الوصف والتعريف</h3>
               </div>
               <FormField
                 control={form.control}
                 name="businessDescription"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-xs text-gray-400">
+                    <FormLabel className="text-xs text-muted-foreground">
                       وصف مختصر <span className="text-red-400">*</span>
                     </FormLabel>
                     <FormControl>
@@ -311,7 +311,7 @@ export function CompanyIdentity() {
                         {...field}
                         placeholder="وصف مختصر عن نشاطك التجاري وما تقدمه من خدمات أو منتجات. هذا الوصف يساعد المساعد الذكي على فهم طبيعة عملك والرد بشكل أفضل."
                         rows={4}
-                        className="bg-[#0d1321] border-white/10 text-white text-sm resize-none placeholder:text-gray-600"
+                        className="bg-card border-border text-foreground text-sm resize-none placeholder:text-muted-foreground"
                       />
                     </FormControl>
                     <FormMessage className="text-red-400 text-[11px]" />
@@ -321,10 +321,10 @@ export function CompanyIdentity() {
             </div>
 
             {/* Contact Info Section */}
-            <div className="bg-[#111827]/50 border border-white/5 rounded-xl p-6">
+            <div className="bg-card/60 border border-border rounded-xl p-6">
               <div className="flex items-center gap-2 mb-5">
                 <Phone className="w-4 h-4 text-emerald-400" />
-                <h3 className="text-sm font-semibold text-white">معلومات التواصل</h3>
+                <h3 className="text-sm font-semibold text-foreground">معلومات التواصل</h3>
               </div>
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -333,7 +333,7 @@ export function CompanyIdentity() {
                     name="contactPhone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs text-gray-400">
+                        <FormLabel className="text-xs text-muted-foreground">
                           <Phone className="w-3 h-3 inline ml-1" />
                           رقم التواصل
                         </FormLabel>
@@ -343,7 +343,7 @@ export function CompanyIdentity() {
                             {...field}
                             placeholder="+966 5x xxx xxxx"
                             dir="ltr"
-                            className="bg-[#0d1321] border-white/10 text-white text-sm placeholder:text-gray-600"
+                            className="bg-card border-border text-foreground text-sm placeholder:text-muted-foreground"
                           />
                         </FormControl>
                         <FormMessage />
@@ -355,7 +355,7 @@ export function CompanyIdentity() {
                     name="website"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs text-gray-400">
+                        <FormLabel className="text-xs text-muted-foreground">
                           <Globe className="w-3 h-3 inline ml-1" />
                           الموقع الإلكتروني
                         </FormLabel>
@@ -365,7 +365,7 @@ export function CompanyIdentity() {
                             {...field}
                             placeholder="https://example.com"
                             dir="ltr"
-                            className="bg-[#0d1321] border-white/10 text-white text-sm placeholder:text-gray-600"
+                            className="bg-card border-border text-foreground text-sm placeholder:text-muted-foreground"
                           />
                         </FormControl>
                         <FormMessage />
@@ -379,7 +379,7 @@ export function CompanyIdentity() {
                     name="workingHours"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs text-gray-400">
+                        <FormLabel className="text-xs text-muted-foreground">
                           <Clock className="w-3 h-3 inline ml-1" />
                           ساعات العمل
                         </FormLabel>
@@ -388,7 +388,7 @@ export function CompanyIdentity() {
                             data-testid="input-working-hours"
                             {...field}
                             placeholder="السبت - الخميس، 9 ص - 6 م"
-                            className="bg-[#0d1321] border-white/10 text-white text-sm placeholder:text-gray-600"
+                            className="bg-card border-border text-foreground text-sm placeholder:text-muted-foreground"
                           />
                         </FormControl>
                         <FormMessage />
@@ -400,7 +400,7 @@ export function CompanyIdentity() {
                     name="address"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs text-gray-400">
+                        <FormLabel className="text-xs text-muted-foreground">
                           <MapPin className="w-3 h-3 inline ml-1" />
                           العنوان
                         </FormLabel>
@@ -409,7 +409,7 @@ export function CompanyIdentity() {
                             data-testid="input-address"
                             {...field}
                             placeholder="الرياض، المملكة العربية السعودية"
-                            className="bg-[#0d1321] border-white/10 text-white text-sm placeholder:text-gray-600"
+                            className="bg-card border-border text-foreground text-sm placeholder:text-muted-foreground"
                           />
                         </FormControl>
                         <FormMessage />
@@ -421,29 +421,29 @@ export function CompanyIdentity() {
             </div>
 
             {/* AI Tone */}
-            <div className="bg-[#111827]/50 border border-white/5 rounded-xl p-6">
+            <div className="bg-card/60 border border-border rounded-xl p-6">
               <div className="flex items-center gap-2 mb-5">
                 <MessageSquare className="w-4 h-4 text-emerald-400" />
-                <h3 className="text-sm font-semibold text-white">نبرة الذكاء الاصطناعي</h3>
+                <h3 className="text-sm font-semibold text-foreground">نبرة الذكاء الاصطناعي</h3>
               </div>
               <FormField
                 control={form.control}
                 name="aiTone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-xs text-gray-400">أسلوب الرد على العملاء</FormLabel>
+                    <FormLabel className="text-xs text-muted-foreground">أسلوب الرد على العملاء</FormLabel>
                     <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
-                        <SelectTrigger data-testid="select-ai-tone" className="bg-[#0d1321] border-white/10 text-white max-w-md">
+                        <SelectTrigger data-testid="select-ai-tone" className="bg-card border-border text-foreground max-w-md">
                           <SelectValue />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent className="bg-[#1a2235] border-white/10">
+                      <SelectContent className="bg-popover border-border">
                         {Object.entries(toneLabels).map(([value, label]) => (
-                          <SelectItem key={value} value={value} className="text-white">
+                          <SelectItem key={value} value={value} className="text-foreground">
                             <div className="flex items-center gap-2">
                               <span>{label}</span>
-                              <span className="text-[10px] text-gray-500">{toneDescriptions[value]}</span>
+                              <span className="text-[10px] text-muted-foreground">{toneDescriptions[value]}</span>
                             </div>
                           </SelectItem>
                         ))}
@@ -456,10 +456,10 @@ export function CompanyIdentity() {
             </div>
 
             {/* System Messages */}
-            <div className="bg-[#111827]/50 border border-white/5 rounded-xl p-6">
+            <div className="bg-card/60 border border-border rounded-xl p-6">
               <div className="flex items-center gap-2 mb-5">
                 <MessageSquare className="w-4 h-4 text-emerald-400" />
-                <h3 className="text-sm font-semibold text-white">الرسائل التلقائية</h3>
+                <h3 className="text-sm font-semibold text-foreground">الرسائل التلقائية</h3>
               </div>
               <div className="space-y-5">
                 <FormField
@@ -467,19 +467,19 @@ export function CompanyIdentity() {
                   name="welcomeMessage"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs text-gray-400">رسالة الترحيب</FormLabel>
+                      <FormLabel className="text-xs text-muted-foreground">رسالة الترحيب</FormLabel>
                       <FormControl>
                         <Textarea
                           data-testid="textarea-welcome"
                           {...field}
                           placeholder="أهلاً وسهلاً! كيف يمكنني مساعدتك اليوم؟"
                           rows={2}
-                          className="bg-[#0d1321] border-white/10 text-white text-sm resize-none placeholder:text-gray-600"
+                          className="bg-card border-border text-foreground text-sm resize-none placeholder:text-muted-foreground"
                         />
                       </FormControl>
                       <div className="flex items-start gap-1.5 mt-1.5">
-                        <Info className="w-3 h-3 text-gray-600 mt-0.5 shrink-0" />
-                        <p className="text-[10px] text-gray-600">ترسل تلقائياً عند بدء محادثة جديدة مع العميل</p>
+                        <Info className="w-3 h-3 text-muted-foreground mt-0.5 shrink-0" />
+                        <p className="text-[10px] text-muted-foreground">ترسل تلقائياً عند بدء محادثة جديدة مع العميل</p>
                       </div>
                       <FormMessage />
                     </FormItem>
@@ -490,19 +490,19 @@ export function CompanyIdentity() {
                   name="offHoursMessage"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs text-gray-400">رسالة خارج ساعات العمل</FormLabel>
+                      <FormLabel className="text-xs text-muted-foreground">رسالة خارج ساعات العمل</FormLabel>
                       <FormControl>
                         <Textarea
                           data-testid="textarea-off-hours"
                           {...field}
                           placeholder="شكراً لتواصلك. نحن حالياً خارج ساعات العمل. سنرد عليك في أقرب وقت ممكن."
                           rows={2}
-                          className="bg-[#0d1321] border-white/10 text-white text-sm resize-none placeholder:text-gray-600"
+                          className="bg-card border-border text-foreground text-sm resize-none placeholder:text-muted-foreground"
                         />
                       </FormControl>
                       <div className="flex items-start gap-1.5 mt-1.5">
-                        <Info className="w-3 h-3 text-gray-600 mt-0.5 shrink-0" />
-                        <p className="text-[10px] text-gray-600">ترسل عندما يتواصل العميل خارج ساعات العمل المحددة</p>
+                        <Info className="w-3 h-3 text-muted-foreground mt-0.5 shrink-0" />
+                        <p className="text-[10px] text-muted-foreground">ترسل عندما يتواصل العميل خارج ساعات العمل المحددة</p>
                       </div>
                       <FormMessage />
                     </FormItem>
@@ -512,7 +512,7 @@ export function CompanyIdentity() {
             </div>
 
             {/* Auto-save Indicator */}
-            <div className="flex items-center justify-center gap-2 text-[11px] text-gray-500 py-2">
+            <div className="flex items-center justify-center gap-2 text-[11px] text-muted-foreground py-2">
               <Info className="w-3 h-3" />
               <span data-testid="text-autosave-hint">يتم الحفظ تلقائياً بعد 3 ثوانٍ من آخر تعديل</span>
             </div>

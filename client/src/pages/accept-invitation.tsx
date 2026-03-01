@@ -79,7 +79,7 @@ export default function AcceptInvitation() {
   const roleLabels: Record<string, string> = { admin: "مدير", manager: "مشرف", agent: "موظف" };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0a0f1a] relative overflow-hidden" dir="rtl">
+    <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden" dir="rtl">
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-1/4 right-1/4 w-96 h-96 rounded-full blur-3xl" style={{ backgroundColor: "rgba(110,192,71,0.05)" }} />
         <div className="absolute bottom-1/4 left-1/4 w-96 h-96 rounded-full blur-3xl" style={{ backgroundColor: "rgba(110,192,71,0.05)" }} />
@@ -90,20 +90,20 @@ export default function AcceptInvitation() {
           <div className="inline-flex items-center mb-4">
             <ChatnaLogo />
           </div>
-          <p className="text-gray-400 text-sm">قبول دعوة الانضمام للفريق</p>
+          <p className="text-muted-foreground text-sm">قبول دعوة الانضمام للفريق</p>
         </div>
 
-        <div className="bg-[#111827]/80 backdrop-blur-xl border border-white/5 rounded-2xl p-8">
+        <div className="bg-popover/90 backdrop-blur-xl border border-border rounded-2xl p-8">
           {checking ? (
             <div className="flex flex-col items-center gap-3 py-8">
               <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#6EC047" }} />
-              <p className="text-gray-400 text-sm">جاري التحقق من الدعوة...</p>
+              <p className="text-muted-foreground text-sm">جاري التحقق من الدعوة...</p>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center gap-3 py-8">
               <XCircle className="w-12 h-12 text-red-400" />
               <p className="text-red-400 text-sm">{error}</p>
-              <Button variant="outline" onClick={() => setLocation("/login")} className="mt-4 border-white/10 text-gray-300">
+              <Button variant="outline" onClick={() => setLocation("/login")} className="mt-4 border-border text-gray-300">
                 العودة لتسجيل الدخول
               </Button>
             </div>
@@ -114,10 +114,10 @@ export default function AcceptInvitation() {
                   <CheckCircle className="w-5 h-5" style={{ color: "#6EC047" }} />
                   <span className="font-medium text-sm" style={{ color: "#6EC047" }}>دعوة صالحة</span>
                 </div>
-                <p className="text-gray-400 text-xs">
-                  تمت دعوتك للانضمام كـ <span className="text-white font-medium">{roleLabels[invitation.role] || invitation.role}</span>
+                <p className="text-muted-foreground text-xs">
+                  تمت دعوتك للانضمام كـ <span className="text-foreground font-medium">{roleLabels[invitation.role] || invitation.role}</span>
                 </p>
-                <p className="text-gray-500 text-xs mt-1" dir="ltr">{invitation.email}</p>
+                <p className="text-muted-foreground text-xs mt-1" dir="ltr">{invitation.email}</p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -128,12 +128,12 @@ export default function AcceptInvitation() {
                     value={form.name}
                     onChange={(e) => { setForm({ ...form, name: e.target.value }); setErrors((p) => ({ ...p, name: "" })); }}
                     placeholder="مثال: أحمد محمد"
-                    className={`bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 ${errors.name ? "border-red-500/50" : ""}`}
+                    className={`bg-background border-border text-foreground placeholder:text-muted-foreground ${errors.name ? "border-red-500/50" : ""}`}
                   />
                   {errors.name && <p className="text-red-400 text-xs">{errors.name}</p>}
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-gray-300 text-sm">كلمة المرور <span className="text-gray-500">(6 أحرف على الأقل)</span></Label>
+                  <Label className="text-gray-300 text-sm">كلمة المرور <span className="text-muted-foreground">(6 أحرف على الأقل)</span></Label>
                   <Input
                     data-testid="input-invite-password"
                     type="password"
@@ -141,7 +141,7 @@ export default function AcceptInvitation() {
                     onChange={(e) => { setForm({ ...form, password: e.target.value }); setErrors((p) => ({ ...p, password: "" })); }}
                     placeholder="••••••••"
                     dir="ltr"
-                    className={`bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 text-left ${errors.password ? "border-red-500/50" : ""}`}
+                    className={`bg-background border-border text-foreground placeholder:text-muted-foreground text-left ${errors.password ? "border-red-500/50" : ""}`}
                   />
                   {errors.password && <p className="text-red-400 text-xs">{errors.password}</p>}
                 </div>
@@ -154,11 +154,11 @@ export default function AcceptInvitation() {
                     onChange={(e) => { setForm({ ...form, confirmPassword: e.target.value }); setErrors((p) => ({ ...p, confirmPassword: "" })); }}
                     placeholder="••••••••"
                     dir="ltr"
-                    className={`bg-[#0a0f1a] border-white/10 text-white placeholder:text-gray-500 text-left ${errors.confirmPassword ? "border-red-500/50" : ""}`}
+                    className={`bg-background border-border text-foreground placeholder:text-muted-foreground text-left ${errors.confirmPassword ? "border-red-500/50" : ""}`}
                   />
                   {errors.confirmPassword && <p className="text-red-400 text-xs">{errors.confirmPassword}</p>}
                 </div>
-                <Button type="submit" disabled={loading} data-testid="button-accept-invitation" className="w-full text-white font-medium py-2.5 mt-2" style={{ backgroundColor: "#6EC047" }}>
+                <Button type="submit" disabled={loading} data-testid="button-accept-invitation" className="w-full text-foreground font-medium py-2.5 mt-2" style={{ backgroundColor: "#6EC047" }}>
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "قبول الدعوة والانضمام"}
                 </Button>
               </form>
