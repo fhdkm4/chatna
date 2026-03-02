@@ -402,6 +402,28 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
             <Button
               size="sm"
               variant="ghost"
+              data-testid="button-toggle-ai"
+              onClick={() => {
+                const isAiActive = conversation.assignmentStatus === "ai_handling" && !conversation.aiPaused;
+                onUpdateConversation(conversation.id, {
+                  aiPaused: isAiActive,
+                  assignmentStatus: isAiActive ? "assigned" : "ai_handling",
+                } as any);
+              }}
+              className={`text-xs h-7 ${
+                conversation.assignmentStatus === "ai_handling" && !conversation.aiPaused
+                  ? "text-emerald-400 hover:text-red-400"
+                  : "text-muted-foreground hover:text-emerald-400"
+              }`}
+            >
+              <Bot className="w-3 h-3 ml-1" />
+              {conversation.assignmentStatus === "ai_handling" && !conversation.aiPaused ? "إيقاف AI" : "تفعيل AI"}
+            </Button>
+          )}
+          {conversation.status !== "resolved" && (
+            <Button
+              size="sm"
+              variant="ghost"
               data-testid="button-resolve"
               onClick={() => onUpdateConversation(conversation.id, { status: "resolved" })}
               className="text-xs text-muted-foreground h-7"
