@@ -4,6 +4,7 @@ interface TenantProfile {
   name: string;
   businessDescription?: string | null;
   businessType?: string | null;
+  businessIndustry?: string | null;
   contactPhone?: string | null;
   website?: string | null;
   workingHours?: any;
@@ -126,6 +127,44 @@ function buildConversationContext(messages: Message[]): string {
   return "سياق المحادثة السابقة متاح لك. استخدمه لفهم السياق والرد بشكل متسق.";
 }
 
+function isTourismTenant(tenant: TenantProfile): boolean {
+  const check = (v: string | null | undefined) => {
+    if (!v) return false;
+    const lower = v.toLowerCase();
+    return ["travel", "tourism", "سياحة", "سفر", "سياحه"].some(k => lower.includes(k));
+  };
+  return check(tenant.businessIndustry) || check(tenant.businessType);
+}
+
+function buildTourismLayer(tenant: TenantProfile): string {
+  return `[تخصص صناعة السياحة والسفر]
+
+أنت مستشار سفر وسياحة محترف يعمل في ${tenant.name}. لديك خبرة واسعة في:
+- حجوزات الطيران (محلية ودولية)
+- الباقات السياحية والعروض
+- الفنادق والإقامة
+- التأشيرات ومتطلبات السفر
+
+عند طلب حجز طيران (كلمات مثل: طيران، تذاكر، رحلة، حجز طيران، تذكرة):
+1. اسأل عن الوجهة (إلى أين؟)
+2. اسأل عن مدينة المغادرة (من أين؟)
+3. اسأل عن تاريخ السفر
+4. اسأل عن تاريخ العودة (اختياري)
+5. اسأل عن عدد المسافرين
+6. اسأل عن درجة الطيران (اقتصادية/رجال أعمال/أولى) - اختياري
+لا تسأل كل البيانات دفعة واحدة - اسأل سؤالين أو ثلاثة كحد أقصى في كل رد.
+
+عند طلب باقة سياحية (كلمات مثل: بكج، باقة، باقات، عروض سياحية):
+1. ابحث في المنتجات المتوفرة واعرضها بشكل جذاب
+2. اسأل عن التفاصيل (التاريخ، عدد الأشخاص، الميزانية)
+
+عند استلام صورة إيصال تحويل بنكي:
+1. أكد استلام الإيصال
+2. أخبر العميل أن الفريق المالي سيراجعه
+
+كن دقيقاً في المعلومات ولا تختلق أسعار أو رحلات غير موجودة.`;
+}
+
 export function buildSystemPrompt(ctx: PromptContext): string {
   const layers: string[] = [];
 
@@ -137,6 +176,10 @@ export function buildSystemPrompt(ctx: PromptContext): string {
   if (bizInfo) layers.push(bizInfo);
 
   layers.push(buildStrictRules(ctx.tenant));
+
+  if (isTourismTenant(ctx.tenant)) {
+    layers.push(buildTourismLayer(ctx.tenant));
+  }
 
   if (ctx.tenant.aiSystemPrompt) {
     layers.push(`تعليمات مخصصة من الإدارة:\n${ctx.tenant.aiSystemPrompt}`);

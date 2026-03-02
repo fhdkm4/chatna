@@ -24,6 +24,10 @@ import {
   conversationAssignmentsLog,
   type ConversationAssignmentLog, type InsertConversationAssignmentLog,
   type MessageLog, type InsertMessageLog,
+  aiConversationContext, aiPayments, aiSlaAlerts,
+  type AiConversationContext, type InsertAiConversationContext,
+  type AiPayment, type InsertAiPayment,
+  type AiSlaAlert, type InsertAiSlaAlert,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -1092,6 +1096,103 @@ class DatabaseStorage implements IStorage {
     return db.select().from(conversationAssignmentsLog)
       .where(and(eq(conversationAssignmentsLog.conversationId, conversationId), eq(conversationAssignmentsLog.tenantId, tenantId)))
       .orderBy(desc(conversationAssignmentsLog.createdAt));
+  }
+
+  async upsertAiContext(conversationId: string, tenantId: string, status: string, context?: any): Promise<AiConversationContext> {
+    const existing = await db.select().from(aiConversationContext)
+      .where(and(eq(aiConversationContext.conversationId, conversationId), eq(aiConversationContext.tenantId, tenantId)))
+      .limit(1);
+    if (existing.length > 0) {
+      const updateData: any = { status, updatedAt: new Date() };
+      if (context) updateData.context = context;
+      const [updated] = await db.update(aiConversationContext)
+        .set(updateData)
+        .where(eq(aiConversationContext.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(aiConversationContext)
+      .values({ conversationId, tenantId, status, context: context || {} })
+      .returning();
+    return created;
+  }
+
+  async getAiContext(conversationId: string, tenantId: string): Promise<AiConversationContext | undefined> {
+    const [ctx] = await db.select().from(aiConversationContext)
+      .where(and(eq(aiConversationContext.conversationId, conversationId), eq(aiConversationContext.tenantId, tenantId)))
+      .limit(1);
+    return ctx;
+  }
+
+  async createAiPayment(data: InsertAiPayment): Promise<AiPayment> {
+    const [payment] = await db.insert(aiPayments).values(data).returning();
+    return payment;
+  }
+
+  async getPendingPayments(tenantId: string): Promise<any[]> {
+    const result = await pool.query(`
+      SELECT p.*, c.name as customer_name, conv.id as conv_id
+      FROM ai_payments p
+      LEFT JOIN conversations conv ON p.conversation_id = conv.id
+      LEFT JOIN contacts c ON conv.contact_id = c.id
+      WHERE p.tenant_id = $1 AND p.status = 'pending'
+      ORDER BY p.created_at ASC
+    `, [tenantId]);
+    return result.rows;
+  }
+
+  async updateAiPayment(id: string, tenantId: string, data: Partial<AiPayment>): Promise<AiPayment | undefined> {
+    const [updated] = await db.update(aiPayments)
+      .set(data as any)
+      .where(and(eq(aiPayments.id, id), eq(aiPayments.tenantId, tenantId)))
+      .returning();
+    return updated;
+  }
+
+  async getAiPaymentById(id: string, tenantId: string): Promise<AiPayment | undefined> {
+    const [payment] = await db.select().from(aiPayments)
+      .where(and(eq(aiPayments.id, id), eq(aiPayments.tenantId, tenantId)))
+      .limit(1);
+    return payment;
+  }
+
+  async createSlaAlert(data: InsertAiSlaAlert): Promise<AiSlaAlert> {
+    const [alert] = await db.insert(aiSlaAlerts).values(data).returning();
+    return alert;
+  }
+
+  async getUnresolvedSlaAlerts(paymentId: string, type: string): Promise<AiSlaAlert[]> {
+    return db.select().from(aiSlaAlerts)
+      .where(and(eq(aiSlaAlerts.paymentId, paymentId), eq(aiSlaAlerts.type, type), eq(aiSlaAlerts.resolved, false)));
+  }
+
+  async searchTenantProducts(tenantId: string, query?: string): Promise<Product[]> {
+    if (query) {
+      return db.select().from(products)
+        .where(and(
+          eq(products.tenantId, tenantId),
+          eq(products.isActive, true),
+          or(ilike(products.name, `%${query}%`), ilike(products.description, `%${query}%`))
+        ));
+    }
+    return db.select().from(products)
+      .where(and(eq(products.tenantId, tenantId), eq(products.isActive, true)));
+  }
+
+  async getFinanceStats(tenantId: string): Promise<{ totalSales: number; confirmedCount: number; pendingCount: number }> {
+    const result = await pool.query(`
+      SELECT 
+        COALESCE(SUM(CASE WHEN status = 'approved' THEN amount ELSE 0 END), 0) as total_sales,
+        COUNT(CASE WHEN status = 'approved' THEN 1 END) as confirmed_count,
+        COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_count
+      FROM ai_payments WHERE tenant_id = $1
+    `, [tenantId]);
+    const row = result.rows[0];
+    return {
+      totalSales: parseFloat(row.total_sales) || 0,
+      confirmedCount: parseInt(row.confirmed_count) || 0,
+      pendingCount: parseInt(row.pending_count) || 0,
+    };
   }
 }
 

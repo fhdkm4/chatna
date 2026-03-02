@@ -118,7 +118,14 @@ app.use((req, res, next) => {
     console.error("Merge warning (non-fatal):", err.message);
   }
 
-  await registerRoutes(httpServer, app);
+  const { io: ioInstance } = await registerRoutes(httpServer, app);
+
+  try {
+    const { initSlaMonitor } = await import("./services/sla-monitor");
+    initSlaMonitor(ioInstance);
+  } catch (err: any) {
+    console.error("SLA monitor warning (non-fatal):", err.message);
+  }
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

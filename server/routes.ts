@@ -17,6 +17,7 @@ import { sendMetaWhatsAppMessage, sendMetaWhatsAppInteractiveButtons, markMessag
 import { checkAutoReply, generateAiResponse } from "./services/ai";
 import { simulateTypingDelay } from "./services/typing-delay";
 import { isHandoverRequest, assignConversationToAgent, isWithinWorkingHours } from "./services/assignment";
+import { handleAIMessage } from "./services/ai-handler";
 import { ObjectStorageService } from "./replit_integrations/object_storage";
 import { count, sql as sqlHelper, and, inArray, not, desc } from "drizzle-orm";
 
@@ -85,7 +86,7 @@ fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const objectStorageService = new ObjectStorageService();
 
-export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
+export async function registerRoutes(httpServer: Server, app: Express): Promise<{ httpServer: Server; io: SocketServer }> {
   app.use("/uploads", express.static(path.join(process.cwd(), "public", "uploads")));
 
   app.use("/api", (req: any, _res: any, next: any) => {
@@ -1612,6 +1613,61 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return;
       }
 
+      const isTravelTenant = tenant.businessType && ["travel", "tourism", "سياحة", "سفر", "سياحه"].some(k => (tenant.businessType || "").toLowerCase().includes(k));
+
+      if (incoming.mediaUrl && isTravelTenant) {
+        console.log("📎 Media message from travel tenant, checking for receipt...");
+        let imageBase64: string | undefined;
+        let imageMimeType: string | undefined;
+
+        if (incoming.mediaUrl && incoming.mediaType?.startsWith("image")) {
+          try {
+            const fetch = (await import("node-fetch")).default;
+            const twilioSid = process.env.TWILIO_ACCOUNT_SID;
+            const twilioAuth = process.env.TWILIO_AUTH_TOKEN;
+            const imgResp = await fetch(incoming.mediaUrl, {
+              headers: twilioSid && twilioAuth ? { "Authorization": "Basic " + Buffer.from(`${twilioSid}:${twilioAuth}`).toString("base64") } : {},
+            });
+            const buffer = await imgResp.buffer();
+            imageBase64 = buffer.toString("base64");
+            imageMimeType = incoming.mediaType || "image/jpeg";
+          } catch (e) {
+            console.error("Failed to fetch media for vision:", e);
+          }
+        }
+
+        if (imageBase64 && imageMimeType) {
+          const aiResult = await handleAIMessage({
+            tenantId: tenantId!,
+            conversationId: conversation.id,
+            customerPhone: phone,
+            userMessage: incoming.content || "[صورة]",
+            imageBase64,
+            imageMimeType,
+            mediaUrl: incoming.mediaUrl,
+          });
+
+          if (aiResult && aiResult.receiptData?.isReceipt) {
+            await simulateTypingDelay(aiResult.reply);
+            const sid = await sendWhatsAppMessage(incoming.from, aiResult.reply);
+            const aiMsg = await storage.createMessage({
+              conversationId: conversation.id,
+              tenantId,
+              senderType: "ai",
+              content: aiResult.reply,
+              aiConfidence: aiResult.confidence,
+              twilioSid: sid,
+            });
+            io.to(`tenant:${tenantId}`).emit("new_message", { conversationId: conversation.id, message: aiMsg });
+            io.to(`tenant:${tenantId}`).emit("payment_received", {
+              conversationId: conversation.id,
+              message: "إيصال جديد بانتظار المراجعة",
+            });
+            return;
+          }
+        }
+      }
+
       if (incoming.mediaUrl && !incoming.content) {
         console.log("📎 Media-only message, skipping AI");
         return;
@@ -1649,6 +1705,38 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           message: aiMsg,
         });
         return;
+      }
+
+      if (isTravelTenant) {
+        const travelKeywords = ["طيران", "تذاكر", "flight", "رحلة", "حجز طيران", "تذكرة", "بكج", "باقة", "package", "باقات", "عروض سياحية"];
+        const isTravelQuery = travelKeywords.some(k => messageContent.toLowerCase().includes(k));
+        const existingCtx = await storage.getAiContext(conversation.id, tenantId!);
+
+        if (isTravelQuery || (existingCtx && ["active", "awaiting_price"].includes(existingCtx.status || ""))) {
+          console.log("✈️ Travel AI handling:", messageContent);
+          const travelResult = await handleAIMessage({
+            tenantId: tenantId!,
+            conversationId: conversation.id,
+            customerPhone: phone,
+            userMessage: messageContent,
+          });
+
+          if (travelResult && travelResult.reply) {
+            await simulateTypingDelay(travelResult.reply);
+            const sid = await sendWhatsAppMessage(incoming.from, travelResult.reply);
+            const aiMsg = await storage.createMessage({
+              conversationId: conversation.id,
+              tenantId,
+              senderType: "ai",
+              content: travelResult.reply,
+              aiConfidence: travelResult.confidence,
+              twilioSid: sid,
+            });
+            await storage.updateConversation(conversation.id, tenantId!, { aiHandled: true, aiFailedAttempts: 0 });
+            io.to(`tenant:${tenantId}`).emit("new_message", { conversationId: conversation.id, message: aiMsg });
+            return;
+          }
+        }
       }
 
       console.log("🧠 Generating AI response for:", messageContent);
@@ -1769,6 +1857,95 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err) {
       console.error("Analytics error:", err);
       res.status(500).json({ message: "خطأ في جلب التحليلات" });
+    }
+  });
+
+  app.get("/api/finance/pending", authMiddleware, async (req: any, res) => {
+    try {
+      if (req.user.role !== "admin" && req.user.role !== "manager") {
+        return res.status(403).json({ message: "غير مصرح" });
+      }
+      const payments = await storage.getPendingPayments(req.user.tenantId);
+      res.json(payments);
+    } catch (err) {
+      console.error("Finance pending error:", err);
+      res.status(500).json({ message: "خطأ في جلب المدفوعات" });
+    }
+  });
+
+  app.post("/api/finance/:id/confirm", authMiddleware, async (req: any, res) => {
+    try {
+      if (req.user.role !== "admin" && req.user.role !== "manager") {
+        return res.status(403).json({ message: "غير مصرح" });
+      }
+      const payment = await storage.getAiPaymentById(req.params.id, req.user.tenantId);
+      if (!payment) return res.status(404).json({ message: "الدفعة غير موجودة" });
+
+      await storage.updateAiPayment(payment.id, req.user.tenantId, {
+        status: "approved",
+        reviewedBy: req.user.id,
+        reviewedAt: new Date(),
+      } as any);
+
+      if (payment.conversationId) {
+        await storage.upsertAiContext(payment.conversationId, req.user.tenantId, "confirmed");
+      }
+
+      if (payment.customerPhone) {
+        try {
+          const phoneNum = payment.customerPhone.startsWith("whatsapp:") ? payment.customerPhone : payment.customerPhone;
+          await sendWhatsAppMessage(phoneNum, "تم تأكيد مبلغك بنجاح، جاري إصدار التذاكر");
+        } catch (e) {
+          console.error("Failed to send confirmation WhatsApp:", e);
+        }
+      }
+
+      io.to(`tenant:${req.user.tenantId}`).emit("payment_confirmed", { paymentId: payment.id });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Finance confirm error:", err);
+      res.status(500).json({ message: "خطأ في تأكيد الدفعة" });
+    }
+  });
+
+  app.post("/api/finance/:id/reject", authMiddleware, async (req: any, res) => {
+    try {
+      if (req.user.role !== "admin" && req.user.role !== "manager") {
+        return res.status(403).json({ message: "غير مصرح" });
+      }
+      const payment = await storage.getAiPaymentById(req.params.id, req.user.tenantId);
+      if (!payment) return res.status(404).json({ message: "الدفعة غير موجودة" });
+
+      const reason = req.body.reason || "تم رفض الإيصال";
+
+      await storage.updateAiPayment(payment.id, req.user.tenantId, {
+        status: "rejected",
+        reviewedBy: req.user.id,
+        reviewedAt: new Date(),
+      } as any);
+
+      if (payment.customerPhone) {
+        try {
+          await sendWhatsAppMessage(payment.customerPhone, `عذرا، لم يتم قبول الإيصال. السبب: ${reason}. يرجى إرسال إيصال صحيح.`);
+        } catch (e) {
+          console.error("Failed to send rejection WhatsApp:", e);
+        }
+      }
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Finance reject error:", err);
+      res.status(500).json({ message: "خطأ في رفض الدفعة" });
+    }
+  });
+
+  app.get("/api/finance/stats", authMiddleware, async (req: any, res) => {
+    try {
+      const stats = await storage.getFinanceStats(req.user.tenantId);
+      res.json(stats);
+    } catch (err) {
+      console.error("Finance stats error:", err);
+      res.status(500).json({ message: "خطأ في جلب الإحصائيات" });
     }
   });
 
@@ -3030,5 +3207,5 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  return httpServer;
+  return { httpServer, io };
 }

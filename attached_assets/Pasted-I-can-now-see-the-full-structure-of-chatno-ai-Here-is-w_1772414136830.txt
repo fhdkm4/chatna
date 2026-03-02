@@ -1,0 +1,103 @@
+I can now see the full structure of chatno.ai. Here is what already exists that I need you to USE (not recreate):
+
+1. The AI settings page already has: ai_enabled toggle, response style dropdown, language setting, and a custom instructions textarea (aiPersonality). These are already saved to the DB.
+2. The team management page already has agents and admins with their roles.
+3. The auto-replies system already exists with templates.
+4. The company identity page already has a "business field" (mجال العمل) which maps to tenant type.
+
+---
+
+PHASE 1 — DB: Add only 3 new tables (do NOT touch any existing tables):
+
+CREATE TABLE ai_conversation_context (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id UUID NOT NULL,
+  tenant_id UUID NOT NULL,
+  status TEXT DEFAULT 'active',  -- active | awaiting_price | awaiting_payment | confirmed
+  context JSONB,  -- { destination, origin, departureDate, returnDate, passengers, flightClass }
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE ai_payments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL,
+  conversation_id UUID,
+  customer_phone TEXT,
+  image_url TEXT,
+  amount DECIMAL(10,2),
+  currency TEXT DEFAULT 'SAR',
+  vision_data JSONB,  -- { isReceipt, bankName, transactionId, date, confidence }
+  status TEXT DEFAULT 'pending',  -- pending | approved | rejected
+  reviewed_by TEXT,
+  reviewed_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE ai_sla_alerts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL,
+  payment_id UUID,
+  type TEXT,  -- customer_reassurance | admin_urgent
+  sent_at TIMESTAMP DEFAULT NOW(),
+  resolved BOOLEAN DEFAULT false
+);
+
+---
+
+PHASE 2 — AI Handler (lib/aiHandler.ts):
+
+Install: npm install @anthropic-ai/sdk
+
+Function handleAIMessage({ tenantId, conversationId, customerPhone, userMessage, messageHistory, imageBase64?, imageMimeType? })
+
+Inside:
+- Read from your EXISTING tenant AI settings: ai_enabled, response_style, language, custom_instructions (aiPersonality), and the business field from company identity
+- If business field is "travel" or "سياحة" or "سفر": Claude acts as expert travel advisor
+- Build system prompt using the EXISTING custom_instructions field the tenant already configured in the AI settings page
+- Always reply in the language set in the EXISTING language dropdown setting
+
+Flight logic: if message has طيران|تذاكر|flight:
+- Collect: origin, destination, date, passengers, class
+- Tell customer team will send price soon
+- Append |||STATUS:awaiting_price||| — parse server-side, update ai_conversation_context
+
+Package logic: if message has بكج|باقة|package:
+- Fetch products WHERE tenant_id = tenantId only
+- Inject into prompt
+
+Vision (if image): call Claude Vision, return JSON only:
+{ isReceipt, amount, currency, bankName, transactionId, date, confidence }
+If isReceipt=true AND confidence > 0.7: save to ai_payments, update status to awaiting_payment
+
+---
+
+PHASE 3 — Wire into existing message webhook:
+
+In your existing incoming WhatsApp message handler, AFTER saving the message, add:
+
+if (tenant.ai_enabled) {
+  const result = await handleAIMessage({ ...params });
+  await saveMessage({ role: 'assistant', content: result.reply });
+  await sendWhatsAppReply(customerPhone, result.reply);
+  if (result.newStatus) await upsertAIContext(conversationId, tenantId, result.newStatus);
+  if (result.receiptData?.isReceipt) {
+    // Use your EXISTING team notification system to alert agents
+    await notifyAgents(tenantId, '📎 إيصال جديد بانتظار المراجعة');
+  }
+}
+
+---
+
+PHASE 4 — Finance page + SLA:
+
+Add a new page to existing sidebar: "المدفوعات" — use EXACT same dark theme and sidebar layout as the rest of chatno.ai.
+
+Page shows ai_payments WHERE tenant_id = tenantId AND status = 'pending'.
+SLA badge: green <10min, amber 10-20min, red >20min.
+"تأكيد الحجز" button → approve payment + send WhatsApp to customer: "✅ تم تأكيد مبلغك بنجاح، جاري إصدار التذاكر ✈️"
+
+SLA Cron (instrumentation.ts): every 5 min, find payments pending >20min, send reassurance to customer + urgent alert to admin via your EXISTING notification system. Log to ai_sla_alerts.
+
+---
+
+KEY RULE: Use the EXISTING chatno.ai design, sidebar, components, notification system, and WhatsApp sender everywhere. Do not reinvent anything that already exists.

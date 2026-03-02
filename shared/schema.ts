@@ -41,6 +41,7 @@ export const tenants = pgTable("tenants", {
   aiPersonalityInstructions: text("ai_personality_instructions"),
   defaultEscalationMessage: text("default_escalation_message"),
   languagePreference: varchar("language_preference", { length: 10 }).default("auto"),
+  businessIndustry: varchar("business_industry", { length: 100 }),
   dailySendLimit: integer("daily_send_limit").default(250),
   warmupDaysRemaining: integer("warmup_days_remaining").default(14),
   warmupStartedAt: timestamp("warmup_started_at"),
@@ -110,6 +111,14 @@ export const conversations = pgTable("conversations", {
   aiHandled: boolean("ai_handled").default(false),
   aiPaused: boolean("ai_paused").default(false),
   aiFailedAttempts: integer("ai_failed_attempts").default(0),
+  bookingType: varchar("booking_type", { length: 20 }),
+  bookingData: jsonb("booking_data"),
+  paymentStatus: varchar("payment_status", { length: 30 }),
+  receiptUrl: text("receipt_url"),
+  receiptAnalysis: jsonb("receipt_analysis"),
+  bookingAmount: numeric("booking_amount"),
+  paymentConfirmedAt: timestamp("payment_confirmed_at"),
+  paymentConfirmedBy: uuid("payment_confirmed_by").references(() => users.id),
   delayAlerted: boolean("delay_alerted").default(false),
   ratingRequested: boolean("rating_requested").default(false),
   ratingScheduledAt: timestamp("rating_scheduled_at"),
@@ -306,6 +315,51 @@ export const messageLogs = pgTable("message_logs", {
   index("message_logs_contact_idx").on(table.contactId),
 ]);
 
+export const aiConversationContext = pgTable("ai_conversation_context", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: uuid("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  status: text("status").default("active"),
+  context: jsonb("context"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("ai_conv_ctx_conversation_idx").on(table.conversationId),
+  index("ai_conv_ctx_tenant_idx").on(table.tenantId),
+]);
+
+export const aiPayments = pgTable("ai_payments", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  conversationId: uuid("conversation_id").references(() => conversations.id),
+  customerPhone: text("customer_phone"),
+  imageUrl: text("image_url"),
+  amount: numeric("amount", { precision: 10, scale: 2 }),
+  currency: text("currency").default("SAR"),
+  visionData: jsonb("vision_data"),
+  status: text("status").default("pending"),
+  reviewedBy: text("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("ai_payments_tenant_idx").on(table.tenantId),
+  index("ai_payments_status_idx").on(table.tenantId, table.status),
+]);
+
+export const aiSlaAlerts = pgTable("ai_sla_alerts", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  paymentId: uuid("payment_id").references(() => aiPayments.id),
+  type: text("type"),
+  sentAt: timestamp("sent_at").defaultNow(),
+  resolved: boolean("resolved").default(false),
+}, (table) => [
+  index("ai_sla_alerts_tenant_idx").on(table.tenantId),
+]);
+
+export const insertAiConversationContextSchema = createInsertSchema(aiConversationContext).omit({ id: true, updatedAt: true });
+export const insertAiPaymentSchema = createInsertSchema(aiPayments).omit({ id: true, createdAt: true });
+export const insertAiSlaAlertSchema = createInsertSchema(aiSlaAlerts).omit({ id: true, sentAt: true });
+
 export const insertMessageLogSchema = createInsertSchema(messageLogs).omit({ id: true });
 export const insertInternalMessageSchema = createInsertSchema(internalMessages).omit({ id: true, createdAt: true });
 
@@ -393,3 +447,9 @@ export type ConversationAssignmentLog = typeof conversationAssignmentsLog.$infer
 export type InsertConversationAssignmentLog = z.infer<typeof insertConversationAssignmentsLogSchema>;
 export type MessageLog = typeof messageLogs.$inferSelect;
 export type InsertMessageLog = z.infer<typeof insertMessageLogSchema>;
+export type AiConversationContext = typeof aiConversationContext.$inferSelect;
+export type InsertAiConversationContext = z.infer<typeof insertAiConversationContextSchema>;
+export type AiPayment = typeof aiPayments.$inferSelect;
+export type InsertAiPayment = z.infer<typeof insertAiPaymentSchema>;
+export type AiSlaAlert = typeof aiSlaAlerts.$inferSelect;
+export type InsertAiSlaAlert = z.infer<typeof insertAiSlaAlertSchema>;

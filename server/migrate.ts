@@ -134,6 +134,16 @@ async function ensureSchemaColumns(client: any) {
   await addColumnIfNotExists("conversations", "assignment_status", "VARCHAR(30)");
   await addColumnIfNotExists("conversations", "ai_failed_attempts", "INTEGER DEFAULT 0");
   await addColumnIfNotExists("conversations", "delay_alerted", "BOOLEAN DEFAULT false");
+  await addColumnIfNotExists("conversations", "booking_type", "VARCHAR(20)");
+  await addColumnIfNotExists("conversations", "booking_data", "JSONB");
+  await addColumnIfNotExists("conversations", "payment_status", "VARCHAR(30)");
+  await addColumnIfNotExists("conversations", "receipt_url", "TEXT");
+  await addColumnIfNotExists("conversations", "receipt_analysis", "JSONB");
+  await addColumnIfNotExists("conversations", "booking_amount", "NUMERIC");
+  await addColumnIfNotExists("conversations", "payment_confirmed_at", "TIMESTAMP");
+  await addColumnIfNotExists("conversations", "payment_confirmed_by", "UUID REFERENCES users(id)");
+
+  await addColumnIfNotExists("tenants", "business_industry", "VARCHAR(100)");
 
   const mlCheck = await client.query(`
     SELECT 1 FROM information_schema.tables 
@@ -161,6 +171,71 @@ async function ensureSchemaColumns(client: any) {
     await client.query("CREATE INDEX IF NOT EXISTS message_logs_tenant_idx ON message_logs(tenant_id, sent_at)");
     await client.query("CREATE INDEX IF NOT EXISTS message_logs_contact_idx ON message_logs(contact_id)");
     console.log("[migrate] Created message_logs table");
+  }
+
+  const aiCtxCheck = await client.query(`
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_schema = 'public' AND table_name = 'ai_conversation_context'
+  `);
+  if (aiCtxCheck.rows.length === 0) {
+    await client.query(`
+      CREATE TABLE ai_conversation_context (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        status TEXT DEFAULT 'active',
+        context JSONB,
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await client.query("CREATE INDEX IF NOT EXISTS ai_conv_ctx_conversation_idx ON ai_conversation_context(conversation_id)");
+    await client.query("CREATE INDEX IF NOT EXISTS ai_conv_ctx_tenant_idx ON ai_conversation_context(tenant_id)");
+    console.log("[migrate] Created ai_conversation_context table");
+  }
+
+  const aiPayCheck = await client.query(`
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_schema = 'public' AND table_name = 'ai_payments'
+  `);
+  if (aiPayCheck.rows.length === 0) {
+    await client.query(`
+      CREATE TABLE ai_payments (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        conversation_id UUID REFERENCES conversations(id),
+        customer_phone TEXT,
+        image_url TEXT,
+        amount DECIMAL(10,2),
+        currency TEXT DEFAULT 'SAR',
+        vision_data JSONB,
+        status TEXT DEFAULT 'pending',
+        reviewed_by TEXT,
+        reviewed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await client.query("CREATE INDEX IF NOT EXISTS ai_payments_tenant_idx ON ai_payments(tenant_id)");
+    await client.query("CREATE INDEX IF NOT EXISTS ai_payments_status_idx ON ai_payments(tenant_id, status)");
+    console.log("[migrate] Created ai_payments table");
+  }
+
+  const aiSlaCheck = await client.query(`
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_schema = 'public' AND table_name = 'ai_sla_alerts'
+  `);
+  if (aiSlaCheck.rows.length === 0) {
+    await client.query(`
+      CREATE TABLE ai_sla_alerts (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        payment_id UUID REFERENCES ai_payments(id),
+        type TEXT,
+        sent_at TIMESTAMP DEFAULT NOW(),
+        resolved BOOLEAN DEFAULT false
+      )
+    `);
+    await client.query("CREATE INDEX IF NOT EXISTS ai_sla_alerts_tenant_idx ON ai_sla_alerts(tenant_id)");
+    console.log("[migrate] Created ai_sla_alerts table");
   }
 
   console.log("[migrate] Schema columns verified");

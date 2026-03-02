@@ -1,0 +1,107 @@
+Build a full-stack multi-tenant AI Travel SaaS with the following specs:
+
+---
+
+🗄️ DATABASE (Drizzle ORM + PostgreSQL)
+
+Tables: tenants, users, products, customers, conversations, messages, bookings, payments, sla_alerts
+
+Every table must have a tenantId column. EVERY query must include: .where(eq(table.tenantId, currentTenantId)) — no exceptions.
+
+Key enums: tenant_type (travel | hotel | car_rental | general), conv_status (active | awaiting_price | awaiting_payment | payment_review | confirmed | cancelled), booking_status, user_role (tenant_admin | agent | customer)
+
+Tenants table stores: name, slug, type, whatsappNumber, whatsappToken (format: "AccountSID:AuthToken"), aiPersonality (custom prompt override), currency.
+
+---
+
+🤖 AI HANDLER (lib/aiHandler.ts) — Claude claude-sonnet-4-6
+
+1.⁠ ⁠Dynamic System Prompt: Read tenant data from DB. If tenant.type === "travel", Claude acts as an expert travel advisor with deep knowledge of destinations, visas, seasons, and hotels. Append any tenant.aiPersonality override.
+
+2.⁠ ⁠Flight Logic: When user mentions "طيران" or "تذاكر", Claude collects (origin, destination, date, passengers, class) then tells the customer the team will send the price shortly. Append |||STATUS:awaiting_price||| to the response. Parse this signal server-side to update conversations.status.
+
+3.⁠ ⁠Package Logic: When user mentions "بكج" or "باقة", fetch products WHERE tenant_id = currentTenantId AND is_active = true and present only those.
+
+4.⁠ ⁠Vision & Receipts: If an image is attached, call Claude Vision to analyze it. Return JSON: { isReceipt, amount, currency, bankName, transactionId, date, confidence }. If isReceipt=true and confidence > 0.7 → save to payments table, update conversation status to awaiting_payment, notify all tenant agents via WhatsApp.
+
+---
+
+📱 WHATSAPP SERVICE (lib/whatsapp.ts) — Per-Tenant Twilio
+
+Each tenant has its own Twilio credentials stored in DB. Load them dynamically per request. Functions: sendWhatsAppMessage({ to, body, tenantId }), notifyTenantAgents(tenantId, message), notifyTenantAdmin(tenantId, message).
+
+Message templates:
+•⁠  ⁠bookingConfirmed: "✅ تم تأكيد مبلغك بنجاح، جاري إصدار التذاكر ✈️"
+•⁠  ⁠slaReassurance: "⏳ فريقنا يعمل على مراجعة إيصالك، سنتواصل معك قريباً."
+•⁠  ⁠agentUrgent(phone, minutes): "🚨 إيصال من {phone} لم يُؤكد منذ {minutes} دقيقة — مراجعة فورية"
+
+---
+
+💰 AGENT DASHBOARD (components/FinanceApproval.tsx) — shadcn/ui
+
+Agent sees ONLY their tenant's pending payments (x-tenant-id header enforced on every API call).
+
+Table columns: وقت الاستلام، المبلغ، البنك، رقم المرجع، دقة Claude Vision (%)، SLA badge (green < 10min / yellow 10-20min / red > 20min).
+
+Stats row: total pending count, payments past SLA, total pending amount.
+
+Receipt preview dialog: shows image + Vision-extracted data.
+
+"تأكيد الحجز" button → POST /api/payments/:id/approve → updates payment to approved + booking to confirmed + sends WhatsApp to customer.
+
+Auto-refresh every 60 seconds.
+
+---
+
+⏱️ SLA CRON (cron/slaMonitor.ts) — node-cron
+
+Runs every 5 minutes. For each tenant independently:
+•⁠  ⁠Query payments WHERE status='pending' AND created_at < NOW() - 20 minutes
+•⁠  ⁠Skip if sla_alerts already sent for this payment
+•⁠  ⁠Send customer reassurance message via tenant's WhatsApp
+•⁠  ⁠Send urgent alert to tenant admin
+•⁠  ⁠Log to sla_alerts table
+•⁠  ⁠Also check bookings stuck in awaiting_price > 30 minutes and notify agents
+
+---
+
+📊 ANALYTICS DASHBOARD (components/AnalyticsDashboard.tsx)
+
+Per-tenant metrics:
+•⁠  ⁠إجمالي المبيعات: SUM(bookings.total_amount) WHERE tenant_id = X
+•⁠  ⁠عدد العمليات الناجحة: COUNT(bookings WHERE status='confirmed')
+•⁠  ⁠معدل التحويل: confirmed / total bookings %
+•⁠  ⁠الوقت الموفر بالـ AI: COUNT(conversations) × 8 minutes (per AI-handled conversation)
+
+Charts: AreaChart for monthly revenue trend, BarChart for monthly bookings (recharts).
+
+---
+
+🌐 API ROUTES (Express)
+
+All routes require x-tenant-id header middleware that validates the tenant exists and is active.
+
+POST /api/chat — receives message + optional image (multer), runs AI handler, saves messages, updates conversation state
+GET /api/payments/pending — returns tenant-scoped pending payments
+POST /api/payments/:id/approve — confirms payment, updates booking, sends WhatsApp
+GET /api/analytics — returns tenant KPIs
+
+---
+
+📦 STACK
+
+Backend: Node.js, Express, TypeScript, Drizzle ORM, PostgreSQL
+AI: @anthropic-ai/sdk (claude-sonnet-4-6 for both chat and vision)
+Messaging: twilio
+Scheduler: node-cron
+Frontend: Next.js App Router, shadcn/ui, recharts, date-fns
+File uploads: multer (memory storage)
+
+---
+
+🔒 SECURITY RULE (non-negotiable)
+
+Every single DB query must include tenant scope:
+and(eq(table.tenantId, currentTenantId))
+
+Never query cross-tenant data under any circumstance.

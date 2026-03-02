@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { BarChart3, MessageSquare, Clock, Bot, Users, Loader2, TrendingUp, Calendar, Download } from "lucide-react";
+import { BarChart3, MessageSquare, Clock, Bot, Users, Loader2, TrendingUp, Calendar, Download, DollarSign, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { authFetch } from "@/lib/auth";
@@ -22,9 +22,16 @@ interface Analytics {
   period: number;
 }
 
+interface FinanceStats {
+  totalSales: number;
+  confirmedCount: number;
+  pendingCount: number;
+}
+
 export function StatsOverview() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [financeStats, setFinanceStats] = useState<FinanceStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState(7);
   const [exporting, setExporting] = useState(false);
@@ -32,12 +39,14 @@ export function StatsOverview() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [statsRes, analyticsRes] = await Promise.all([
+      const [statsRes, analyticsRes, financeRes] = await Promise.all([
         authFetch("/api/conversations/stats/overview"),
         authFetch(`/api/conversations/analytics?days=${period}`),
+        authFetch("/api/finance/stats"),
       ]);
       if (statsRes.ok) setStats(await statsRes.json());
       if (analyticsRes.ok) setAnalytics(await analyticsRes.json());
+      if (financeRes.ok) setFinanceStats(await financeRes.json());
     } catch (err) {
       console.error(err);
     } finally {
@@ -110,6 +119,22 @@ export function StatsOverview() {
       bg: "bg-pink-500/10",
       border: "border-pink-500/20",
     },
+    {
+      label: "إجمالي المبيعات",
+      value: financeStats ? `${financeStats.totalSales.toLocaleString("ar-SA")} ر.س` : "---",
+      icon: DollarSign,
+      color: "text-green-400",
+      bg: "bg-green-500/10",
+      border: "border-green-500/20",
+    },
+    {
+      label: "عمليات ناجحة",
+      value: financeStats?.confirmedCount || 0,
+      icon: CheckCircle2,
+      color: "text-teal-400",
+      bg: "bg-teal-500/10",
+      border: "border-teal-500/20",
+    },
   ];
 
   const maxCount = analytics?.dailyConversations?.length
@@ -170,7 +195,7 @@ export function StatsOverview() {
       </div>
 
       <div className="flex-1 p-6 overflow-y-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl mb-8">
           {summaryCards.map((card) => (
             <div
               key={card.label}

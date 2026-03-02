@@ -1,0 +1,37 @@
+
+---
+
+🗄️ DATABASE (Drizzle ORM + PostgreSQL)
+
+Tables: tenants, users, products, customers, conversations, messages, bookings, payments, sla_alerts
+
+Every table must have a tenantId column. EVERY query must include: .where(eq(table.tenantId, currentTenantId)) — no exceptions.
+
+Key enums: tenant_type (travel | hotel | car_rental | general), conv_status (active | awaiting_price | awaiting_payment | payment_review | confirmed | cancelled), booking_status, user_role (tenant_admin | agent | customer)
+
+Tenants table stores: name, slug, type, whatsappNumber, whatsappToken (format: "AccountSID:AuthToken"), aiPersonality (custom prompt override), currency.
+
+---
+
+🤖 AI HANDLER (lib/aiHandler.ts) — Claude claude-sonnet-4-6
+
+1.⁠ ⁠Dynamic System Prompt: Read tenant data from DB. If tenant.type === "travel", Claude acts as an expert travel advisor with deep knowledge of destinations, visas, seasons, and hotels. Append any tenant.aiPersonality override.
+
+2.⁠ ⁠Flight Logic: When user mentions "طيران" or "تذاكر", Claude collects (origin, destination, date, passengers, class) then tells the customer the team will send the price shortly. Append |||STATUS:awaiting_price||| to the response. Parse this signal server-side to update conversations.status.
+
+3.⁠ ⁠Package Logic: When user mentions "بكج" or "باقة", fetch products WHERE tenant_id = currentTenantId AND is_active = true and present only those.
+
+4.⁠ ⁠Vision & Receipts: If an image is attached, call Claude Vision to analyze it. Return JSON: { isReceipt, amount, currency, bankName, transactionId, date, confidence }. If isReceipt=true and confidence > 0.7 → save to payments table, update conversation status to awaiting_payment, notify all tenant agents via WhatsApp.
+
+---
+
+📱 WHATSAPP SERVICE (lib/whatsapp.ts) — Per-Tenant Twilio
+
+Each tenant has its own Twilio credentials stored in DB. Load them dynamically per request. Functions: sendWhatsAppMessage({ to, body, tenantId }), notifyTenantAgents(tenantId, message), notifyTenantAdmin(tenantId, message).
+
+Message templates:
+•⁠  ⁠bookingConfirmed: "✅ تم تأكيد مبلغك بنجاح، جاري إصدار التذاكر ✈️"
+•⁠  ⁠slaReassurance: "⏳ فريقنا يعمل على مراجعة إيصالك، سنتواصل معك قريباً."
+•⁠  ⁠agentUrgent(phone, minutes): "🚨 إيصال من {phone} لم يُؤكد منذ {minutes} دقيقة — مراجعة فورية"
+
+---
