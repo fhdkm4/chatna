@@ -1758,8 +1758,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         console.log("⚠️ Negative sentiment + low confidence, escalating");
         await handleEscalation(conversation.id, tenantId!, incoming.from, "sentiment سلبي + priority عالي");
       } else if (aiResponse.confidence >= 0.6) {
+        console.log("⏳ Simulating typing delay before sending AI reply...");
         await simulateTypingDelay(aiResponse.content);
+        console.log("📤 Sending AI reply via WhatsApp to:", incoming.from);
         const sid = await sendWhatsAppMessage(incoming.from, aiResponse.content);
+        console.log("📤 WhatsApp send result - SID:", sid || "FAILED/DISABLED");
         const aiMsg = await storage.createMessage({
           conversationId: conversation.id,
           tenantId,
