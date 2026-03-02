@@ -1461,8 +1461,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ status: "webhook is working" });
   });
 
-  // Twilio webhook
-  app.post("/api/webhook/twilio", async (req, res) => {
+  app.get("/api/webhook", (_req, res) => {
+    res.json({ status: "webhook is working" });
+  });
+
+  async function handleTwilioWebhook(req: any, res: any) {
     console.log("📩 Webhook received:", req.body);
     res.set("Content-Type", "text/xml");
     res.status(200).send("<Response></Response>");
@@ -1820,7 +1823,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err) {
       console.error("Webhook error:", err);
     }
-  });
+  }
+
+  app.post("/api/webhook", handleTwilioWebhook);
+  app.post("/api/webhook/twilio", handleTwilioWebhook);
 
   // Conversations - role-based
   app.get("/api/conversations", authMiddleware, async (req: any, res) => {
