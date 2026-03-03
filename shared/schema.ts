@@ -360,8 +360,96 @@ export const insertAiConversationContextSchema = createInsertSchema(aiConversati
 export const insertAiPaymentSchema = createInsertSchema(aiPayments).omit({ id: true, createdAt: true });
 export const insertAiSlaAlertSchema = createInsertSchema(aiSlaAlerts).omit({ id: true, sentAt: true });
 
+export const orders = pgTable("orders", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  conversationId: uuid("conversation_id").references(() => conversations.id),
+  contactId: uuid("contact_id").references(() => contacts.id),
+  serviceType: varchar("service_type", { length: 50 }).notNull().default("other"),
+  status: varchar("status", { length: 30 }).notNull().default("new"),
+  assignedEmployeeId: uuid("assigned_employee_id").references(() => users.id),
+  amount: numeric("amount", { precision: 12, scale: 2 }),
+  currency: varchar("currency", { length: 10 }).default("SAR"),
+  paymentStatus: varchar("payment_status", { length: 30 }).default("unpaid"),
+  notes: text("notes"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("orders_tenant_idx").on(table.tenantId),
+  index("orders_status_idx").on(table.tenantId, table.status),
+  index("orders_conversation_idx").on(table.conversationId),
+]);
+
+export const orderItems = pgTable("order_items", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: uuid("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  description: text("description").notNull(),
+  quantity: integer("quantity").default(1),
+  unitPrice: numeric("unit_price", { precision: 12, scale: 2 }),
+  currency: varchar("currency", { length: 10 }).default("SAR"),
+  vendorId: uuid("vendor_id"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("order_items_order_idx").on(table.orderId),
+]);
+
+export const payments = pgTable("payments", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: uuid("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 10 }).default("SAR"),
+  method: varchar("method", { length: 30 }).default("bank_transfer"),
+  status: varchar("status", { length: 20 }).default("pending"),
+  receiptUrl: text("receipt_url"),
+  receiptAnalysis: jsonb("receipt_analysis"),
+  confirmedBy: uuid("confirmed_by").references(() => users.id),
+  confirmedAt: timestamp("confirmed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("payments_order_idx").on(table.orderId),
+  index("payments_tenant_idx").on(table.tenantId),
+  index("payments_status_idx").on(table.tenantId, table.status),
+]);
+
+export const vendors = pgTable("vendors", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 255 }).notNull(),
+  type: varchar("type", { length: 50 }).default("other"),
+  contactInfo: jsonb("contact_info"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("vendors_tenant_idx").on(table.tenantId),
+]);
+
+export const vendorTransactions = pgTable("vendor_transactions", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendorId: uuid("vendor_id").notNull().references(() => vendors.id, { onDelete: "cascade" }),
+  orderId: uuid("order_id").references(() => orders.id),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 10 }).default("SAR"),
+  status: varchar("status", { length: 20 }).default("pending"),
+  reference: varchar("reference", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("vendor_tx_vendor_idx").on(table.vendorId),
+  index("vendor_tx_order_idx").on(table.orderId),
+]);
+
 export const insertMessageLogSchema = createInsertSchema(messageLogs).omit({ id: true });
 export const insertInternalMessageSchema = createInsertSchema(internalMessages).omit({ id: true, createdAt: true });
+
+export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertOrderItemSchema = createInsertSchema(orderItems).omit({ id: true, createdAt: true });
+export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true, createdAt: true });
+export const insertVendorSchema = createInsertSchema(vendors).omit({ id: true, createdAt: true });
+export const insertVendorTransactionSchema = createInsertSchema(vendorTransactions).omit({ id: true, createdAt: true });
 
 export const insertTenantSchema = createInsertSchema(tenants).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
@@ -453,3 +541,13 @@ export type AiPayment = typeof aiPayments.$inferSelect;
 export type InsertAiPayment = z.infer<typeof insertAiPaymentSchema>;
 export type AiSlaAlert = typeof aiSlaAlerts.$inferSelect;
 export type InsertAiSlaAlert = z.infer<typeof insertAiSlaAlertSchema>;
+export type Order = typeof orders.$inferSelect;
+export type InsertOrder = z.infer<typeof insertOrderSchema>;
+export type OrderItem = typeof orderItems.$inferSelect;
+export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+export type Vendor = typeof vendors.$inferSelect;
+export type InsertVendor = z.infer<typeof insertVendorSchema>;
+export type VendorTransaction = typeof vendorTransactions.$inferSelect;
+export type InsertVendorTransaction = z.infer<typeof insertVendorTransactionSchema>;

@@ -17,11 +17,13 @@ import { Campaigns } from "@/components/campaigns";
 import { ProductCatalog } from "@/components/product-catalog";
 import { TeamChat } from "@/components/team-chat";
 import { FinanceApproval } from "@/components/finance-approval";
+import { VendorManagement } from "@/components/vendor-management";
+import { OrdersDashboard } from "@/components/orders-dashboard";
 import { io, Socket } from "socket.io-client";
 import type { Conversation, Message, Contact } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
-export type ActiveView = "chat" | "contacts" | "ai" | "ai-settings" | "company-identity" | "analytics" | "finance" | "settings" | "team" | "monitoring" | "campaigns" | "catalog" | "team-chat";
+export type ActiveView = "chat" | "contacts" | "ai" | "ai-settings" | "company-identity" | "analytics" | "finance" | "settings" | "team" | "monitoring" | "campaigns" | "catalog" | "team-chat" | "vendors" | "orders";
 export type ConversationFilter = "all" | "active" | "waiting" | "resolved";
 
 export interface ConversationWithDetails extends Conversation {
@@ -111,7 +113,7 @@ export default function Dashboard() {
     const params = new URLSearchParams(window.location.search);
     const view = params.get("view") as ActiveView | null;
     const chatWith = params.get("chatWith");
-    if (view && ["chat", "contacts", "ai", "ai-settings", "company-identity", "analytics", "settings", "team", "monitoring", "campaigns", "catalog", "team-chat"].includes(view)) {
+    if (view && ["chat", "contacts", "ai", "ai-settings", "company-identity", "analytics", "settings", "team", "monitoring", "campaigns", "catalog", "team-chat", "vendors", "orders"].includes(view)) {
       setActiveView(view);
     }
     if (chatWith) {
@@ -363,7 +365,7 @@ export default function Dashboard() {
       setActiveView("chat");
       return null;
     }
-    if ((activeView === "team" || activeView === "monitoring" || activeView === "campaigns" || activeView === "finance") && user?.role !== "admin" && user?.role !== "manager") {
+    if ((activeView === "team" || activeView === "monitoring" || activeView === "campaigns" || activeView === "finance" || activeView === "vendors" || activeView === "orders") && user?.role !== "admin" && user?.role !== "manager") {
       setActiveView("chat");
       return null;
     }
@@ -394,6 +396,10 @@ export default function Dashboard() {
         return <ProductCatalog />;
       case "finance":
         return <FinanceApproval />;
+      case "vendors":
+        return <VendorManagement />;
+      case "orders":
+        return <OrdersDashboard />;
       case "team-chat":
         return <TeamChat socket={socketRef.current} initialMemberId={chatWithMemberId} onMemberSelected={() => setChatWithMemberId(null)} />;
       default:

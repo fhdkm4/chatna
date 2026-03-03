@@ -1,0 +1,230 @@
+أعمل على منصة SaaS لإدارة محادثات واتساب باستخدام AI.
+
+المنصة موجودة بالفعل وتحتوي على:
+- نظام محادثات WhatsApp
+- حملات تسويقية
+- كتالوج منتجات
+- إعدادات AI
+- إدارة فريق
+- لوحة مالية
+
+لكن أريد إعادة تنظيم المنصة لتصبح نظام عمليات لشركة سفر في البداية، مع إمكانية التوسع لاحقاً لأي نشاط.
+
+الهدف هو إنشاء نظام يعتمد على:
+
+AI + موظف + محاسب
+
+ويحول المحادثات تلقائياً إلى طلبات منظمة.
+
+---
+
+المطلوب منك:
+
+1) إنشاء نظام Orders (الطلبات)
+
+كل محادثة مع العميل يجب أن تتحول إلى Order.
+
+كل Order يحتوي:
+
+id
+customer_id
+service_type
+status
+assigned_employee
+amount
+currency
+payment_status
+created_at
+updated_at
+
+---
+
+2) حالات الطلب
+
+يجب أن يدعم النظام الحالات التالية:
+
+new
+collecting_info
+waiting_employee
+offer_sent
+waiting_payment
+payment_review
+paid
+confirmed
+completed
+cancelled
+
+---
+
+3) قاعدة البيانات يجب أن تكون قابلة للتوسع لأي نشاط مستقبلاً وليس السفر فقط.
+
+أنشئ الجداول التالية:
+
+companies
+users
+customers
+conversations
+messages
+orders
+order_items
+payments
+transactions
+vendors
+vendor_transactions
+
+---
+
+4) جدول orders يجب أن يحتوي:
+
+service_type
+
+ويكون قابل للتوسع مثل:
+
+flight
+hotel
+visa
+package
+transport
+tour
+other
+
+---
+
+5) AI message classifier
+
+أنشئ طبقة AI تقوم بتحليل الرسائل الواردة من واتساب وتحديد:
+
+intent
+entities
+
+مثال:
+
+رسالة:
+"أبغى رحلة دبي من الرياض لشخصين"
+
+يجب أن تتحول إلى:
+
+intent: flight_booking
+entities:
+departure_city: Riyadh
+destination_city: Dubai
+passengers: 2
+
+---
+
+6) AI يجب أن يعمل بطريقة workflow وليس chatbot مفتوح.
+
+مثال:
+
+if intent == flight_booking:
+    ask_departure_city
+    ask_destination
+    ask_date
+    ask_passengers
+
+---
+
+7) عند اكتمال المعلومات يجب أن يتم:
+
+create_order()
+
+status = waiting_employee
+
+---
+
+8) يجب إنشاء لوحة Orders Dashboard تحتوي على:
+
+New Orders
+Collecting Info
+Waiting Employee
+Offer Sent
+Waiting Payment
+Payment Review
+Completed
+
+---
+
+9) نظام الدفع
+
+عندما يرسل العميل صورة تحويل:
+
+AI يجب أن:
+
+detect_payment_receipt
+extract_amount
+attach_to_order
+
+ثم تحويله إلى المحاسب.
+
+status = payment_review
+
+المحاسب يؤكد الدفع.
+
+---
+
+10) دعم الموردين Vendors
+
+لأن شركات السفر تتعامل مع:
+
+Amadeus (Flights)
+TBO (Hotels)
+External Tour Companies
+
+أنشئ:
+
+vendors table
+vendor_transactions table
+
+حتى يتم تسجيل المبالغ المستحقة للموردين.
+
+---
+
+11) يجب أن يكون النظام multi-industry.
+
+أي أن service_type يمكن إضافة أنواع جديدة لاحقاً بدون تغيير الهيكل.
+
+---
+
+12) AI system
+
+أنشئ AI pipeline يتكون من:
+
+Message classifier
+Intent detection
+Entity extraction
+Workflow engine
+Response generator
+
+---
+
+13) يجب أن يكون AI دقيق بنسبة عالية باستخدام:
+
+structured prompts
+intent classification
+entity extraction
+
+وليس مجرد ردود عامة.
+
+---
+
+14) يجب أن يتم ربط النظام الحالي (المحادثات) مع Orders بحيث:
+
+كل conversation يمكن أن يحتوي عدة orders.
+
+---
+
+قم بإعادة تنظيم الكود الحالي بدون كسر الميزات الموجودة.
+
+ابدأ بإنشاء:
+
+database schema
+orders service
+AI intent system
+orders dashboard
+payment workflow
+
+ثم أعطني:
+
+- هيكل قاعدة البيانات
+- أمثلة الكود
+- API structure

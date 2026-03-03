@@ -1,4 +1,4 @@
-import { MessageSquare, Users, Brain, BarChart3, Settings, LogOut, UserCog, Activity, Megaphone, Package, Sparkles, Building2, MessagesSquare, Sun, Moon, Receipt } from "lucide-react";
+import { MessageSquare, Users, Brain, BarChart3, Settings, LogOut, UserCog, Activity, Megaphone, Package, Sparkles, Building2, MessagesSquare, Sun, Moon, Receipt, Store, ShoppingBag } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTheme } from "@/lib/theme";
 import type { ActiveView } from "@/pages/dashboard";
@@ -20,6 +20,8 @@ const navItems: { id: ActiveView; icon: typeof MessageSquare; label: string; min
   { id: "ai-settings", icon: Sparkles, label: "إعدادات الذكاء الاصطناعي", minRole: "admin" },
   { id: "company-identity", icon: Building2, label: "هوية الشركة", minRole: "admin" },
   { id: "finance", icon: Receipt, label: "المالية", minRole: "manager" },
+  { id: "orders", icon: ShoppingBag, label: "الطلبات", minRole: "manager" },
+  { id: "vendors", icon: Store, label: "الموردين", minRole: "manager" },
   { id: "analytics", icon: BarChart3, label: "الإحصائيات" },
   { id: "team", icon: UserCog, label: "إدارة الفريق", minRole: "manager" },
   { id: "monitoring", icon: Activity, label: "مراقبة الفريق", minRole: "manager" },

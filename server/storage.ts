@@ -28,6 +28,12 @@ import {
   type AiConversationContext, type InsertAiConversationContext,
   type AiPayment, type InsertAiPayment,
   type AiSlaAlert, type InsertAiSlaAlert,
+  orders, orderItems, payments, vendors, vendorTransactions,
+  type Order, type InsertOrder,
+  type OrderItem, type InsertOrderItem,
+  type Payment, type InsertPayment,
+  type Vendor, type InsertVendor,
+  type VendorTransaction, type InsertVendorTransaction,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -136,6 +142,28 @@ export interface IStorage {
 
   createAssignmentLog(data: InsertConversationAssignmentLog): Promise<ConversationAssignmentLog>;
   getAssignmentLogsByConversation(conversationId: string, tenantId: string): Promise<ConversationAssignmentLog[]>;
+
+  createOrder(data: InsertOrder): Promise<Order>;
+  getOrderById(id: string, tenantId: string): Promise<Order | undefined>;
+  getOrdersByTenant(tenantId: string, status?: string): Promise<Order[]>;
+  getOrdersByConversation(conversationId: string, tenantId: string): Promise<Order[]>;
+  updateOrder(id: string, tenantId: string, data: Partial<InsertOrder>): Promise<Order | undefined>;
+  getOrderStats(tenantId: string): Promise<{ total: number; byStatus: Record<string, number>; totalRevenue: number }>;
+
+  createOrderItem(data: InsertOrderItem): Promise<OrderItem>;
+  getOrderItemsByOrder(orderId: string): Promise<OrderItem[]>;
+
+  createPayment(data: InsertPayment): Promise<Payment>;
+  getPaymentsByOrder(orderId: string): Promise<Payment[]>;
+  updatePayment(id: string, tenantId: string, data: Partial<InsertPayment>): Promise<Payment | undefined>;
+
+  createVendor(data: InsertVendor): Promise<Vendor>;
+  getVendorsByTenant(tenantId: string): Promise<Vendor[]>;
+  updateVendor(id: string, tenantId: string, data: Partial<InsertVendor>): Promise<Vendor | undefined>;
+
+  createVendorTransaction(data: InsertVendorTransaction): Promise<VendorTransaction>;
+  getVendorTransactionsByOrder(orderId: string): Promise<VendorTransaction[]>;
+  getVendorTransactionsByVendor(vendorId: string, tenantId: string): Promise<VendorTransaction[]>;
 }
 
 class DatabaseStorage implements IStorage {
@@ -1193,6 +1221,112 @@ class DatabaseStorage implements IStorage {
       confirmedCount: parseInt(row.confirmed_count) || 0,
       pendingCount: parseInt(row.pending_count) || 0,
     };
+  }
+
+  async createOrder(data: InsertOrder): Promise<Order> {
+    const [order] = await db.insert(orders).values(data).returning();
+    return order;
+  }
+
+  async getOrderById(id: string, tenantId: string): Promise<Order | undefined> {
+    const [order] = await db.select().from(orders)
+      .where(and(eq(orders.id, id), eq(orders.tenantId, tenantId)));
+    return order;
+  }
+
+  async getOrdersByTenant(tenantId: string, status?: string): Promise<Order[]> {
+    const conditions = [eq(orders.tenantId, tenantId)];
+    if (status) conditions.push(eq(orders.status, status));
+    return db.select().from(orders).where(and(...conditions)).orderBy(desc(orders.createdAt));
+  }
+
+  async getOrdersByConversation(conversationId: string, tenantId: string): Promise<Order[]> {
+    return db.select().from(orders)
+      .where(and(eq(orders.conversationId, conversationId), eq(orders.tenantId, tenantId)))
+      .orderBy(desc(orders.createdAt));
+  }
+
+  async updateOrder(id: string, tenantId: string, data: Partial<InsertOrder>): Promise<Order | undefined> {
+    const [order] = await db.update(orders)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(orders.id, id), eq(orders.tenantId, tenantId)))
+      .returning();
+    return order;
+  }
+
+  async getOrderStats(tenantId: string): Promise<{ total: number; byStatus: Record<string, number>; totalRevenue: number }> {
+    const result = await pool.query(`
+      SELECT status, COUNT(*)::int as cnt, COALESCE(SUM(CASE WHEN status IN ('paid','confirmed','completed') THEN amount ELSE 0 END), 0) as rev
+      FROM orders WHERE tenant_id = $1
+      GROUP BY status
+    `, [tenantId]);
+    const byStatus: Record<string, number> = {};
+    let total = 0;
+    let totalRevenue = 0;
+    for (const row of result.rows) {
+      byStatus[row.status] = row.cnt;
+      total += row.cnt;
+      totalRevenue += parseFloat(row.rev) || 0;
+    }
+    return { total, byStatus, totalRevenue };
+  }
+
+  async createOrderItem(data: InsertOrderItem): Promise<OrderItem> {
+    const [item] = await db.insert(orderItems).values(data).returning();
+    return item;
+  }
+
+  async getOrderItemsByOrder(orderId: string): Promise<OrderItem[]> {
+    return db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+  }
+
+  async createPayment(data: InsertPayment): Promise<Payment> {
+    const [payment] = await db.insert(payments).values(data).returning();
+    return payment;
+  }
+
+  async getPaymentsByOrder(orderId: string): Promise<Payment[]> {
+    return db.select().from(payments).where(eq(payments.orderId, orderId)).orderBy(desc(payments.createdAt));
+  }
+
+  async updatePayment(id: string, tenantId: string, data: Partial<InsertPayment>): Promise<Payment | undefined> {
+    const [payment] = await db.update(payments)
+      .set(data as any)
+      .where(and(eq(payments.id, id), eq(payments.tenantId, tenantId)))
+      .returning();
+    return payment;
+  }
+
+  async createVendor(data: InsertVendor): Promise<Vendor> {
+    const [vendor] = await db.insert(vendors).values(data).returning();
+    return vendor;
+  }
+
+  async getVendorsByTenant(tenantId: string): Promise<Vendor[]> {
+    return db.select().from(vendors).where(eq(vendors.tenantId, tenantId)).orderBy(desc(vendors.createdAt));
+  }
+
+  async updateVendor(id: string, tenantId: string, data: Partial<InsertVendor>): Promise<Vendor | undefined> {
+    const [vendor] = await db.update(vendors)
+      .set(data as any)
+      .where(and(eq(vendors.id, id), eq(vendors.tenantId, tenantId)))
+      .returning();
+    return vendor;
+  }
+
+  async createVendorTransaction(data: InsertVendorTransaction): Promise<VendorTransaction> {
+    const [tx] = await db.insert(vendorTransactions).values(data).returning();
+    return tx;
+  }
+
+  async getVendorTransactionsByOrder(orderId: string): Promise<VendorTransaction[]> {
+    return db.select().from(vendorTransactions).where(eq(vendorTransactions.orderId, orderId));
+  }
+
+  async getVendorTransactionsByVendor(vendorId: string, tenantId: string): Promise<VendorTransaction[]> {
+    return db.select().from(vendorTransactions)
+      .where(and(eq(vendorTransactions.vendorId, vendorId), eq(vendorTransactions.tenantId, tenantId)))
+      .orderBy(desc(vendorTransactions.createdAt));
   }
 }
 

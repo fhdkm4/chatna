@@ -7,7 +7,7 @@ import jwt from "jsonwebtoken";
 import { eq } from "drizzle-orm";
 import { storage } from "./storage";
 import { db, tenantStore } from "./db";
-import { registerSchema, loginSchema, createAgentSchema, inviteAgentSchema, acceptInvitationSchema, insertCampaignSchema, insertProductSchema, users as usersTable, messages as messagesTable, conversations as conversationsTable, invitations as invitationsTable } from "@shared/schema";
+import { registerSchema, loginSchema, createAgentSchema, inviteAgentSchema, acceptInvitationSchema, insertCampaignSchema, insertProductSchema, insertOrderSchema, insertOrderItemSchema, insertPaymentSchema, insertVendorSchema, insertVendorTransactionSchema, users as usersTable, messages as messagesTable, conversations as conversationsTable, invitations as invitationsTable } from "@shared/schema";
 import { z } from "zod";
 import crypto from "crypto";
 import fs from "fs";
@@ -18,6 +18,8 @@ import { checkAutoReply, generateAiResponse } from "./services/ai";
 import { simulateTypingDelay } from "./services/typing-delay";
 import { isHandoverRequest, assignConversationToAgent, isWithinWorkingHours } from "./services/assignment";
 import { handleAIMessage } from "./services/ai-handler";
+import { classifyMessageLocal } from "./services/ai-classifier";
+import { initWorkflow, updateWorkflow, getNextQuestion, createOrderFromWorkflow, isBookingIntent, getWorkflowSummaryAr } from "./services/order-workflow";
 import { ObjectStorageService } from "./replit_integrations/object_storage";
 import { count, sql as sqlHelper, and, inArray, not, desc } from "drizzle-orm";
 
@@ -1710,33 +1712,106 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return;
       }
 
-      if (isTravelTenant) {
-        const travelKeywords = ["طيران", "تذاكر", "flight", "رحلة", "حجز طيران", "تذكرة", "بكج", "باقة", "package", "باقات", "عروض سياحية"];
-        const isTravelQuery = travelKeywords.some(k => messageContent.toLowerCase().includes(k));
-        const existingCtx = await storage.getAiContext(conversation.id, tenantId!);
+      const existingCtx = await storage.getAiContext(conversation.id, tenantId!);
+      const hasActiveWorkflow = existingCtx?.metadata && (existingCtx.metadata as any).workflowState;
 
-        if (isTravelQuery || (existingCtx && ["active", "awaiting_price"].includes(existingCtx.status || ""))) {
-          console.log("✈️ Travel AI handling:", messageContent);
-          const travelResult = await handleAIMessage({
+      const classification = classifyMessageLocal(messageContent, !!incoming.mediaUrl);
+      console.log("🧩 Classification:", classification.intent, "confidence:", classification.confidence);
+
+      if (isBookingIntent(classification.intent) || hasActiveWorkflow) {
+        let workflowState;
+        if (hasActiveWorkflow) {
+          const savedState = (existingCtx!.metadata as any).workflowState;
+          workflowState = updateWorkflow(savedState, classification.entities);
+          console.log("🔄 Workflow updated, missing:", workflowState.missingFields);
+        } else {
+          workflowState = initWorkflow(classification);
+          console.log("🆕 Workflow started for:", classification.intent, "missing:", workflowState.missingFields);
+        }
+
+        let replyText: string;
+        if (workflowState.stage === "ready") {
+          const result = await createOrderFromWorkflow(workflowState, tenantId!, conversation.id, contact.id);
+          workflowState = result.state;
+          const summary = getWorkflowSummaryAr(workflowState);
+          replyText = `تم تسجيل طلبك بنجاح!\n\n${summary}\n\nسيتم التواصل معك قريباً من أحد موظفينا لتأكيد التفاصيل والسعر.`;
+          io.to(`tenant:${tenantId}`).emit("new_order", { orderId: result.orderId, conversationId: conversation.id });
+        } else {
+          const question = getNextQuestion(workflowState);
+          replyText = question || "شكراً، سأتحقق من التفاصيل.";
+        }
+
+        await storage.upsertAiContext(conversation.id, tenantId!, {
+          status: workflowState.stage === "order_created" ? "completed" : "active",
+          metadata: { workflowState },
+        });
+
+        await simulateTypingDelay(replyText);
+        const sid = await sendWhatsAppMessage(incoming.from, replyText);
+        const aiMsg = await storage.createMessage({
+          conversationId: conversation.id,
+          tenantId,
+          senderType: "ai",
+          content: replyText,
+          aiConfidence: classification.confidence,
+          twilioSid: sid,
+        });
+        await storage.updateConversation(conversation.id, tenantId!, { aiHandled: true, aiFailedAttempts: 0 });
+        io.to(`tenant:${tenantId}`).emit("new_message", { conversationId: conversation.id, message: aiMsg });
+
+        if (workflowState.stage === "order_created") {
+          await storage.updateConversation(conversation.id, tenantId!, { assignmentStatus: "waiting" } as any);
+        }
+        return;
+      }
+
+      if (classification.intent === "payment_receipt" && incoming.mediaUrl && isTravelTenant) {
+        console.log("📎 Receipt detected via classifier");
+        let imageBase64: string | undefined;
+        let imageMimeType: string | undefined;
+        if (incoming.mediaType?.startsWith("image")) {
+          try {
+            const fetch = (await import("node-fetch")).default;
+            const twilioSid2 = process.env.TWILIO_ACCOUNT_SID;
+            const twilioAuth2 = process.env.TWILIO_AUTH_TOKEN;
+            const imgResp = await fetch(incoming.mediaUrl, {
+              headers: twilioSid2 && twilioAuth2 ? { "Authorization": "Basic " + Buffer.from(`${twilioSid2}:${twilioAuth2}`).toString("base64") } : {},
+            });
+            const buffer = await imgResp.buffer();
+            imageBase64 = buffer.toString("base64");
+            imageMimeType = incoming.mediaType || "image/jpeg";
+          } catch (e) {
+            console.error("Failed to fetch media for vision:", e);
+          }
+        }
+
+        if (imageBase64 && imageMimeType) {
+          const aiResult = await handleAIMessage({
             tenantId: tenantId!,
             conversationId: conversation.id,
             customerPhone: phone,
-            userMessage: messageContent,
+            userMessage: incoming.content || "[صورة]",
+            imageBase64,
+            imageMimeType,
+            mediaUrl: incoming.mediaUrl,
           });
 
-          if (travelResult && travelResult.reply) {
-            await simulateTypingDelay(travelResult.reply);
-            const sid = await sendWhatsAppMessage(incoming.from, travelResult.reply);
+          if (aiResult && aiResult.receiptData?.isReceipt) {
+            await simulateTypingDelay(aiResult.reply);
+            const sid = await sendWhatsAppMessage(incoming.from, aiResult.reply);
             const aiMsg = await storage.createMessage({
               conversationId: conversation.id,
               tenantId,
               senderType: "ai",
-              content: travelResult.reply,
-              aiConfidence: travelResult.confidence,
+              content: aiResult.reply,
+              aiConfidence: aiResult.confidence,
               twilioSid: sid,
             });
-            await storage.updateConversation(conversation.id, tenantId!, { aiHandled: true, aiFailedAttempts: 0 });
             io.to(`tenant:${tenantId}`).emit("new_message", { conversationId: conversation.id, message: aiMsg });
+            io.to(`tenant:${tenantId}`).emit("payment_received", {
+              conversationId: conversation.id,
+              message: "إيصال جديد بانتظار المراجعة",
+            });
             return;
           }
         }
@@ -3213,6 +3288,158 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err) {
       console.error("Send internal message error:", err);
       res.status(500).json({ message: "خطأ في إرسال الرسالة" });
+    }
+  });
+
+  app.get("/api/orders/stats", authMiddleware, async (req: any, res) => {
+    try {
+      const stats = await storage.getOrderStats(req.user.tenantId);
+      res.json(stats);
+    } catch (err) {
+      console.error("Order stats error:", err);
+      res.status(500).json({ message: "خطأ في جلب إحصائيات الطلبات" });
+    }
+  });
+
+  app.get("/api/orders", authMiddleware, async (req: any, res) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const ordersList = await storage.getOrdersByTenant(req.user.tenantId, status);
+      res.json(ordersList);
+    } catch (err) {
+      console.error("Get orders error:", err);
+      res.status(500).json({ message: "خطأ في جلب الطلبات" });
+    }
+  });
+
+  app.get("/api/orders/:id", authMiddleware, async (req: any, res) => {
+    try {
+      const order = await storage.getOrderById(req.params.id, req.user.tenantId);
+      if (!order) return res.status(404).json({ message: "الطلب غير موجود" });
+      const items = await storage.getOrderItemsByOrder(order.id);
+      const orderPayments = await storage.getPaymentsByOrder(order.id);
+      res.json({ ...order, items, payments: orderPayments });
+    } catch (err) {
+      console.error("Get order error:", err);
+      res.status(500).json({ message: "خطأ في جلب الطلب" });
+    }
+  });
+
+  app.post("/api/orders", authMiddleware, async (req: any, res) => {
+    try {
+      const data = { ...req.body, tenantId: req.user.tenantId };
+      const order = await storage.createOrder(data);
+      res.status(201).json(order);
+    } catch (err) {
+      console.error("Create order error:", err);
+      res.status(500).json({ message: "خطأ في إنشاء الطلب" });
+    }
+  });
+
+  app.patch("/api/orders/:id", authMiddleware, async (req: any, res) => {
+    try {
+      const order = await storage.updateOrder(req.params.id, req.user.tenantId, req.body);
+      if (!order) return res.status(404).json({ message: "الطلب غير موجود" });
+      res.json(order);
+    } catch (err) {
+      console.error("Update order error:", err);
+      res.status(500).json({ message: "خطأ في تحديث الطلب" });
+    }
+  });
+
+  app.post("/api/orders/:id/items", authMiddleware, async (req: any, res) => {
+    try {
+      const order = await storage.getOrderById(req.params.id, req.user.tenantId);
+      if (!order) return res.status(404).json({ message: "الطلب غير موجود" });
+      const item = await storage.createOrderItem({ ...req.body, orderId: order.id, tenantId: req.user.tenantId });
+      res.status(201).json(item);
+    } catch (err) {
+      console.error("Create order item error:", err);
+      res.status(500).json({ message: "خطأ في إضافة عنصر" });
+    }
+  });
+
+  app.get("/api/orders/:id/payments", authMiddleware, async (req: any, res) => {
+    try {
+      const order = await storage.getOrderById(req.params.id, req.user.tenantId);
+      if (!order) return res.status(404).json({ message: "الطلب غير موجود" });
+      const orderPayments = await storage.getPaymentsByOrder(order.id);
+      res.json(orderPayments);
+    } catch (err) {
+      console.error("Get payments error:", err);
+      res.status(500).json({ message: "خطأ في جلب المدفوعات" });
+    }
+  });
+
+  app.post("/api/payments", authMiddleware, async (req: any, res) => {
+    try {
+      const payment = await storage.createPayment({ ...req.body, tenantId: req.user.tenantId });
+      res.status(201).json(payment);
+    } catch (err) {
+      console.error("Create payment error:", err);
+      res.status(500).json({ message: "خطأ في إنشاء الدفعة" });
+    }
+  });
+
+  app.patch("/api/payments/:id", authMiddleware, async (req: any, res) => {
+    try {
+      const payment = await storage.updatePayment(req.params.id, req.user.tenantId, req.body);
+      if (!payment) return res.status(404).json({ message: "الدفعة غير موجودة" });
+      res.json(payment);
+    } catch (err) {
+      console.error("Update payment error:", err);
+      res.status(500).json({ message: "خطأ في تحديث الدفعة" });
+    }
+  });
+
+  app.get("/api/vendors", authMiddleware, async (req: any, res) => {
+    try {
+      const vendorsList = await storage.getVendorsByTenant(req.user.tenantId);
+      res.json(vendorsList);
+    } catch (err) {
+      console.error("Get vendors error:", err);
+      res.status(500).json({ message: "خطأ في جلب الموردين" });
+    }
+  });
+
+  app.post("/api/vendors", authMiddleware, managerOrAdmin, async (req: any, res) => {
+    try {
+      const vendor = await storage.createVendor({ ...req.body, tenantId: req.user.tenantId });
+      res.status(201).json(vendor);
+    } catch (err) {
+      console.error("Create vendor error:", err);
+      res.status(500).json({ message: "خطأ في إنشاء المورد" });
+    }
+  });
+
+  app.patch("/api/vendors/:id", authMiddleware, managerOrAdmin, async (req: any, res) => {
+    try {
+      const vendor = await storage.updateVendor(req.params.id, req.user.tenantId, req.body);
+      if (!vendor) return res.status(404).json({ message: "المورد غير موجود" });
+      res.json(vendor);
+    } catch (err) {
+      console.error("Update vendor error:", err);
+      res.status(500).json({ message: "خطأ في تحديث المورد" });
+    }
+  });
+
+  app.post("/api/vendors/:id/transactions", authMiddleware, async (req: any, res) => {
+    try {
+      const tx = await storage.createVendorTransaction({ ...req.body, vendorId: req.params.id, tenantId: req.user.tenantId });
+      res.status(201).json(tx);
+    } catch (err) {
+      console.error("Create vendor transaction error:", err);
+      res.status(500).json({ message: "خطأ في إنشاء العملية" });
+    }
+  });
+
+  app.get("/api/vendors/:id/transactions", authMiddleware, async (req: any, res) => {
+    try {
+      const txs = await storage.getVendorTransactionsByVendor(req.params.id, req.user.tenantId);
+      res.json(txs);
+    } catch (err) {
+      console.error("Get vendor transactions error:", err);
+      res.status(500).json({ message: "خطأ في جلب العمليات" });
     }
   });
 
