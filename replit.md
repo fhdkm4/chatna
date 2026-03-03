@@ -42,8 +42,10 @@ The system uses a JWT-based authentication flow. Upon login or registration, the
 - `shared/schema.ts` - All database tables and types
 - `server/storage.ts` - IStorage interface and DatabaseStorage implementation
 - `server/routes.ts` - All API endpoints and webhook handler
-- `server/services/ai-classifier.ts` - AI intent classification
-- `server/services/order-workflow.ts` - Order workflow state machine
+- `server/services/ai-classifier.ts` - AI intent classification (classifyMessageLocal + classifyMessage with Claude fallback)
+- `server/services/order-workflow.ts` - Order workflow state machine (initWorkflow, updateWorkflow, createOrderFromWorkflow)
+- `server/services/aiMessageProcessor.ts` - Unified AI message processing (classifyIntent, extractEntities, generateReply, analyzeReceipt)
+- `server/services/conversationWorkflow.ts` - Centralized incoming message processor (processIncomingMessage) - orchestrates classifier, workflow, auto-reply, AI generation, and escalation
 - `server/services/ai-handler.ts` - AI message handling with vision
 - `server/services/prompt-builder.ts` - Layered prompt construction
 - `client/src/pages/dashboard.tsx` - Main dashboard with view switching

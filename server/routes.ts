@@ -20,6 +20,7 @@ import { isHandoverRequest, assignConversationToAgent, isWithinWorkingHours } fr
 import { handleAIMessage } from "./services/ai-handler";
 import { classifyMessageLocal } from "./services/ai-classifier";
 import { initWorkflow, updateWorkflow, getNextQuestion, createOrderFromWorkflow, isBookingIntent, getWorkflowSummaryAr } from "./services/order-workflow";
+import { processIncomingMessage } from "./services/conversationWorkflow";
 import { ObjectStorageService } from "./replit_integrations/object_storage";
 import { count, sql as sqlHelper, and, inArray, not, desc } from "drizzle-orm";
 
@@ -1373,90 +1374,44 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       message: customerMessage,
     });
 
-    if (conversation.aiPaused) return;
-    if (conversation.assignmentStatus === "assigned") return;
+    if (!messageContent) return;
 
-    if (isHandoverRequest(messageContent)) {
-      await handleEscalation(conversation.id, tenantId, senderPhone, "طلب تحويل لموظف بشري");
-      return;
-    }
+    let metaMediaUrl: string | null = null;
+    let metaImageBase64: string | undefined;
+    let metaImageMimeType: string | undefined;
 
-    const tenant = await storage.getTenant(tenantId);
-    if (!tenant?.aiEnabled) return;
-
-    const hasTextContent = messageContent && !messageContent.startsWith("[") ;
-    if (!hasTextContent) return;
-
-    const autoReplyContent = await checkAutoReply(tenantId, messageContent);
-    if (autoReplyContent) {
-      await simulateTypingDelay(autoReplyContent);
-      await sendWhatsAppMessage(senderPhone, autoReplyContent);
-      const aiMsg = await storage.createMessage({
-        conversationId: conversation.id,
-        tenantId,
-        senderType: "ai",
-        content: autoReplyContent,
-        aiConfidence: 1.0,
-      });
-      await storage.updateConversation(conversation.id, tenantId, { aiHandled: true, delayAlerted: false });
-      io.to(`tenant:${tenantId}`).emit("new_message", {
-        conversationId: conversation.id,
-        message: aiMsg,
-      });
-      return;
-    }
-
-    const aiResponse = await generateAiResponse(
-      tenantId,
-      conversation.id,
-      messageContent,
-      tenant.aiSystemPrompt,
-    );
-
-    const escalationContact = conversation.contactId ? await storage.getContactById(conversation.contactId, tenantId) : null;
-    const shouldEscalateSentiment = escalationContact?.sentiment === "negative" && aiResponse.confidence < 0.8;
-
-    if (shouldEscalateSentiment) {
-      await handleEscalation(conversation.id, tenantId, senderPhone, "sentiment سلبي + priority عالي");
-      return;
-    }
-
-    if (aiResponse.confidence >= 0.6) {
-      await simulateTypingDelay(aiResponse.content);
-      await sendWhatsAppMessage(senderPhone, aiResponse.content);
-      const aiMsg = await storage.createMessage({
-        conversationId: conversation.id,
-        tenantId,
-        senderType: "ai",
-        content: aiResponse.content,
-        aiConfidence: aiResponse.confidence,
-      });
-      await storage.updateConversation(conversation.id, tenantId, { aiHandled: true, delayAlerted: false, aiFailedAttempts: 0 });
-      io.to(`tenant:${tenantId}`).emit("new_message", {
-        conversationId: conversation.id,
-        message: aiMsg,
-      });
-    } else {
-      const currentFailures = (conversation.aiFailedAttempts || 0) + 1;
-      if (currentFailures >= 2) {
-        await handleEscalation(conversation.id, tenantId, senderPhone, "فشل AI بعد محاولتين");
-      } else {
-        await storage.updateConversation(conversation.id, tenantId, { aiFailedAttempts: currentFailures });
-        await simulateTypingDelay(aiResponse.content);
-        await sendWhatsAppMessage(senderPhone, aiResponse.content);
-        const aiMsg = await storage.createMessage({
-          conversationId: conversation.id,
-          tenantId,
-          senderType: "ai",
-          content: aiResponse.content,
-          aiConfidence: aiResponse.confidence,
-        });
-        io.to(`tenant:${tenantId}`).emit("new_message", {
-          conversationId: conversation.id,
-          message: aiMsg,
-        });
+    if (mediaType === "image" && msg.image?.id) {
+      try {
+        const { getMetaMediaUrl, downloadMetaMedia } = await import("./services/meta-whatsapp");
+        if (typeof getMetaMediaUrl === "function") {
+          metaMediaUrl = await getMetaMediaUrl(msg.image.id);
+          if (metaMediaUrl && typeof downloadMetaMedia === "function") {
+            const mediaData = await downloadMetaMedia(metaMediaUrl);
+            if (mediaData) {
+              metaImageBase64 = mediaData.base64;
+              metaImageMimeType = mediaData.mimeType;
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch Meta media:", e);
       }
     }
+
+    const metaResult = await processIncomingMessage({
+      tenantId,
+      conversationId: conversation.id,
+      contactId: contact.id,
+      customerPhone: senderPhone,
+      messageContent,
+      mediaUrl: metaMediaUrl,
+      mediaType,
+      imageBase64: metaImageBase64,
+      imageMimeType: metaImageMimeType,
+      io,
+      onEscalation: handleEscalation,
+    });
+    console.log("📋 Meta processIncomingMessage result:", metaResult.action, metaResult.handled);
   }
 
   app.get("/api/webhook/test", (_req, res) => {
@@ -1589,264 +1544,40 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         message: customerMessage,
       });
 
-      console.log("🤖 AI check - aiPaused:", conversation.aiPaused, "assignmentStatus:", conversation.assignmentStatus, "conversationId:", conversation.id);
+      console.log("🤖 AI check - conversationId:", conversation.id);
 
-      if (conversation.aiPaused) {
-        console.log("⏸️ AI paused for this conversation, skipping");
-        return;
-      }
-
-      if (conversation.assignmentStatus === "assigned") {
-        console.log("👤 Conversation assigned to human agent, skipping AI");
-        return;
-      }
-
-      const handoverDetected = isHandoverRequest(messageContent);
-      console.log("🔄 Handover check:", { message: messageContent.substring(0, 50), handoverDetected });
-
-      if (handoverDetected) {
-        console.log("🙋 Handover requested! Running escalation flow");
-        await handleEscalation(conversation.id, tenantId!, incoming.from, "طلب تحويل لموظف بشري");
-        return;
-      }
-
-      const tenant = await storage.getTenant(tenantId!);
-      console.log("🏢 Tenant AI config - aiEnabled:", tenant?.aiEnabled, "tenantId:", tenantId);
-
-      if (!tenant?.aiEnabled) {
-        console.log("❌ AI is disabled for tenant, skipping AI response");
-        return;
-      }
-
-      const isTravelTenant = tenant.businessType && ["travel", "tourism", "سياحة", "سفر", "سياحه"].some(k => (tenant.businessType || "").toLowerCase().includes(k));
-
-      if (incoming.mediaUrl && !incoming.content && !incoming.mediaType?.startsWith("image")) {
-        console.log("📎 Non-image media-only message, skipping AI");
-        return;
-      }
-
-      console.log("🔍 Checking auto-replies for:", messageContent);
-      const autoReplyContent = await checkAutoReply(tenantId!, messageContent);
-      if (autoReplyContent) {
-        console.log("✅ Auto-reply matched:", autoReplyContent);
-        await simulateTypingDelay(autoReplyContent);
-        const sid = await sendWhatsAppMessage(incoming.from, autoReplyContent);
-        const aiMsg = await storage.createMessage({
-          conversationId: conversation.id,
-          tenantId,
-          senderType: "ai",
-          content: autoReplyContent,
-          aiConfidence: 1.0,
-          twilioSid: sid,
-        });
-        await storage.createMessageLog({
-          tenantId,
-          contactId: contact.id,
-          conversationId: conversation.id,
-          messageType: "auto_reply",
-          direction: "outbound",
-          channel: "whatsapp",
-          delivered: !!sid,
-          failed: !sid,
-          twilioSid: sid,
-          sentAt: new Date(),
-        });
-        await storage.updateConversation(conversation.id, tenantId!, { aiHandled: true });
-        io.to(`tenant:${tenantId}`).emit("new_message", {
-          conversationId: conversation.id,
-          message: aiMsg,
-        });
-        return;
-      }
-
-      const existingCtx = await storage.getAiContext(conversation.id, tenantId!);
-      const hasActiveWorkflow = existingCtx?.context && (existingCtx.context as any).workflowState;
-
-      const classification = classifyMessageLocal(messageContent, !!incoming.mediaUrl);
-      console.log("🧩 Classification:", classification.intent, "confidence:", classification.confidence);
-
-      if (isBookingIntent(classification.intent) || hasActiveWorkflow) {
-        let workflowState;
-        if (hasActiveWorkflow) {
-          const savedState = (existingCtx!.context as any).workflowState;
-          workflowState = updateWorkflow(savedState, classification.entities);
-          console.log("🔄 Workflow updated, missing:", workflowState.missingFields);
-        } else {
-          workflowState = initWorkflow(classification);
-          console.log("🆕 Workflow started for:", classification.intent, "missing:", workflowState.missingFields);
-        }
-
-        let replyText: string;
-        if (workflowState.stage === "ready") {
-          const result = await createOrderFromWorkflow(workflowState, tenantId!, conversation.id, contact.id);
-          workflowState = result.state;
-          const summary = getWorkflowSummaryAr(workflowState);
-          replyText = `تم تسجيل طلبك بنجاح!\n\n${summary}\n\nسيتم التواصل معك قريباً من أحد موظفينا لتأكيد التفاصيل والسعر.`;
-          io.to(`tenant:${tenantId}`).emit("new_order", { orderId: result.orderId, conversationId: conversation.id });
-        } else {
-          const question = getNextQuestion(workflowState);
-          replyText = question || "شكراً، سأتحقق من التفاصيل.";
-        }
-
-        await storage.upsertAiContext(
-          conversation.id,
-          tenantId!,
-          workflowState.stage === "order_created" ? "completed" : "active",
-          { workflowState },
-        );
-
-        await simulateTypingDelay(replyText);
-        const sid = await sendWhatsAppMessage(incoming.from, replyText);
-        const aiMsg = await storage.createMessage({
-          conversationId: conversation.id,
-          tenantId,
-          senderType: "ai",
-          content: replyText,
-          aiConfidence: classification.confidence,
-          twilioSid: sid,
-        });
-        await storage.updateConversation(conversation.id, tenantId!, { aiHandled: true, aiFailedAttempts: 0 });
-        io.to(`tenant:${tenantId}`).emit("new_message", { conversationId: conversation.id, message: aiMsg });
-
-        if (workflowState.stage === "order_created") {
-          await storage.updateConversation(conversation.id, tenantId!, { assignmentStatus: "waiting" } as any);
-        }
-        return;
-      }
-
-      if (classification.intent === "payment_receipt" && incoming.mediaUrl && isTravelTenant) {
-        console.log("📎 Receipt detected via classifier");
-        let imageBase64: string | undefined;
-        let imageMimeType: string | undefined;
-        if (incoming.mediaType?.startsWith("image")) {
-          try {
-            const fetch = (await import("node-fetch")).default;
-            const twilioSid2 = process.env.TWILIO_ACCOUNT_SID;
-            const twilioAuth2 = process.env.TWILIO_AUTH_TOKEN;
-            const imgResp = await fetch(incoming.mediaUrl, {
-              headers: twilioSid2 && twilioAuth2 ? { "Authorization": "Basic " + Buffer.from(`${twilioSid2}:${twilioAuth2}`).toString("base64") } : {},
-            });
-            const buffer = await imgResp.buffer();
-            imageBase64 = buffer.toString("base64");
-            imageMimeType = incoming.mediaType || "image/jpeg";
-          } catch (e) {
-            console.error("Failed to fetch media for vision:", e);
-          }
-        }
-
-        if (imageBase64 && imageMimeType) {
-          const aiResult = await handleAIMessage({
-            tenantId: tenantId!,
-            conversationId: conversation.id,
-            customerPhone: phone,
-            userMessage: incoming.content || "[صورة]",
-            imageBase64,
-            imageMimeType,
-            mediaUrl: incoming.mediaUrl,
+      let imageBase64: string | undefined;
+      let imageMimeType: string | undefined;
+      if (incoming.mediaUrl && incoming.mediaType?.startsWith("image")) {
+        try {
+          const fetch = (await import("node-fetch")).default;
+          const twilioSid2 = process.env.TWILIO_ACCOUNT_SID;
+          const twilioAuth2 = process.env.TWILIO_AUTH_TOKEN;
+          const imgResp = await fetch(incoming.mediaUrl, {
+            headers: twilioSid2 && twilioAuth2 ? { "Authorization": "Basic " + Buffer.from(`${twilioSid2}:${twilioAuth2}`).toString("base64") } : {},
           });
-
-          if (aiResult && aiResult.receiptData?.isReceipt) {
-            await simulateTypingDelay(aiResult.reply);
-            const sid = await sendWhatsAppMessage(incoming.from, aiResult.reply);
-            const aiMsg = await storage.createMessage({
-              conversationId: conversation.id,
-              tenantId,
-              senderType: "ai",
-              content: aiResult.reply,
-              aiConfidence: aiResult.confidence,
-              twilioSid: sid,
-            });
-            io.to(`tenant:${tenantId}`).emit("new_message", { conversationId: conversation.id, message: aiMsg });
-            io.to(`tenant:${tenantId}`).emit("payment_received", {
-              conversationId: conversation.id,
-              message: "إيصال جديد بانتظار المراجعة",
-            });
-            return;
-          }
+          const buffer = await imgResp.buffer();
+          imageBase64 = buffer.toString("base64");
+          imageMimeType = incoming.mediaType || "image/jpeg";
+        } catch (e) {
+          console.error("Failed to fetch media for vision:", e);
         }
       }
 
-      console.log("🧠 Generating AI response for:", messageContent);
-      const aiResponse = await generateAiResponse(
-        tenantId!,
-        conversation.id,
+      const result = await processIncomingMessage({
+        tenantId: tenantId!,
+        conversationId: conversation.id,
+        contactId: contact.id,
+        customerPhone: incoming.from,
         messageContent,
-        tenant.aiSystemPrompt,
-      );
-      console.log("🧠 AI response:", aiResponse.content.substring(0, 100), "confidence:", aiResponse.confidence);
-
-      const contact2 = conversation.contactId ? await storage.getContactById(conversation.contactId, tenantId!) : null;
-      const shouldEscalateSentiment2 = contact2?.sentiment === "negative" && aiResponse.confidence < 0.8;
-
-      if (shouldEscalateSentiment2) {
-        console.log("⚠️ Negative sentiment + low confidence, escalating");
-        await handleEscalation(conversation.id, tenantId!, incoming.from, "sentiment سلبي + priority عالي");
-      } else if (aiResponse.confidence >= 0.6) {
-        console.log("⏳ Simulating typing delay before sending AI reply...");
-        await simulateTypingDelay(aiResponse.content);
-        console.log("📤 Sending AI reply via WhatsApp to:", incoming.from);
-        const sid = await sendWhatsAppMessage(incoming.from, aiResponse.content);
-        console.log("📤 WhatsApp send result - SID:", sid || "FAILED/DISABLED");
-        const aiMsg = await storage.createMessage({
-          conversationId: conversation.id,
-          tenantId,
-          senderType: "ai",
-          content: aiResponse.content,
-          aiConfidence: aiResponse.confidence,
-          twilioSid: sid,
-        });
-        await storage.createMessageLog({
-          tenantId,
-          contactId: contact.id,
-          conversationId: conversation.id,
-          messageType: "ai_reply",
-          direction: "outbound",
-          channel: "whatsapp",
-          delivered: !!sid,
-          failed: !sid,
-          twilioSid: sid,
-          sentAt: new Date(),
-        });
-        await storage.updateConversation(conversation.id, tenantId!, { aiHandled: true, aiFailedAttempts: 0 });
-        io.to(`tenant:${tenantId}`).emit("new_message", {
-          conversationId: conversation.id,
-          message: aiMsg,
-        });
-      } else {
-        const currentFailures2 = (conversation.aiFailedAttempts || 0) + 1;
-        if (currentFailures2 >= 2) {
-          console.log("⚠️ AI failed twice, escalating to human agent");
-          await handleEscalation(conversation.id, tenantId!, incoming.from, "فشل AI بعد محاولتين");
-        } else {
-          await storage.updateConversation(conversation.id, tenantId!, { aiFailedAttempts: currentFailures2 });
-          await simulateTypingDelay(aiResponse.content);
-          const sid = await sendWhatsAppMessage(incoming.from, aiResponse.content);
-          const aiMsg = await storage.createMessage({
-            conversationId: conversation.id,
-            tenantId,
-            senderType: "ai",
-            content: aiResponse.content,
-            aiConfidence: aiResponse.confidence,
-            twilioSid: sid,
-          });
-          await storage.createMessageLog({
-            tenantId,
-            contactId: contact.id,
-            conversationId: conversation.id,
-            messageType: "ai_reply",
-            direction: "outbound",
-            channel: "whatsapp",
-            delivered: !!sid,
-            failed: !sid,
-            twilioSid: sid,
-            sentAt: new Date(),
-          });
-          io.to(`tenant:${tenantId}`).emit("new_message", {
-            conversationId: conversation.id,
-            message: aiMsg,
-          });
-        }
-      }
+        mediaUrl: incoming.mediaUrl,
+        mediaType: incoming.mediaType,
+        imageBase64,
+        imageMimeType,
+        io,
+        onEscalation: handleEscalation,
+      });
+      console.log("📋 processIncomingMessage result:", result.action, result.handled);
     } catch (err) {
       console.error("Webhook error:", err);
     }

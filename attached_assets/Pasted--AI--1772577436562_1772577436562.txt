@@ -1,0 +1,131 @@
+أعمل على منصة لإدارة محادثات واتساب مع AI.  
+حالياً الرسائل تصل إلى المحادثات لكن الذكاء لا يرد تلقائياً. أريد تفعيل نظام AI Auto Reply + Order Creation Workflow.
+
+المطلوب تنفيذ التالي داخل المشروع الحالي بدون كسر الميزات الموجودة:
+
+1️⃣ عند وصول رسالة جديدة من واتساب يجب تشغيل Trigger تلقائي:
+
+ON_NEW_MESSAGE  
+→ Run AI Intent Classifier  
+→ Extract Entities  
+→ Generate AI Response  
+→ Send Reply  
+→ Create Order
+
+---
+
+2️⃣ تحليل الرسالة باستخدام AI
+
+يجب إنشاء Message Classifier يحدد:
+
+intent  
+entities
+
+مثال:
+
+رسالة العميل:  
+"أبغى حجز طيران من الرياض لدبي لشخصين"
+
+يجب استخراج:
+
+intent: flight_booking  
+entities:  
+departure_city: Riyadh  
+destination_city: Dubai  
+passengers: 2
+
+---
+
+3️⃣ إنشاء Order تلقائياً
+
+إذا تم اكتشاف intent خاص بالحجز يجب إنشاء طلب:
+
+createOrder({
+ service_type: "flight",
+ status: "collecting_info",
+ customer_id: conversation.customer_id
+})
+
+---
+
+4️⃣ الرد التلقائي
+
+بعد تحليل الرسالة يجب إرسال رد تلقائي للعميل مثل:
+
+"وعليكم السلام 🌍  
+يسعدنا خدمتك في رفاق السفر.
+
+حتى أجهز لك أفضل عرض ممكن أحتاج:
+
+• تاريخ السفر  
+• هل الرحلة ذهاب أم ذهاب وعودة؟  
+• عدد المسافرين
+
+بانتظار ردك."
+
+---
+
+5️⃣ ربط الطلب بالمحادثة
+
+كل Conversation يجب أن يحتوي على:
+
+conversation_id  
+order_id
+
+حتى نستطيع تتبع الطلب.
+
+---
+
+6️⃣ تحديث حالة الطلب
+
+عندما يرسل العميل المعلومات الكاملة يجب تحديث الحالة:
+
+collecting_info → waiting_employee
+
+---
+
+7️⃣ إنشاء AI Service
+
+أنشئ خدمة جديدة:
+
+services/aiMessageProcessor.ts
+
+تحتوي:
+
+classifyIntent(message)  
+extractEntities(message)  
+generateReply(context)
+
+---
+
+8️⃣ إنشاء Workflow Controller
+
+services/conversationWorkflow.ts
+
+function processIncomingMessage(message)
+
+يقوم بـ:
+
+1. تحليل الرسالة  
+2. إنشاء الطلب  
+3. توليد الرد  
+4. إرسال الرد
+
+---
+
+9️⃣ تأكد أن النظام يعمل مع WhatsApp Webhook الحالي.
+
+عند وصول أي رسالة يجب استدعاء:
+
+processIncomingMessage()
+
+---
+
+10️⃣ بعد التنفيذ أعطني:
+
+• الكود الذي تم إنشاؤه  
+• مكان الربط مع WhatsApp webhook  
+• مثال اختبار كامل
+
+الهدف:  
+عندما يرسل العميل رسالة يجب أن يرد AI فوراً ويحول المحادثة إلى

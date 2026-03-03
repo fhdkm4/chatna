@@ -40,7 +40,7 @@ export async function sendWhatsAppMessage(to: string, body: string, mediaUrl?: s
     return message.sid;
   } catch (error) {
     console.error("Twilio send error:", error);
-    throw error;
+    return null;
   }
 }
 

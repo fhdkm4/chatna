@@ -102,6 +102,47 @@ export async function sendMetaWhatsAppInteractiveButtons(
   }
 }
 
+export async function getMetaMediaUrl(mediaId: string): Promise<string | null> {
+  const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+  if (!WHATSAPP_TOKEN) return null;
+
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/${GRAPH_API_VERSION}/${mediaId}`,
+      {
+        headers: { "Authorization": `Bearer ${WHATSAPP_TOKEN}` },
+      },
+    );
+    const data = await response.json() as any;
+    return data.url || null;
+  } catch (error) {
+    console.error("Get Meta media URL error:", error);
+    return null;
+  }
+}
+
+export async function downloadMetaMedia(url: string): Promise<{ base64: string; mimeType: string } | null> {
+  const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+  if (!WHATSAPP_TOKEN) return null;
+
+  try {
+    const response = await fetch(url, {
+      headers: { "Authorization": `Bearer ${WHATSAPP_TOKEN}` },
+    });
+    if (!response.ok) return null;
+
+    const contentType = response.headers.get("content-type") || "image/jpeg";
+    const buffer = Buffer.from(await response.arrayBuffer());
+    return {
+      base64: buffer.toString("base64"),
+      mimeType: contentType,
+    };
+  } catch (error) {
+    console.error("Download Meta media error:", error);
+    return null;
+  }
+}
+
 export async function markMessageAsRead(messageId: string): Promise<void> {
   const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
   const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
