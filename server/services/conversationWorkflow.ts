@@ -59,8 +59,17 @@ export async function processIncomingMessage(params: {
   }
 
   if (conversation.assignmentStatus === "assigned") {
-    console.log("👤 Conversation assigned to human, skipping AI", conversationId);
-    return { handled: false, action: "skipped" };
+    const recentMessages = await storage.getRecentMessages(conversationId, 5);
+    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+    const agentActiveRecently = recentMessages.some(
+      m => m.senderType === "agent" && m.createdAt && new Date(m.createdAt) > twoMinutesAgo
+    );
+    if (agentActiveRecently) {
+      console.log("👤 Agent actively chatting, skipping AI for", conversationId);
+      return { handled: false, action: "skipped" };
+    }
+    console.log("🔄 Auto-switching to AI handling for", conversationId);
+    await storage.updateConversation(conversationId, tenantId, { assignmentStatus: "ai_handling" } as any);
   }
 
   const escalate = params.onEscalation || (async () => {});

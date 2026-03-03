@@ -404,20 +404,20 @@ export function ChatArea({ conversation, messages, onSend, onToggleContact, onUp
               variant="ghost"
               data-testid="button-toggle-ai"
               onClick={() => {
-                const isAiActive = conversation.assignmentStatus === "ai_handling" && !conversation.aiPaused;
+                const isAiActive = !conversation.aiPaused;
                 onUpdateConversation(conversation.id, {
                   aiPaused: isAiActive,
                   assignmentStatus: isAiActive ? "assigned" : "ai_handling",
                 } as any);
               }}
               className={`text-xs h-7 ${
-                conversation.assignmentStatus === "ai_handling" && !conversation.aiPaused
+                !conversation.aiPaused
                   ? "text-emerald-400 hover:text-red-400"
                   : "text-muted-foreground hover:text-emerald-400"
               }`}
             >
               <Bot className="w-3 h-3 ml-1" />
-              {conversation.assignmentStatus === "ai_handling" && !conversation.aiPaused ? "إيقاف AI" : "تفعيل AI"}
+              {!conversation.aiPaused ? "إيقاف AI" : "تفعيل AI"}
             </Button>
           )}
           {conversation.status !== "resolved" && (
