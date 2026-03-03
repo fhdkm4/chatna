@@ -238,7 +238,139 @@ async function ensureSchemaColumns(client: any) {
     console.log("[migrate] Created ai_sla_alerts table");
   }
 
+  // OMS Tables: orders, order_items, payments, vendors, vendor_transactions
+  const ordersCheck = await client.query(`
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_schema = 'public' AND table_name = 'orders'
+  `);
+  if (ordersCheck.rows.length === 0) {
+    await client.query(`
+      CREATE TABLE orders (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        conversation_id UUID REFERENCES conversations(id),
+        contact_id UUID REFERENCES contacts(id),
+        service_type VARCHAR(50) NOT NULL DEFAULT 'other',
+        status VARCHAR(30) NOT NULL DEFAULT 'new',
+        assigned_employee_id UUID REFERENCES users(id),
+        amount NUMERIC(12,2),
+        currency VARCHAR(10) DEFAULT 'SAR',
+        payment_status VARCHAR(30) DEFAULT 'unpaid',
+        notes TEXT,
+        metadata JSONB,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await client.query("CREATE INDEX IF NOT EXISTS orders_tenant_idx ON orders(tenant_id)");
+    await client.query("CREATE INDEX IF NOT EXISTS orders_status_idx ON orders(tenant_id, status)");
+    await client.query("CREATE INDEX IF NOT EXISTS orders_conversation_idx ON orders(conversation_id)");
+    console.log("[migrate] Created orders table");
+  }
+
+  const orderItemsCheck = await client.query(`
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_schema = 'public' AND table_name = 'order_items'
+  `);
+  if (orderItemsCheck.rows.length === 0) {
+    await client.query(`
+      CREATE TABLE order_items (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        description TEXT NOT NULL,
+        quantity INTEGER DEFAULT 1,
+        unit_price NUMERIC(12,2),
+        currency VARCHAR(10) DEFAULT 'SAR',
+        vendor_id UUID,
+        metadata JSONB,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await client.query("CREATE INDEX IF NOT EXISTS order_items_order_idx ON order_items(order_id)");
+    console.log("[migrate] Created order_items table");
+  }
+
+  const paymentsCheck = await client.query(`
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_schema = 'public' AND table_name = 'payments'
+  `);
+  if (paymentsCheck.rows.length === 0) {
+    await client.query(`
+      CREATE TABLE payments (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        amount NUMERIC(12,2) NOT NULL,
+        currency VARCHAR(10) DEFAULT 'SAR',
+        method VARCHAR(30) DEFAULT 'bank_transfer',
+        status VARCHAR(20) DEFAULT 'pending',
+        receipt_url TEXT,
+        receipt_analysis JSONB,
+        confirmed_by UUID REFERENCES users(id),
+        confirmed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await client.query("CREATE INDEX IF NOT EXISTS payments_order_idx ON payments(order_id)");
+    await client.query("CREATE INDEX IF NOT EXISTS payments_tenant_idx ON payments(tenant_id)");
+    await client.query("CREATE INDEX IF NOT EXISTS payments_status_idx ON payments(tenant_id, status)");
+    console.log("[migrate] Created payments table");
+  }
+
+  const vendorsCheck = await client.query(`
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_schema = 'public' AND table_name = 'vendors'
+  `);
+  if (vendorsCheck.rows.length === 0) {
+    await client.query(`
+      CREATE TABLE vendors (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        type VARCHAR(50) DEFAULT 'other',
+        contact_info JSONB,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await client.query("CREATE INDEX IF NOT EXISTS vendors_tenant_idx ON vendors(tenant_id)");
+    console.log("[migrate] Created vendors table");
+  }
+
+  const vendorTxCheck = await client.query(`
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_schema = 'public' AND table_name = 'vendor_transactions'
+  `);
+  if (vendorTxCheck.rows.length === 0) {
+    await client.query(`
+      CREATE TABLE vendor_transactions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        vendor_id UUID NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
+        order_id UUID REFERENCES orders(id),
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        amount NUMERIC(12,2) NOT NULL,
+        currency VARCHAR(10) DEFAULT 'SAR',
+        status VARCHAR(20) DEFAULT 'pending',
+        reference VARCHAR(255),
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await client.query("CREATE INDEX IF NOT EXISTS vendor_tx_vendor_idx ON vendor_transactions(vendor_id)");
+    await client.query("CREATE INDEX IF NOT EXISTS vendor_tx_order_idx ON vendor_transactions(order_id)");
+    console.log("[migrate] Created vendor_transactions table");
+  }
+
   console.log("[migrate] Schema columns verified");
+}
+
+export async function ensureSchemaColumnsSafe() {
+  const client = await pool.connect();
+  try {
+    await ensureSchemaColumns(client);
+  } finally {
+    client.release();
+  }
 }
 
 export async function runMigrations() {

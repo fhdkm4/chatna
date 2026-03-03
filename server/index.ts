@@ -99,6 +99,14 @@ app.use((req, res, next) => {
     console.log("[RLS] Role jawab_app ready — RLS enforcement enabled");
   } catch (err: any) {
     console.error("Migration warning (non-fatal):", err.message);
+    // Ensure schema columns even if migration runner fails (e.g. Neon permissions)
+    try {
+      const { ensureSchemaColumnsSafe } = await import("./migrate");
+      await ensureSchemaColumnsSafe();
+      console.log("[migrate] ensureSchemaColumns ran as fallback");
+    } catch (e2: any) {
+      console.error("Schema columns fallback warning:", e2.message);
+    }
   }
 
   try {

@@ -1620,61 +1620,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       const isTravelTenant = tenant.businessType && ["travel", "tourism", "سياحة", "سفر", "سياحه"].some(k => (tenant.businessType || "").toLowerCase().includes(k));
 
-      if (incoming.mediaUrl && isTravelTenant) {
-        console.log("📎 Media message from travel tenant, checking for receipt...");
-        let imageBase64: string | undefined;
-        let imageMimeType: string | undefined;
-
-        if (incoming.mediaUrl && incoming.mediaType?.startsWith("image")) {
-          try {
-            const fetch = (await import("node-fetch")).default;
-            const twilioSid = process.env.TWILIO_ACCOUNT_SID;
-            const twilioAuth = process.env.TWILIO_AUTH_TOKEN;
-            const imgResp = await fetch(incoming.mediaUrl, {
-              headers: twilioSid && twilioAuth ? { "Authorization": "Basic " + Buffer.from(`${twilioSid}:${twilioAuth}`).toString("base64") } : {},
-            });
-            const buffer = await imgResp.buffer();
-            imageBase64 = buffer.toString("base64");
-            imageMimeType = incoming.mediaType || "image/jpeg";
-          } catch (e) {
-            console.error("Failed to fetch media for vision:", e);
-          }
-        }
-
-        if (imageBase64 && imageMimeType) {
-          const aiResult = await handleAIMessage({
-            tenantId: tenantId!,
-            conversationId: conversation.id,
-            customerPhone: phone,
-            userMessage: incoming.content || "[صورة]",
-            imageBase64,
-            imageMimeType,
-            mediaUrl: incoming.mediaUrl,
-          });
-
-          if (aiResult && aiResult.receiptData?.isReceipt) {
-            await simulateTypingDelay(aiResult.reply);
-            const sid = await sendWhatsAppMessage(incoming.from, aiResult.reply);
-            const aiMsg = await storage.createMessage({
-              conversationId: conversation.id,
-              tenantId,
-              senderType: "ai",
-              content: aiResult.reply,
-              aiConfidence: aiResult.confidence,
-              twilioSid: sid,
-            });
-            io.to(`tenant:${tenantId}`).emit("new_message", { conversationId: conversation.id, message: aiMsg });
-            io.to(`tenant:${tenantId}`).emit("payment_received", {
-              conversationId: conversation.id,
-              message: "إيصال جديد بانتظار المراجعة",
-            });
-            return;
-          }
-        }
-      }
-
-      if (incoming.mediaUrl && !incoming.content) {
-        console.log("📎 Media-only message, skipping AI");
+      if (incoming.mediaUrl && !incoming.content && !incoming.mediaType?.startsWith("image")) {
+        console.log("📎 Non-image media-only message, skipping AI");
         return;
       }
 
@@ -1713,7 +1660,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
 
       const existingCtx = await storage.getAiContext(conversation.id, tenantId!);
-      const hasActiveWorkflow = existingCtx?.metadata && (existingCtx.metadata as any).workflowState;
+      const hasActiveWorkflow = existingCtx?.context && (existingCtx.context as any).workflowState;
 
       const classification = classifyMessageLocal(messageContent, !!incoming.mediaUrl);
       console.log("🧩 Classification:", classification.intent, "confidence:", classification.confidence);
@@ -1721,7 +1668,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (isBookingIntent(classification.intent) || hasActiveWorkflow) {
         let workflowState;
         if (hasActiveWorkflow) {
-          const savedState = (existingCtx!.metadata as any).workflowState;
+          const savedState = (existingCtx!.context as any).workflowState;
           workflowState = updateWorkflow(savedState, classification.entities);
           console.log("🔄 Workflow updated, missing:", workflowState.missingFields);
         } else {
@@ -1741,10 +1688,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           replyText = question || "شكراً، سأتحقق من التفاصيل.";
         }
 
-        await storage.upsertAiContext(conversation.id, tenantId!, {
-          status: workflowState.stage === "order_created" ? "completed" : "active",
-          metadata: { workflowState },
-        });
+        await storage.upsertAiContext(
+          conversation.id,
+          tenantId!,
+          workflowState.stage === "order_created" ? "completed" : "active",
+          { workflowState },
+        );
 
         await simulateTypingDelay(replyText);
         const sid = await sendWhatsAppMessage(incoming.from, replyText);
