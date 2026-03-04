@@ -1,12 +1,11 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { storage } from "../storage";
 import type { Message, AiKnowledge } from "@shared/schema";
 import { buildSystemPrompt } from "./prompt-builder";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || undefined,
-});
+const genAI = new GoogleGenerativeAI(
+  process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || ""
+);
 
 interface AiResponse {
   content: string;
@@ -72,24 +71,27 @@ export async function generateAiResponse(
       customerMessage,
     });
 
-    const chatMessages: Anthropic.MessageParam[] = recentMessages.map(msg => ({
-      role: msg.senderType === "customer" ? "user" as const : "assistant" as const,
-      content: msg.content,
+    const chatHistory = recentMessages.map(msg => ({
+      role: msg.senderType === "customer" ? "user" : "model",
+      parts: [{ text: msg.content }],
     }));
 
-    if (chatMessages.length === 0 || chatMessages[chatMessages.length - 1].role !== "user") {
-      chatMessages.push({ role: "user", content: customerMessage });
+    if (chatHistory.length === 0 || chatHistory[chatHistory.length - 1].role !== "user") {
+      chatHistory.push({ role: "user", parts: [{ text: customerMessage }] });
     }
 
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 8192,
-      system: systemPrompt,
-      messages: chatMessages,
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.0-flash",
+      systemInstruction: systemPrompt,
     });
 
-    const textContent = response.content.find(c => c.type === "text");
-    const content = textContent?.text || "عذراً، لم أتمكن من معالجة طلبك.";
+    const chat = model.startChat({
+      history: chatHistory.slice(0, -1),
+    });
+
+    const lastMessage = chatHistory[chatHistory.length - 1];
+    const result = await chat.sendMessage(lastMessage.parts[0].text);
+    const content = result.response.text() || "عذراً، لم أتمكن من معالجة طلبك.";
 
     let confidence = 0.85;
 

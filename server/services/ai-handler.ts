@@ -1,11 +1,10 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { storage } from "../storage";
 import { buildSystemPrompt } from "./prompt-builder";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || undefined,
-});
+const genAI = new GoogleGenerativeAI(
+  process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || ""
+);
 
 interface HandleAIMessageParams {
   tenantId: string;
@@ -51,19 +50,17 @@ function detectIntent(message: string): "flight" | "package" | "general" {
 
 async function analyzeReceiptWithVision(imageBase64: string, mimeType: string): Promise<any> {
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 1024,
-      messages: [{
-        role: "user",
-        content: [
-          {
-            type: "image",
-            source: { type: "base64", media_type: mimeType as any, data: imageBase64 },
-          },
-          {
-            type: "text",
-            text: `Analyze this image. If it's a bank transfer receipt or payment confirmation, extract the following as JSON ONLY (no other text):
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+    const result = await model.generateContent([
+      {
+        inlineData: {
+          mimeType: mimeType,
+          data: imageBase64,
+        },
+      },
+      {
+        text: `Analyze this image. If it's a bank transfer receipt or payment confirmation, extract the following as JSON ONLY (no other text):
 {
   "isReceipt": true/false,
   "amount": number or null,
@@ -75,12 +72,10 @@ async function analyzeReceiptWithVision(imageBase64: string, mimeType: string): 
 }
 If it's NOT a receipt, return: {"isReceipt": false, "confidence": 0}
 Return ONLY the JSON, nothing else.`,
-          },
-        ],
-      }],
-    });
+      },
+    ]);
 
-    const text = response.content.find(c => c.type === "text")?.text || "";
+    const text = result.response.text() || "";
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       return JSON.parse(jsonMatch[0]);
@@ -136,14 +131,13 @@ export async function handleAIMessage(params: HandleAIMessageParams): Promise<Ha
       const contextData = (aiContext?.context as any) || {};
       const travelPrompt = buildTravelCollectionPrompt(contextData, userMessage, tenant);
 
-      const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 2048,
-        system: travelPrompt,
-        messages: [{ role: "user", content: userMessage }],
+      const model = genAI.getGenerativeModel({
+        model: "gemini-2.0-flash",
+        systemInstruction: travelPrompt,
       });
 
-      const reply = response.content.find(c => c.type === "text")?.text || "";
+      const result = await model.generateContent(userMessage);
+      const reply = result.response.text() || "";
 
       let newStatus: string | undefined;
       let cleanReply = reply;
@@ -198,22 +192,26 @@ export async function handleAIMessage(params: HandleAIMessageParams): Promise<Ha
       const fullPrompt = systemPrompt + "\n\n[معلومات الباقات]" + productInfo +
         "\n\nعند عرض الباقات، اعرضها بشكل جذاب ومنظم. إذا طلب العميل حجز باقة معينة، اسأله عن التفاصيل (التاريخ، عدد الأشخاص).";
 
-      const chatMessages: Anthropic.MessageParam[] = recentMessages.map(msg => ({
-        role: msg.senderType === "customer" ? "user" as const : "assistant" as const,
-        content: msg.content,
+      const chatHistory = recentMessages.map(msg => ({
+        role: msg.senderType === "customer" ? "user" : "model",
+        parts: [{ text: msg.content }],
       }));
-      if (chatMessages.length === 0 || chatMessages[chatMessages.length - 1].role !== "user") {
-        chatMessages.push({ role: "user", content: userMessage });
+      if (chatHistory.length === 0 || chatHistory[chatHistory.length - 1].role !== "user") {
+        chatHistory.push({ role: "user", parts: [{ text: userMessage }] });
       }
 
-      const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 2048,
-        system: fullPrompt,
-        messages: chatMessages,
+      const model = genAI.getGenerativeModel({
+        model: "gemini-2.0-flash",
+        systemInstruction: fullPrompt,
       });
 
-      const reply = response.content.find(c => c.type === "text")?.text || "";
+      const chat = model.startChat({
+        history: chatHistory.slice(0, -1),
+      });
+
+      const lastMsg = chatHistory[chatHistory.length - 1];
+      const result = await chat.sendMessage(lastMsg.parts[0].text);
+      const reply = result.response.text() || "";
       return { reply, confidence: 0.9 };
     }
 

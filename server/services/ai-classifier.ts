@@ -1,9 +1,8 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || undefined,
-});
+const genAI = new GoogleGenerativeAI(
+  process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || ""
+);
 
 export type Intent =
   | "flight_booking"
@@ -162,11 +161,9 @@ export async function classifyMessage(message: string, hasImage?: boolean): Prom
   }
 
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 512,
-      messages: [{ role: "user", content: message }],
-      system: `You are an intent classifier for a travel agency customer service system.
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+    const prompt = `You are an intent classifier for a travel agency customer service system.
 Classify the user message into ONE of these intents:
 - flight_booking: Customer wants to book a flight
 - hotel_booking: Customer wants to book a hotel
@@ -180,11 +177,13 @@ Classify the user message into ONE of these intents:
 
 Extract entities where possible: cities, dates, number of passengers, budget.
 
-Respond ONLY with valid JSON:
-{"intent":"<intent>","entities":{},"confidence":0.0}`,
-    });
+User message: ${message}
 
-    const text = response.content.find(c => c.type === "text")?.text || "";
+Respond ONLY with valid JSON:
+{"intent":"<intent>","entities":{},"confidence":0.0}`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text() || "";
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
